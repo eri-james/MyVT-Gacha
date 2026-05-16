@@ -117,6 +117,11 @@
           <select id="filter-agency">
             <option value="all">All Agencies</option>
           </select>
+          <select id="filter-station">
+            <option value="all">Any Station</option>
+            <option value="assigned">Assigned</option>
+            <option value="unassigned">Unassigned</option>
+          </select>
           <input type="text" id="filter-search" placeholder="Search VTuber name...">
           <select id="filter-sort">
             <option value="name">Sort by Name</option>
@@ -132,6 +137,11 @@
           <span class="progress-text" id="collection-progress-text">0 / 319 (0%)</span>
         </div>
         <div class="collection-grid" id="collection-grid"></div>
+        <div class="collection-pagination" id="collection-pagination"></div>
+        <div class="milestone-tracker" id="milestone-tracker">
+          <h3>Collection Milestones</h3>
+          <div class="milestone-list" id="milestone-list"></div>
+        </div>
       </div>
     </section>
 

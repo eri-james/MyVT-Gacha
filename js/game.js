@@ -142,6 +142,8 @@ const Game = (() => {
         lastClaim: null,
       },
       lastOnline: Date.now(),
+      milestones: [], // Track milestone rewards claimed
+      pullHistory: {}, // slug -> { firstPullDate, totalPulls }
     };
   }
 
@@ -179,8 +181,11 @@ const Game = (() => {
   }
 
   function migrateState(oldState) {
-    // Future migration logic here
-    return { ...createNewState(), ...oldState, version: SAVE_VERSION };
+    const merged = { ...createNewState(), ...oldState, version: SAVE_VERSION };
+    // Ensure new fields exist in migrated state
+    if (!merged.milestones) merged.milestones = [];
+    if (!merged.pullHistory) merged.pullHistory = {};
+    return merged;
   }
 
   function getState() { return state; }
@@ -452,6 +457,56 @@ const Game = (() => {
     return true;
   }
 
+  // Get pull history for a character
+  function getPullHistory(slug) {
+    return state.pullHistory[slug] || null;
+  }
+
+  // Collection milestones
+  const MILESTONES = [
+    { count: 10,  stars: 500,   label: '10 Unique VTubers!' },
+    { count: 25,  stars: 1500,  label: '25 Unique VTubers!' },
+    { count: 50,  stars: 3000,  label: '50 Unique VTubers!' },
+    { count: 100, stars: 8000,  label: '100 Unique VTubers!' },
+    { count: 150, stars: 15000, label: '150 Unique VTubers!' },
+    { count: 200, stars: 25000, label: '200 Unique VTubers!' },
+    { count: 250, stars: 40000, label: '250 Unique VTubers!' },
+    { count: 300, stars: 60000, label: '300 Unique VTubers!' },
+    { count: 319, stars: 100000, label: 'ALL 319 VTubers!' },
+  ];
+
+  function checkMilestones() {
+    const stats = getCollectionStats();
+    const newlyReached = [];
+    for (const m of MILESTONES) {
+      if (stats.owned >= m.count && !state.milestones.includes(m.count)) {
+        state.milestones.push(m.count);
+        state.currencies.stars += m.stars;
+        newlyReached.push(m);
+      }
+    }
+    if (newlyReached.length > 0) {
+      save();
+      if (_onStateChange) _onStateChange();
+    }
+    return newlyReached;
+  }
+
+  function getMilestones() {
+    return MILESTONES.map(m => ({
+      ...m,
+      claimed: state.milestones.includes(m.count),
+    }));
+  }
+
+  // Find which station a character is assigned to
+  function getCharacterStation(slug) {
+    for (const [stationId, station] of Object.entries(state.studio.stations)) {
+      if (station.assigned === slug) return stationId;
+    }
+    return null;
+  }
+
   return {
     load, save, getState, resetState,
     startTickLoop, startAutoSave, stopLoops,
@@ -461,7 +516,8 @@ const Game = (() => {
     onStateChange, getCollectionStats,
     getMaxSlots, getStationIncome,
     assignToStation, unassignStation, upgradeStation,
-    getStudioExpProgress,
+    getStudioExpProgress, getPullHistory, checkMilestones, getMilestones,
+    getCharacterStation, MILESTONES,
     STATION_DEFS, STATION_LEVELS, STATION_UPGRADE_COSTS,
     STATION_MULTIPLIERS, VARIANT_MULTIPLIERS, LEVEL_CAPS,
     BASE_RATES, getLevelCost, ASCENSION_COSTS,

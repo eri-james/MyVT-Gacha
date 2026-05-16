@@ -1218,6 +1218,189 @@ body {
 .collection-variant-stats .vs-ssr { color: var(--rarity-ssr); }
 
 /* ═══════════════════════════════════════════════
+   COLLECTION — PAGINATION (Sprint 3)
+   ═══════════════════════════════════════════════ */
+
+.collection-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+  flex-wrap: wrap;
+}
+
+.page-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-right: var(--space-sm);
+}
+
+.page-buttons {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.page-btn {
+  padding: 6px 12px !important;
+  font-size: 0.8rem !important;
+  min-width: 36px;
+}
+
+.page-btn.active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+.page-ellipsis {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  padding: 0 4px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+/* ═══════════════════════════════════════════════
+   COLLECTION — MILESTONES (Sprint 3)
+   ═══════════════════════════════════════════════ */
+
+.milestone-tracker {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.milestone-tracker h3 {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-bottom: var(--space-md);
+}
+
+.milestone-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.milestone-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-section);
+  border: 1px solid var(--border);
+  transition: all var(--transition-fast);
+}
+
+.milestone-item.claimed {
+  opacity: 0.6;
+  border-color: var(--success);
+  background: rgba(124, 181, 143, 0.05);
+}
+
+.milestone-item.reached:not(.claimed) {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.milestone-icon {
+  font-size: 1.2rem;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.milestone-item.claimed .milestone-icon { color: var(--success); }
+.milestone-item.reached:not(.claimed) .milestone-icon { color: var(--gold); }
+.milestone-item:not(.reached):not(.claimed) .milestone-icon { color: var(--text-dim); }
+
+.milestone-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.milestone-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.milestone-reward {
+  font-size: 0.75rem;
+  color: var(--gold);
+}
+
+.milestone-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.milestone-item.claimed .milestone-status { color: var(--success); }
+.milestone-item.reached:not(.claimed) .milestone-status { color: var(--gold); }
+
+/* ═══════════════════════════════════════════════
+   CHARACTER DETAIL — ENHANCED (Sprint 3)
+   ═══════════════════════════════════════════════ */
+
+.modal-character {
+  max-width: 420px;
+}
+
+.shard-convert-section {
+  margin-top: var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.shard-convert-section h4 {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.shard-buttons {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.shard-buttons .btn {
+  flex: 1;
+  min-width: 80px;
+  font-size: 0.75rem;
+  padding: 6px 8px;
+}
+
+/* Station working badge on collection cards */
+.char-card-station-badge {
+  position: absolute;
+  bottom: calc(var(--space-sm) + 20px);
+  left: var(--space-xs);
+  background: var(--accent2);
+  color: #1a1a1a;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ═══════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════ */
 

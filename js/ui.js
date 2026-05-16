@@ -4,6 +4,8 @@
 
 const UI = (() => {
   let currentTab = 'home';
+  let _collectionPage = 0;
+  const COLLECTION_PAGE_SIZE = 40;
 
   // ── Initialization ──
   async function init() {
@@ -14,8 +16,10 @@ const UI = (() => {
     Game.startAutoSave();
     bindEvents();
     setupFeaturedBanner();
+    populateAgencyFilter();
     updateUI();
     checkOfflineEarnings();
+    checkMilestoneCelebration();
     showToast('Welcome back to MyVT Gacha!', 'info');
   }
 
@@ -75,11 +79,12 @@ const UI = (() => {
     });
 
     // Collection filters
-    document.getElementById('filter-ownership').addEventListener('change', renderCollection);
-    document.getElementById('filter-variant').addEventListener('change', renderCollection);
-    document.getElementById('filter-agency').addEventListener('change', renderCollection);
-    document.getElementById('filter-search').addEventListener('input', debounce(renderCollection, 300));
-    document.getElementById('filter-sort').addEventListener('change', renderCollection);
+    document.getElementById('filter-ownership').addEventListener('change', () => { _collectionPage = 0; renderCollection(); });
+    document.getElementById('filter-variant').addEventListener('change', () => { _collectionPage = 0; renderCollection(); });
+    document.getElementById('filter-agency').addEventListener('change', () => { _collectionPage = 0; renderCollection(); });
+    document.getElementById('filter-station').addEventListener('change', () => { _collectionPage = 0; renderCollection(); });
+    document.getElementById('filter-search').addEventListener('input', debounce(() => { _collectionPage = 0; renderCollection(); }, 300));
+    document.getElementById('filter-sort').addEventListener('change', () => { _collectionPage = 0; renderCollection(); });
 
     // Assign modal
     document.getElementById('btn-close-assign').addEventListener('click', closeAssignModal);
@@ -147,7 +152,7 @@ const UI = (() => {
     document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${tab}`));
 
-    if (tab === 'collection') renderCollection();
+    if (tab === 'collection') { _collectionPage = 0; renderCollection(); }
     if (tab === 'studio') renderStudio();
     if (tab === 'pull') {
       updateBannerInfo();
@@ -217,6 +222,18 @@ const UI = (() => {
     }
   }
 
+  // ── Milestone Celebration ──
+  function checkMilestoneCelebration() {
+    const reached = Game.checkMilestones();
+    if (reached.length > 0) {
+      for (const m of reached) {
+        showToast(`Milestone reached: ${m.label} +${formatNum(m.stars)} Stars!`, 'success');
+      }
+      renderMilestones();
+      updateUI();
+    }
+  }
+
   // ── Pull Handling ──
   function handlePull(count) {
     let results;
@@ -238,6 +255,9 @@ const UI = (() => {
     // Show pull animation
     showPullAnimation(results);
     updateUI();
+
+    // Check milestones after pull
+    setTimeout(() => checkMilestoneCelebration(), 500);
   }
 
   function showPullAnimation(results) {
@@ -251,7 +271,7 @@ const UI = (() => {
     const rarityOrder = { normal: 0, sr: 1, ssr: 2 };
     const sorted = [...results].sort((a, b) => (rarityOrder[a.variant] || 0) - (rarityOrder[b.variant] || 0));
 
-    // Build pull summary (e.g. "SR x2, SSR x1")
+    // Build pull summary
     const counts = { normal: 0, sr: 0, ssr: 0 };
     sorted.forEach(r => { if (counts[r.variant] !== undefined) counts[r.variant]++; });
     const summaryParts = [];
@@ -283,11 +303,10 @@ const UI = (() => {
     tapHint.textContent = 'TAP TO CONTINUE';
     container.appendChild(tapHint);
 
-    // Screen flash effect: check best rarity in results
+    // Screen flash effect
     const hasSSR = sorted.some(r => r.variant === 'ssr');
     const hasSR = sorted.some(r => r.variant === 'sr');
     if (hasSSR) {
-      // Delay flash to coincide with SSR card reveal
       setTimeout(() => {
         overlay.classList.add('flash-ssr');
         setTimeout(() => overlay.classList.remove('flash-ssr'), 600);
@@ -306,7 +325,6 @@ const UI = (() => {
     const closeHandler = () => {
       overlay.style.display = 'none';
       overlay.removeEventListener('click', closeHandler);
-      // Show pull summary toast
       showPullResultToast(sorted.length, newCount, counts);
     };
     overlay.addEventListener('click', closeHandler);
@@ -406,15 +424,18 @@ const UI = (() => {
     }
   }
 
-  // ── Collection Gallery ──
-  function renderCollection() {
-    const grid = document.getElementById('collection-grid');
+  // ═══════════════════════════════════════════════
+  //  COLLECTION GALLERY — Deep-Dive (Sprint 3)
+  // ═══════════════════════════════════════════════
+
+  function getFilteredCharacters() {
     const chars = DataLoader.get();
     const state = Game.getState();
 
     const ownership = document.getElementById('filter-ownership').value;
     const variant = document.getElementById('filter-variant').value;
     const agency = document.getElementById('filter-agency').value;
+    const stationFilter = document.getElementById('filter-station').value;
     const search = document.getElementById('filter-search').value.toLowerCase().trim();
     const sortBy = document.getElementById('filter-sort').value;
 
@@ -435,6 +456,19 @@ const UI = (() => {
 
     if (agency !== 'all') {
       filtered = filtered.filter(c => c.agency === agency);
+    }
+
+    // Station filter: only for owned characters
+    if (stationFilter === 'assigned') {
+      filtered = filtered.filter(c => {
+        const data = state.characters[c.slug];
+        return data && data.owned && Game.getCharacterStation(c.slug);
+      });
+    } else if (stationFilter === 'unassigned') {
+      filtered = filtered.filter(c => {
+        const data = state.characters[c.slug];
+        return data && data.owned && !Game.getCharacterStation(c.slug);
+      });
     }
 
     if (search) {
@@ -463,14 +497,87 @@ const UI = (() => {
       });
     }
 
+    return filtered;
+  }
+
+  function renderCollection() {
+    const grid = document.getElementById('collection-grid');
+    const filtered = getFilteredCharacters();
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / COLLECTION_PAGE_SIZE);
+    if (_collectionPage >= totalPages && totalPages > 0) _collectionPage = totalPages - 1;
+    const start = _collectionPage * COLLECTION_PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + COLLECTION_PAGE_SIZE);
+
     grid.innerHTML = '';
-    filtered.forEach(char => {
+    pageItems.forEach(char => {
       const card = createCollectionCard(char);
       grid.appendChild(card);
     });
 
+    renderPagination(filtered.length, totalPages);
     updateCollectionProgress();
     updateCollectionVariantStats();
+    renderMilestones();
+  }
+
+  function renderPagination(totalItems, totalPages) {
+    const container = document.getElementById('collection-pagination');
+    container.innerHTML = '';
+
+    if (totalPages <= 1) {
+      container.innerHTML = `<span class="page-info">${totalItems} characters</span>`;
+      return;
+    }
+
+    const start = _collectionPage * COLLECTION_PAGE_SIZE + 1;
+    const end = Math.min(start + COLLECTION_PAGE_SIZE - 1, totalItems);
+
+    let html = `<span class="page-info">${start}-${end} of ${totalItems}</span>`;
+    html += `<div class="page-buttons">`;
+
+    // Prev button
+    html += `<button class="btn btn-secondary btn-sm page-btn" data-page="${_collectionPage - 1}" ${_collectionPage === 0 ? 'disabled' : ''}>&laquo; Prev</button>`;
+
+    // Page numbers (show max 7 pages with ellipsis)
+    const maxVisible = 7;
+    let pages = [];
+    if (totalPages <= maxVisible) {
+      for (let i = 0; i < totalPages; i++) pages.push(i);
+    } else {
+      pages.push(0);
+      let startP = Math.max(1, _collectionPage - 2);
+      let endP = Math.min(totalPages - 2, _collectionPage + 2);
+      if (startP > 1) pages.push(-1); // ellipsis
+      for (let i = startP; i <= endP; i++) pages.push(i);
+      if (endP < totalPages - 2) pages.push(-2); // ellipsis
+      pages.push(totalPages - 1);
+    }
+
+    for (const p of pages) {
+      if (p < 0) {
+        html += `<span class="page-ellipsis">...</span>`;
+      } else {
+        html += `<button class="btn btn-secondary btn-sm page-btn ${p === _collectionPage ? 'active' : ''}" data-page="${p}">${p + 1}</button>`;
+      }
+    }
+
+    // Next button
+    html += `<button class="btn btn-secondary btn-sm page-btn" data-page="${_collectionPage + 1}" ${_collectionPage >= totalPages - 1 ? 'disabled' : ''}>Next &raquo;</button>`;
+    html += `</div>`;
+
+    container.innerHTML = html;
+
+    // Bind page buttons
+    container.querySelectorAll('.page-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _collectionPage = parseInt(btn.dataset.page);
+        renderCollection();
+        // Scroll to top of collection
+        document.getElementById('tab-collection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
   }
 
   function createCollectionCard(char) {
@@ -478,6 +585,7 @@ const UI = (() => {
     const charData = state.characters[char.slug];
     const owned = charData && charData.owned;
     const bestVariant = owned ? Game.getBestVariant(charData.variants) : null;
+    const assignedStation = owned ? Game.getCharacterStation(char.slug) : null;
 
     const card = document.createElement('div');
     card.className = `char-card${bestVariant ? ` variant-${bestVariant}` : ''}`;
@@ -488,7 +596,7 @@ const UI = (() => {
 
     const img = document.createElement('img');
     img.className = 'char-card-img';
-    img.src = owned ? char.image : char.image;
+    img.src = char.image;
     img.alt = char.name;
     img.loading = 'lazy';
     img.style.opacity = owned ? '1' : '0.3';
@@ -501,7 +609,13 @@ const UI = (() => {
     name.textContent = char.name;
     const agencyEl = document.createElement('div');
     agencyEl.className = 'char-card-agency';
-    agencyEl.textContent = char.agency;
+    let agencyText = char.agency;
+    if (owned) agencyText += ` Lv${charData.level}`;
+    if (assignedStation) {
+      const stDef = Game.STATION_DEFS[assignedStation];
+      if (stDef) agencyText += ` [${stDef.name}]`;
+    }
+    agencyEl.textContent = agencyText;
     overlay.appendChild(name);
     overlay.appendChild(agencyEl);
 
@@ -513,6 +627,15 @@ const UI = (() => {
       badge.className = `char-card-badge badge-${bestVariant}`;
       badge.textContent = bestVariant.toUpperCase();
       card.appendChild(badge);
+    }
+
+    // Station indicator badge
+    if (assignedStation) {
+      const stBadge = document.createElement('div');
+      stBadge.className = 'char-card-station-badge';
+      stBadge.textContent = 'WRK';
+      stBadge.title = `Working in ${Game.STATION_DEFS[assignedStation]?.name || assignedStation}`;
+      card.appendChild(stBadge);
     }
 
     if (!owned) {
@@ -542,7 +665,35 @@ const UI = (() => {
     }
   }
 
-  // ── Studio ──
+  // ── Milestones ──
+  function renderMilestones() {
+    const milestones = Game.getMilestones();
+    const stats = Game.getCollectionStats();
+    const container = document.getElementById('milestone-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+    milestones.forEach(m => {
+      const el = document.createElement('div');
+      el.className = `milestone-item${m.claimed ? ' claimed' : ''}${stats.owned >= m.count ? ' reached' : ''}`;
+
+      const icon = m.claimed ? '\u2713' : stats.owned >= m.count ? '\u2605' : '\u25CB';
+      el.innerHTML = `
+        <span class="milestone-icon">${icon}</span>
+        <div class="milestone-info">
+          <span class="milestone-label">${m.label}</span>
+          <span class="milestone-reward">+${formatNum(m.stars)} Stars</span>
+        </div>
+        <span class="milestone-status">${m.claimed ? 'Claimed' : stats.owned >= m.count ? 'Ready!' : `${stats.owned}/${m.count}`}</span>
+      `;
+      container.appendChild(el);
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  STUDIO
+  // ═══════════════════════════════════════════════
+
   function renderStudio() {
     const state = Game.getState();
     const grid = document.getElementById('stations-grid');
@@ -604,12 +755,10 @@ const UI = (() => {
       if (!isLocked && slotEl) {
         slotEl.addEventListener('click', () => {
           if (assigned) {
-            // Unassign
             if (confirm(`Unassign ${assignedChar ? assignedChar.name : 'character'}?`)) {
               Game.unassignStation(stationId);
             }
           } else {
-            // Show owned characters for assignment
             showAssignModal(stationId);
           }
         });
@@ -629,7 +778,10 @@ const UI = (() => {
     }
   }
 
-  // ── Character Detail Modal ──
+  // ═══════════════════════════════════════════════
+  //  CHARACTER DETAIL MODAL — Enhanced (Sprint 3)
+  // ═══════════════════════════════════════════════
+
   function showCharacterDetail(slug) {
     const data = Characters.getCharDisplayData(slug);
     if (!data) return;
@@ -637,6 +789,15 @@ const UI = (() => {
     const detail = document.getElementById('char-detail');
     const owned = data.owned;
     const bestVariant = data.bestVariant;
+    const pullHistory = Game.getPullHistory(slug);
+    const assignedStation = Game.getCharacterStation(slug);
+
+    // Format pull date
+    let pullDateStr = 'Unknown';
+    if (pullHistory && pullHistory.firstPullDate) {
+      const d = new Date(pullHistory.firstPullDate);
+      pullDateStr = d.toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
 
     detail.innerHTML = `
       <img class="char-detail-img" src="${data.image}" alt="${data.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22260%22 fill=%22%231c1b18%22><rect width=%22200%22 height=%22260%22/><text x=%22100%22 y=%22140%22 text-anchor=%22middle%22 fill=%22%23908e87%22 font-size=%2214%22>No Image</text></svg>'">
@@ -661,6 +822,22 @@ const UI = (() => {
             <span>Shards</span>
             <span>${data.shards}</span>
           </div>
+          ${pullHistory ? `
+          <div class="char-detail-stat">
+            <span>Times Pulled</span>
+            <span>${pullHistory.totalPulls}</span>
+          </div>
+          <div class="char-detail-stat">
+            <span>First Obtained</span>
+            <span>${pullDateStr}</span>
+          </div>
+          ` : ''}
+          ${assignedStation ? `
+          <div class="char-detail-stat">
+            <span>Assigned To</span>
+            <span style="color:var(--accent2)">${Game.STATION_DEFS[assignedStation]?.name || assignedStation}</span>
+          </div>
+          ` : ''}
         </div>
         <div class="char-detail-actions">
           <button class="btn btn-primary" onclick="UI.levelUpChar('${slug}')" ${data.level >= data.levelCap ? 'disabled' : ''}>
@@ -672,6 +849,22 @@ const UI = (() => {
             </button>
           ` : ''}
         </div>
+        ${data.shards > 0 ? `
+          <div class="shard-convert-section">
+            <h4>Convert Shards (${data.shards} available)</h4>
+            <div class="shard-buttons">
+              <button class="btn btn-secondary btn-sm" onclick="UI.convertShards('${slug}', 'starDust')">
+                +${data.shards * 5} Star Dust
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="UI.convertShards('${slug}', 'starFragments')">
+                +${data.shards * 2} Fragments
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="UI.convertShards('${slug}', 'stars')">
+                +${data.shards} Stars
+              </button>
+            </div>
+          </div>
+        ` : ''}
       ` : `
         <div style="color:var(--text-muted);margin-top:var(--space-md);">
           Not yet collected. Pull on banners to get this character!
@@ -698,6 +891,18 @@ const UI = (() => {
     const result = Characters.ascend(slug);
     if (result.success) {
       showToast(`Ascended to ${result.newVariant.toUpperCase()}!`, 'success');
+      showCharacterDetail(slug);
+      updateUI();
+    } else {
+      showToast(result.reason, 'error');
+    }
+  }
+
+  function convertShards(slug, resource) {
+    const result = Characters.convertShards(slug, resource);
+    if (result.success) {
+      const resName = resource === 'starDust' ? 'Star Dust' : resource === 'starFragments' ? 'Fragments' : 'Stars';
+      showToast(`Converted ${result.converted} shards -> +${result.gained} ${resName}`, 'success');
       showCharacterDetail(slug);
       updateUI();
     } else {
@@ -741,7 +946,6 @@ const UI = (() => {
     const owned = Characters.getOwnedCharacters();
 
     const state = Game.getState();
-    // Filter out characters already assigned to other stations
     const available = owned.filter(c => {
       for (const [sid, st] of Object.entries(state.studio.stations)) {
         if (st.assigned === c.slug && sid !== stationId) return false;
@@ -856,7 +1060,7 @@ const UI = (() => {
 
   return {
     init, switchTab, updateUI,
-    showToast, levelUpChar, ascendChar,
+    showToast, levelUpChar, ascendChar, convertShards,
   };
 })();
 

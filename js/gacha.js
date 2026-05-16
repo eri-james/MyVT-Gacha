@@ -92,6 +92,7 @@ const Gacha = (() => {
 
     // Add to collection
     addPullToCollection(character, variant);
+    trackPullHistory(character.slug);
 
     Game.save();
     if (Game.onStateChange) {} // Will trigger via save
@@ -131,11 +132,21 @@ const Gacha = (() => {
       }
 
       addPullToCollection(character, variant);
+      trackPullHistory(character.slug);
       results.push({ character, variant, isNew: isNewChar });
     }
 
     Game.save();
     return results;
+  }
+
+  // Track pull history for a character
+  function trackPullHistory(slug) {
+    const state = Game.getState();
+    if (!state.pullHistory[slug]) {
+      state.pullHistory[slug] = { firstPullDate: new Date().toISOString(), totalPulls: 0 };
+    }
+    state.pullHistory[slug].totalPulls++;
   }
 
   // Add pulled character to collection
