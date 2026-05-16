@@ -5,11 +5,19 @@
 const DataLoader = (() => {
   let _characters = [];
   let _loaded = false;
+  let _loading = false;
 
   async function load() {
     if (_loaded) return _characters;
+    if (_loading) {
+      // Wait for the in-flight fetch to finish
+      await new Promise(r => setTimeout(r, 100));
+      return load();
+    }
+    _loading = true;
     try {
       const resp = await fetch('data/characters.json');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       _characters = await resp.json();
       _loaded = true;
       console.log(`Loaded ${_characters.length} characters.`);
@@ -17,6 +25,8 @@ const DataLoader = (() => {
     } catch (err) {
       console.error('Failed to load characters:', err);
       return [];
+    } finally {
+      _loading = false;
     }
   }
 

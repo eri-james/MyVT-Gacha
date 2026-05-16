@@ -456,12 +456,9 @@ const Minigame = (() => {
     state.currencies.stars += coinReward;
     state.currencies.bondPoints += 10; // +10 bond for the lead character
 
-    // Add bond XP to lead character
-    if (leadSlug && state.characters[leadSlug]) {
-      const charData = state.characters[leadSlug];
-      // Tiny XP boost via bond points conversion
-      charData.level; // just access to confirm exists
-    }
+    // Persist gem rewards
+    if (!state.currencies.gems) state.currencies.gems = 0;
+    state.currencies.gems += totalGems;
 
     // Update high score
     if (!state.minigame) state.minigame = { dailyPlays: 0, lastPlayDate: '', highScore: 0 };

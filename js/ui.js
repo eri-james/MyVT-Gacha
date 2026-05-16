@@ -158,9 +158,11 @@ const UI = (() => {
     });
   }
 
+  let _featuredDisplay = [];
+
   function setupFeaturedBanner() {
-    const featured = Gacha.generateFeatured();
-    Gacha.setFeatured(featured);
+    _featuredDisplay = Gacha.generateFeatured();
+    Gacha.setFeatured(_featuredDisplay);
   }
 
   // ── Tab Navigation ──
@@ -382,7 +384,9 @@ const UI = (() => {
     const newCount = sorted.filter(r => r.isNew).length;
 
     // Close on click
+    let autoCloseTimer;
     const closeHandler = () => {
+      clearTimeout(autoCloseTimer);
       overlay.style.display = 'none';
       overlay.removeEventListener('click', closeHandler);
       showPullResultToast(sorted.length, newCount, counts);
@@ -390,7 +394,7 @@ const UI = (() => {
     overlay.addEventListener('click', closeHandler);
 
     // Auto-close after 8 seconds
-    const autoCloseTimer = setTimeout(() => {
+    autoCloseTimer = setTimeout(() => {
       overlay.style.display = 'none';
       overlay.removeEventListener('click', closeHandler);
       showPullResultToast(sorted.length, newCount, counts);
@@ -476,7 +480,7 @@ const UI = (() => {
       descEl.textContent = 'All 319 Malaysian VTubers';
     } else {
       nameEl.textContent = 'Featured Banner';
-      const featured = Gacha.generateFeatured().slice(0, 4).map(s => {
+      const featured = _featuredDisplay.slice(0, 4).map(s => {
         const c = DataLoader.getBySlug(s);
         return c ? c.name : s;
       }).join(', ');

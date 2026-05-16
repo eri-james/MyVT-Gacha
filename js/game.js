@@ -123,6 +123,7 @@ const Game = (() => {
         starDust: 0,
         starFragments: 0,
         bondPoints: 0,
+        gems: 0,
       },
       characters: {}, // slug -> { owned, variants: [normal/sr/ssr], level, shards }
       studio: {
@@ -270,16 +271,10 @@ const Game = (() => {
   // Studio EXP
   function addStudioExp(amount) {
     state.studio.exp += amount;
-    const nextLevel = STUDIO_LEVELS.find(l => l.level === state.studio.level + 1);
-    while (nextLevel && state.studio.exp >= nextLevel.exp) {
+    while (true) {
+      const nextLevel = STUDIO_LEVELS.find(l => l.level === state.studio.level + 1);
+      if (!nextLevel || state.studio.exp < nextLevel.exp) break;
       state.studio.level = nextLevel.level;
-      if (nextLevel.level >= STUDIO_LEVELS.length) break;
-      const checkNext = STUDIO_LEVELS.find(l => l.level === state.studio.level + 1);
-      if (checkNext && state.studio.exp >= checkNext.exp) {
-        // Continue looping
-      } else {
-        break;
-      }
     }
   }
 
@@ -434,11 +429,11 @@ const Game = (() => {
     if (_tickInterval) clearInterval(_tickInterval);
     _tickInterval = setInterval(() => {
       const earnings = calculatePerMinuteIncome(1/60); // 1 second worth
-      state.currencies.stars += earnings.stars / 60;
-      state.currencies.starDust += earnings.starDust / 60;
-      state.currencies.starFragments += earnings.starFragments / 60;
-      state.currencies.bondPoints += earnings.bondPoints / 60;
-      addStudioExp(earnings.studioExp / 60);
+      state.currencies.stars += earnings.stars;
+      state.currencies.starDust += earnings.starDust;
+      state.currencies.starFragments += earnings.starFragments;
+      state.currencies.bondPoints += earnings.bondPoints;
+      addStudioExp(earnings.studioExp);
       state.lastOnline = Date.now();
 
       // Stamina recovery tick
