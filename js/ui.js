@@ -356,99 +356,164 @@ const UI = (() => {
     overlay.style.display = 'flex';
     overlay.className = 'pull-overlay';
     container.innerHTML = '';
+    container.classList.remove('single-pull');
 
     // Sort results for dramatic effect: Normal first, SR next, SSR last
     const rarityOrder = { normal: 0, sr: 1, ssr: 2 };
     const sorted = [...results].sort((a, b) => (rarityOrder[a.variant] || 0) - (rarityOrder[b.variant] || 0));
+    const isSingle = sorted.length === 1;
 
-    // Build pull summary
+    // Count variants
     const counts = { normal: 0, sr: 0, ssr: 0 };
     sorted.forEach(r => { if (counts[r.variant] !== undefined) counts[r.variant]++; });
-    const summaryParts = [];
-    if (counts.sr > 0) summaryParts.push(`<span class="sum-sr">SR x${counts.sr}</span>`);
-    if (counts.ssr > 0) summaryParts.push(`<span class="sum-ssr">SSR x${counts.ssr}</span>`);
-    const summaryEl = document.createElement('div');
-    summaryEl.className = 'pull-summary';
-    summaryEl.innerHTML = summaryParts.length > 0
-      ? summaryParts.join('&nbsp;&nbsp;')
-      : `${sorted.length} Normal`;
-    container.appendChild(summaryEl);
+    const newCount = sorted.filter(r => r.isNew).length;
 
-    // Set grid columns based on count
-    if (sorted.length <= 5) {
+    // Grid setup
+    if (isSingle) {
+      container.style.gridTemplateColumns = '1fr';
+      container.classList.add('single-pull');
+    } else if (sorted.length <= 5) {
       container.style.gridTemplateColumns = `repeat(${sorted.length}, 1fr)`;
     } else {
       container.style.gridTemplateColumns = 'repeat(5, 1fr)';
     }
 
-    // Create cards with staggered flip delays
-    sorted.forEach((result, i) => {
-      const card = createPullCard(result, i * 200);
-      container.appendChild(card);
-    });
+    // Build summary (hidden until all cards revealed)
+    const summaryEl = document.createElement('div');
+    summaryEl.className = 'pull-summary';
+    const summaryParts = [];
+    if (counts.sr > 0) summaryParts.push(`<span class="sum-sr">SR x${counts.sr}</span>`);
+    if (counts.ssr > 0) summaryParts.push(`<span class="sum-ssr">SSR x${counts.ssr}</span>`);
+    summaryEl.innerHTML = summaryParts.length > 0
+      ? summaryParts.join('&nbsp;&nbsp;')
+      : `${sorted.length} Normal`;
+    container.appendChild(summaryEl);
 
-    // Add tap hint
-    const tapHint = document.createElement('div');
-    tapHint.className = 'pull-tap-hint';
-    tapHint.textContent = 'TAP TO CONTINUE';
-    container.appendChild(tapHint);
+    // Animation timing (ms)
+    const SLIDE_MS = isSingle ? 400 : 280;
+    const FLIP_MS  = isSingle ? 600 : 420;
+    const GAP_MS   = isSingle ? 0 : 80;
 
-    // Screen flash effect
-    const hasSSR = sorted.some(r => r.variant === 'ssr');
-    const hasSR = sorted.some(r => r.variant === 'sr');
-    if (hasSSR) {
-      setTimeout(() => {
-        overlay.classList.add('flash-ssr');
-        setTimeout(() => overlay.classList.remove('flash-ssr'), 600);
-      }, sorted.length > 1 ? (sorted.length - 1) * 200 + 300 : 300);
-    } else if (hasSR) {
-      setTimeout(() => {
-        overlay.classList.add('flash-sr');
-        setTimeout(() => overlay.classList.remove('flash-sr'), 600);
-      }, sorted.length > 1 ? sorted.findIndex(r => r.variant === 'sr') * 200 + 300 : 300);
+    // Track animation state
+    let animationDone = false;
+    let skipRequested = false;
+    let autoCloseTimer = null;
+
+    function finishAnimation() {
+      if (animationDone) return;
+      animationDone = true;
+      skipRequested = true; // prevent skip handler from running again
+
+      const tapHint = document.createElement('div');
+      tapHint.className = 'pull-tap-hint';
+      tapHint.textContent = 'TAP TO CONTINUE';
+      container.appendChild(tapHint);
+      summaryEl.classList.add('visible');
+
+      autoCloseTimer = setTimeout(() => closeOverlay(), 6000);
     }
 
-    // Count new characters for post-pull toast
-    const newCount = sorted.filter(r => r.isNew).length;
-
-    // Close on click
-    let autoCloseTimer;
-    const closeHandler = () => {
+    function closeOverlay() {
       clearTimeout(autoCloseTimer);
       overlay.style.display = 'none';
-      overlay.removeEventListener('click', closeHandler);
+      overlay.removeEventListener('click', overlayClickHandler);
       showPullResultToast(sorted.length, newCount, counts);
-    };
-    overlay.addEventListener('click', closeHandler);
+    }
 
-    // Auto-close after 8 seconds
-    autoCloseTimer = setTimeout(() => {
-      overlay.style.display = 'none';
-      overlay.removeEventListener('click', closeHandler);
-      showPullResultToast(sorted.length, newCount, counts);
-    }, 8000);
+    // Unified overlay click handler
+    const overlayClickHandler = (e) => {
+      // During animation: skip to end
+      if (!animationDone) {
+        if (skipRequested) return;
+        skipRequested = true;
+        // Instantly reveal all cards that haven't started yet
+        container.querySelectorAll('.card-flip:not(.slide-in)').forEach(c => {
+          c.classList.add('slide-in');
+          setTimeout(() => c.querySelector('.card-flip-inner').classList.add('flipped'), 50);
+        });
+        finishAnimation();
+        return;
+      }
+      // After animation: close unless clicking on a card
+      if (e.target.closest('.card-flip')) return;
+      closeOverlay();
+    };
+    overlay.addEventListener('click', overlayClickHandler);
+
+    // Sequential card reveal via promise chain
+    let chain = Promise.resolve();
+    sorted.forEach((result) => {
+      chain = chain.then(() => new Promise(resolve => {
+        if (skipRequested) {
+          // If skip was requested, show this card instantly
+          const card = createPullCard(result);
+          card.classList.add('slide-in');
+          container.appendChild(card);
+          setTimeout(() => card.querySelector('.card-flip-inner').classList.add('flipped'), 50);
+          setTimeout(resolve, 100);
+          return;
+        }
+
+        const card = createPullCard(result);
+        container.appendChild(card);
+
+        // Double rAF ensures the browser has painted the initial state
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          card.classList.add('slide-in');
+        }));
+
+        // After slide-in completes, trigger flip
+        setTimeout(() => {
+          if (skipRequested) { resolve(); return; }
+          const inner = card.querySelector('.card-flip-inner');
+          inner.classList.add('flipped');
+
+          // Screen flash for rare pulls
+          if (result.variant === 'ssr') {
+            overlay.classList.add('flash-ssr');
+            setTimeout(() => overlay.classList.remove('flash-ssr'), 600);
+          } else if (result.variant === 'sr') {
+            overlay.classList.add('flash-sr');
+            setTimeout(() => overlay.classList.remove('flash-sr'), 600);
+          }
+        }, SLIDE_MS);
+
+        // Resolve after flip finishes + gap
+        setTimeout(resolve, SLIDE_MS + FLIP_MS + GAP_MS);
+      }));
+    });
+
+    // After all cards revealed
+    chain.then(() => finishAnimation());
   }
 
-  function createPullCard(result, delay) {
+  function createPullCard(result) {
     const wrapper = document.createElement('div');
     wrapper.className = 'card-flip';
+    wrapper.dataset.variant = result.variant;
 
     const inner = document.createElement('div');
     inner.className = 'card-flip-inner';
 
-    // Front (face down)
+    // Front (face down — the card back design)
     const front = document.createElement('div');
     front.className = 'card-flip-front';
-    front.textContent = '?';
+    const frontDesign = document.createElement('div');
+    frontDesign.className = 'card-back-design';
+    const frontIcon = document.createElement('div');
+    frontIcon.className = 'card-back-icon';
+    frontIcon.textContent = '\u2726'; // ✦ star
+    front.appendChild(frontDesign);
+    front.appendChild(frontIcon);
 
-    // Back (card face)
+    // Back (revealed card face)
     const back = document.createElement('div');
     back.className = `card-flip-back char-card variant-${result.variant}`;
     const img = document.createElement('img');
     img.className = 'char-card-img';
     img.src = result.character.image;
     img.alt = result.character.name;
-    img.loading = 'lazy';
+    img.loading = 'eager';
     img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231c1b18"><rect width="300" height="300"/><text x="150" y="160" text-anchor="middle" fill="%23908e87" font-size="14">No Image</text></svg>'; };
 
     const overlay = document.createElement('div');
@@ -478,16 +543,18 @@ const UI = (() => {
       back.appendChild(newBadge);
     }
 
+    // SSR glow ring on the revealed card
+    if (result.variant === 'ssr') {
+      const glowRing = document.createElement('div');
+      glowRing.className = 'ssr-glow-ring';
+      back.appendChild(glowRing);
+    }
+
     inner.appendChild(front);
     inner.appendChild(back);
     wrapper.appendChild(inner);
 
-    // Flip animation with staggered delay
-    setTimeout(() => {
-      inner.classList.add('flipped');
-    }, 300 + delay);
-
-    // Click to view details
+    // Click to view details (stop propagation so overlay click doesn't close)
     wrapper.addEventListener('click', (e) => {
       e.stopPropagation();
       showCharacterDetail(result.character.slug);
