@@ -115,3 +115,26 @@ Stage Summary:
 - Live site: https://eri-james.github.io/MyVT-Gacha/
 - 4 files changed in review fix: game.js, ui.js, gacha.js, index.html (+43 -9)
 - 5 previously open issues remain deferred: HP-03, HP-05, V4-08, LP-01-05
+---
+Task ID: 1
+Agent: Main Agent
+Task: Repo cleanup — diagnose broken game, remove 18MB of junk, restore repo hygiene
+
+Work Log:
+- Cloned repo and inspected file listing — discovered massive bloat
+- Found 18MB `skills/` directory (50+ AI agent skill folders) committed since initial commit
+- Found stale .bak files, root-level game.js duplicate, .env with local DB URL
+- No README.md ever existed in repo
+- Verified live site: GitHub Pages built OK, all critical files serve HTTP 200
+- Verified data/characters.json: valid JSON, 319 entries
+- JS code review found no syntax errors or initialization bugs
+- Removed 434 files (skills/, .bak, root game.js, .env, upload/, download/, worklog.md)
+- Added proper README.md with game description and file structure
+- Updated .gitignore with skills/, upload/, download/, *.bak rules
+- Pushed commit 85a49b3
+
+Stage Summary:
+- Repo reduced from 370+ tracked files (~18MB) to 12 clean files (~120KB)
+- Live site is deployed and serving correctly (all 200s)
+- No actual JS bug found — the "buttons not responding" issue was likely caused by the massive repo state affecting deployments, or browser cache
+- Could not read rentry.co code review (access-code protected)
