@@ -672,6 +672,8 @@ tech_data = [
      Paragraph('No backend required, instant save/load', sCellL)],
     [Paragraph('JSON', sCell), Paragraph('Character roster data format', sCellL),
      Paragraph('Human-readable, easy to update roster', sCellL)],
+    [Paragraph('Firebase Realtime DB', sCell), Paragraph('Cloud save sync (free tier)', sCellL),
+     Paragraph('Cross-device save sync, no backend needed', sCellL)],
 ]
 story.append(Spacer(1, 12))
 story.append(make_table(tech_data, [0.20, 0.40, 0.40]))
@@ -697,6 +699,7 @@ files_data = [
     [Paragraph('js/studio.js', sCellL), Paragraph('Station assignment, upgrades, resource output calculation', sCellL)],
     [Paragraph('js/characters.js', sCellL), Paragraph('Levelling, ascension, shard conversion, variant management', sCellL)],
     [Paragraph('js/ui.js', sCellL), Paragraph('DOM rendering, tab navigation, pull animations, gallery grid', sCellL)],
+    [Paragraph('js/firebase.js', sCellL), Paragraph('Firebase Realtime DB integration, cloud sync, save conflict resolution', sCellL)],
     [Paragraph('data/characters.json', sCellL), Paragraph('319 VTuber entries with name, image URL, agency, slug', sCellL)],
 ]
 story.append(Spacer(1, 12))
@@ -713,7 +716,9 @@ story.append(body(
     'completion). The game auto-saves every 30 seconds and on every meaningful action (pull, '
     'level up, ascension, station change). A manual save button is also available. On load, '
     'the game calculates offline earnings based on the time elapsed since the last save and '
-    'presents the accumulated resources to the player.'
+    'presents the accumulated resources to the player. In addition to local storage, the game '
+    'supports cloud synchronisation via Firebase Realtime Database and manual export/import, '
+    'as described in Section 10.5.'
 ))
 
 story.append(h2('10.4 Game Tick System'))
@@ -726,6 +731,95 @@ story.append(body(
     'Earnings" popup. Offline earnings are capped at a maximum of 12 hours to prevent '
     'excessive accumulation during extended absences, encouraging regular check-ins while '
     'still rewarding intermittent players.'
+))
+
+# ━━━━ 10.5 HYBRID SAVE SYNC SYSTEM ━━━━
+story.append(h2('10.5 Hybrid Save Sync System'))
+story.append(body(
+    'The game employs a Hybrid Save Sync system (Option C) that combines automatic cloud '
+    'synchronization via Firebase Realtime Database with manual export/import as a backup. '
+    'This dual-layer approach ensures that players can seamlessly access their save data from '
+    'any device while also having a reliable fallback if cloud services are unavailable. The '
+    'design prioritises data safety, conflict resolution, and zero cost to both the developer '
+    'and the players.'
+))
+
+story.append(h3('10.5.1 Architecture Overview'))
+story.append(body(
+    'The save system operates on three layers. The first layer is localStorage, which provides '
+    'instant local persistence and serves as the primary data source during gameplay. The second '
+    'layer is Firebase Realtime Database, which automatically synchronises save data to the cloud '
+    'using the player\'s unique Player ID as the database key. The third layer is the manual '
+    'export/import system, which encodes the entire game state as a Base64 string that the player '
+    'can copy and save externally. All three layers use the same save data format, ensuring '
+    'full interoperability.'
+))
+
+sync_data = [
+    [Paragraph('<b>Layer</b>', sHeader), Paragraph('<b>Method</b>', sHeader),
+     Paragraph('<b>Trigger</b>', sHeader), Paragraph('<b>Purpose</b>', sHeader)],
+    [Paragraph('1 (Primary)', sCell), Paragraph('localStorage', sCellL),
+     Paragraph('Auto-save every 30s + on every action', sCellL), Paragraph('Instant local persistence', sCellL)],
+    [Paragraph('2 (Sync)', sCell), Paragraph('Firebase Realtime DB', sCellL),
+     Paragraph('Auto-push on save, auto-pull on load', sCellL), Paragraph('Cross-device cloud sync', sCellL)],
+    [Paragraph('3 (Backup)', sCell), Paragraph('Export/Import (Base64)', sCellL),
+     Paragraph('Manual via Settings menu', sCellL), Paragraph('Disaster recovery, device transfer', sCellL)],
+]
+story.append(Spacer(1, 12))
+story.append(make_table(sync_data, [0.10, 0.22, 0.38, 0.30]))
+story.append(Paragraph('Table 16: Save System Architecture', sCaption))
+
+story.append(h3('10.5.2 Firebase Cloud Sync'))
+story.append(body(
+    'Firebase Realtime Database (free Spark tier) is used for cloud synchronisation. The '
+    'database is structured with each player\'s save data stored under a node keyed by their '
+    'Player ID (format: MYVT-XXXX-XXXX-XXXX). When a player saves their game locally, '
+    'the save data is automatically pushed to Firebase. When the game loads on a new device, '
+    'it checks Firebase for existing save data under the entered Player ID and downloads it. '
+    'The Firebase configuration is embedded directly in the client-side JavaScript, with '
+    'database security rules set to allow read/write only for authenticated save data nodes.'
+))
+story.append(body(
+    'The cloud sync flow operates as follows: on game load, if a Player ID is found in '
+    'localStorage, the game checks Firebase for a cloud save. If the cloud save is newer '
+    'than the local save (compared by lastOnline timestamp), the cloud version is downloaded '
+    'and replaces the local data. If the local save is newer, the local data is pushed to '
+    'Firebase. This timestamp-based conflict resolution ensures that the most recent save '
+    'always wins, preventing accidental data loss when switching between devices.'
+))
+
+story.append(h3('10.5.3 Export/Import Backup'))
+story.append(body(
+    'As a fallback and backup mechanism, players can manually export their save data as a '
+    'Base64-encoded string from the Settings menu. This string contains the complete game state '
+    'serialised as JSON and encoded to make it easy to copy and paste. Players are encouraged '
+    'to save this string in a notes app, cloud storage, or message themselves the code. To '
+    'import, the player pastes the code into the Import field, and the game validates and '
+    'restores the full save state. This system serves as a critical backup for scenarios '
+    'where Firebase is unavailable, the player loses access to their browser data, or they '
+    'want to share their progress with a friend.'
+))
+
+story.append(h3('10.5.4 Cross-Device Transfer'))
+story.append(body(
+    'To transfer progress to a new device, the player follows a simple two-step process. First, '
+    'on the old device, they note their Player ID from the Home tab (or copy it to clipboard). '
+    'Second, on the new device, they enter the Player ID in the Transfer Device section of the '
+    'Settings menu and click Download Save. The game then fetches the save data from Firebase '
+    'using the provided Player ID, validates it, and restores the full game state. Alternatively, '
+    'the player can use the manual export/import method if Firebase is not available. Both methods '
+    'ensure that players never lose their progress when switching devices.'
+))
+
+story.append(h3('10.5.5 Cost and Scaling'))
+story.append(body(
+    'The entire save sync system operates at zero cost. Firebase Realtime Database\'s free '
+    'Spark tier provides 1 GB of stored data and 10 GB of monthly download bandwidth, which '
+    'is more than sufficient for a browser game with moderate player counts. Each individual '
+    'save state is approximately 5-50 KB of JSON data depending on collection size. Even with '
+    '1,000 active players saving every 30 seconds, the monthly bandwidth usage would remain '
+    'well under the free tier limits. No server-side infrastructure, backend code, or database '
+    'administration is required, keeping the project\'s $0 budget commitment intact.'
 ))
 
 # ━━━━ 11. CHARACTER DATA ━━━━
@@ -807,6 +901,9 @@ sprint_data = [
     [Paragraph('8', sCell), Paragraph('Polish and Save/Load', sCellL),
      Paragraph('Auto-save, manual save, stats, import/export, bug fixes', sCellL),
      Paragraph('Low', sCell)],
+    [Paragraph('9', sCell), Paragraph('Cloud Save Sync', sCellL),
+     Paragraph('Firebase Realtime DB integration, auto-sync, cross-device transfer', sCellL),
+     Paragraph('Medium', sCell)],
 ]
 story.append(Spacer(1, 12))
 story.append(make_table(sprint_data, [0.08, 0.22, 0.52, 0.18]))
