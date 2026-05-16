@@ -275,6 +275,48 @@ const Game = (() => {
     }
   }
 
+  // Get total income per minute across all active stations
+  function getTotalIncome() {
+    const earnings = { stars: 0, starDust: 0, starFragments: 0, bondPoints: 0 };
+    for (const [stationId, def] of Object.entries(STATION_DEFS)) {
+      const station = state.studio.stations[stationId];
+      if (!station || !station.assigned) continue;
+      if (state.studio.level < def.unlockLv) continue;
+      const income = getStationIncome(stationId);
+      earnings[def.resource] += income;
+    }
+    return earnings;
+  }
+
+  // Get total income per minute as a single number (Stars equivalent)
+  function getTotalIncomePerMin() {
+    const earnings = getTotalIncome();
+    return earnings.stars + earnings.starDust + earnings.starFragments + earnings.bondPoints;
+  }
+
+  // Get breakdown of station incomes for display
+  function getStationIncomeBreakdown() {
+    const breakdown = [];
+    for (const [stationId, def] of Object.entries(STATION_DEFS)) {
+      const station = state.studio.stations[stationId];
+      const isLocked = state.studio.level < def.unlockLv;
+      if (!station || isLocked) continue;
+      const income = station.assigned ? getStationIncome(stationId) : 0;
+      const assignedChar = station.assigned ? DataLoader.getBySlug(station.assigned) : null;
+      breakdown.push({
+        stationId,
+        name: def.name,
+        resource: def.resource,
+        income,
+        assigned: !!station.assigned,
+        assignedCharName: assignedChar ? assignedChar.name : null,
+        level: station.level,
+        isMaxLevel: station.level >= 5,
+      });
+    }
+    return breakdown;
+  }
+
   function getStudioExpProgress() {
     const current = STUDIO_LEVELS.find(l => l.level === state.studio.level);
     const next = STUDIO_LEVELS.find(l => l.level === state.studio.level + 1);
@@ -522,5 +564,6 @@ const Game = (() => {
     STATION_MULTIPLIERS, VARIANT_MULTIPLIERS, LEVEL_CAPS,
     BASE_RATES, getLevelCost, ASCENSION_COSTS,
     getBestVariant, SAVE_KEY,
+    getTotalIncome, getTotalIncomePerMin, getStationIncomeBreakdown,
   };
 })();

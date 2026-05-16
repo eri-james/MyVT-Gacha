@@ -1401,6 +1401,153 @@ body {
 }
 
 /* ═══════════════════════════════════════════════
+   STUDIO — INCOME DASHBOARD (Sprint 4)
+   ═══════════════════════════════════════════════ */
+
+.studio-income-dashboard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.studio-income-dashboard h3 {
+  font-size: 1rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-sm);
+}
+
+.income-total {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent2);
+  margin-bottom: var(--space-md);
+}
+
+.income-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.income-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.income-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 90px;
+}
+
+.income-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--bg-input);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.income-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width var(--transition-normal);
+  min-width: 4px;
+}
+
+.income-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 50px;
+  text-align: right;
+}
+
+.income-empty {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: var(--space-sm);
+}
+
+/* ═══════════════════════════════════════════════
+   STUDIO — UNLOCK ROADMAP (Sprint 4)
+   ═══════════════════════════════════════════════ */
+
+.studio-unlock-roadmap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.studio-unlock-roadmap h3 {
+  font-size: 1rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-sm);
+}
+
+.unlock-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.unlock-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.unlock-item.unlocked {
+  opacity: 0.5;
+}
+
+.unlock-item.current {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.unlock-item.next-up {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+}
+
+.unlock-lv {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 32px;
+}
+
+.unlock-what {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.unlock-status {
+  font-size: 0.85rem;
+  width: 20px;
+  text-align: center;
+}
+
+.unlock-unlocked { color: var(--success); }
+.unlock-next { color: var(--gold); }
+.unlock-locked { color: var(--text-dim); }
+
+/* ═══════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════ */
 
@@ -1448,6 +1595,16 @@ body {
 
   .stations-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Sprint 4: Income dashboard responsive */
+  .income-label {
+    min-width: 70px;
+    font-size: 0.75rem;
+  }
+  .income-value {
+    min-width: 40px;
+    font-size: 0.8rem;
   }
 
   .collection-filters {

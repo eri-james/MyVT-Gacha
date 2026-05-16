@@ -6,6 +6,7 @@ const UI = (() => {
   let currentTab = 'home';
   let _collectionPage = 0;
   const COLLECTION_PAGE_SIZE = 40;
+  let _lastStudioLevel = 0; // Sprint 4: Track studio level changes
 
   // ── Initialization ──
   async function init() {
@@ -20,6 +21,7 @@ const UI = (() => {
     updateUI();
     checkOfflineEarnings();
     checkMilestoneCelebration();
+    _lastStudioLevel = Game.getState().studio.level; // Sprint 4: init studio level tracker
     showToast('Welcome back to MyVT Gacha!', 'info');
   }
 
@@ -208,6 +210,16 @@ const UI = (() => {
     if (currentTab === 'collection') {
       updateCollectionProgress();
       updateCollectionVariantStats();
+    }
+
+    // Sprint 4: Detect studio level-up
+    const currentLv = Game.getState().studio.level;
+    if (currentLv > _lastStudioLevel && _lastStudioLevel > 0) {
+      const newLv = currentLv;
+      const unlock = Game.STATION_LEVELS.find(l => l.level === newLv);
+      const unlockText = unlock ? `Unlocked: ${unlock.unlocks}` : '';
+      showToast(`Studio leveled up to Lv ${newLv}! ${unlockText}`, 'success');
+      _lastStudioLevel = newLv;
     }
   }
 
@@ -691,8 +703,16 @@ const UI = (() => {
   }
 
   // ═══════════════════════════════════════════════
-  //  STUDIO
+  //  STUDIO — Enhanced (Sprint 4)
   // ═══════════════════════════════════════════════
+
+  // Station type icons
+  const STATION_ICONS = {
+    streamRoom: '\uD83C\uDFA5',
+    creativeCorner: '\uD83C\uDFA8',
+    practiceHall: '\uD83C\uDFB5',
+    lounge: '\u2615',
+  };
 
   function renderStudio() {
     const state = Game.getState();
@@ -704,6 +724,12 @@ const UI = (() => {
     document.getElementById('studio-exp-fill').style.width = Math.min(expProgress.pct, 100) + '%';
     document.getElementById('studio-exp-text').textContent =
       state.studio.level >= 10 ? 'MAX' : `${formatNum(Math.floor(expProgress.current))} / ${formatNum(expProgress.required)} EXP`;
+
+    // Sprint 4: Render Income Dashboard
+    renderIncomeDashboard();
+
+    // Sprint 4: Render Unlock Roadmap
+    renderUnlockRoadmap();
 
     grid.innerHTML = '';
 
@@ -720,10 +746,11 @@ const UI = (() => {
       el.className = `station${isLocked ? ' locked' : ''}`;
 
       const income = isLocked ? 0 : Game.getStationIncome(stationId);
+      const icon = STATION_ICONS[stationId] || '';
 
       el.innerHTML = `
         <div class="station-header">
-          <span class="station-name">${def.name}</span>
+          <span class="station-name">${icon} ${def.name}</span>
           <span class="station-level">Lv ${station ? station.level : 1}</span>
         </div>
         <div class="station-slot${assigned ? ' assigned' : ''}" data-station="${stationId}">
@@ -740,9 +767,12 @@ const UI = (() => {
         ${!isLocked && station && station.level < 5 ? `
           <div class="station-upgrade">
             <button class="btn btn-secondary btn-sm" data-upgrade="${stationId}" style="width:100%;padding:6px;font-size:0.8rem;">
-              Upgrade (${formatNum(Game.STATION_UPGRADE_COSTS[station.level][0])} Stars + ${formatNum(Game.STATION_UPGRADE_COSTS[station.level][1])} #)
+              Upgrade (${formatNum(Game.STATION_UPGRADE_COSTS[station.level][0])} * + ${formatNum(Game.STATION_UPGRADE_COSTS[station.level][1])} #)
             </button>
           </div>
+        ` : ''}
+        ${!isLocked && station && station.level >= 5 ? `
+          <div style="font-size:0.75rem;color:var(--accent2);text-align:center;">MAX LEVEL</div>
         ` : ''}
         ${isLocked ? `<div style="font-size:0.75rem;color:var(--text-dim);text-align:center;">Requires Studio Lv ${def.unlockLv}</div>` : ''}
       `;
@@ -768,7 +798,7 @@ const UI = (() => {
       if (upgradeBtn) {
         upgradeBtn.addEventListener('click', () => {
           if (Game.upgradeStation(stationId)) {
-            showToast(`${def.name} upgraded to Lv ${state.studio.stations[stationId].level}!`, 'success');
+            showToast(`${icon} ${def.name} upgraded to Lv ${state.studio.stations[stationId].level}!`, 'success');
             renderStudio();
           } else {
             showToast('Not enough resources to upgrade!', 'error');
@@ -776,6 +806,74 @@ const UI = (() => {
         });
       }
     }
+  }
+
+  // Sprint 4: Income Dashboard
+  function renderIncomeDashboard() {
+    const totalIncome = Game.getTotalIncome();
+    const totalPerMin = Game.getTotalIncomePerMin();
+    const breakdown = Game.getStationIncomeBreakdown();
+
+    document.getElementById('income-total').textContent = `${formatNum(totalPerMin, 1)} /min combined`;
+
+    const breakdownEl = document.getElementById('income-breakdown');
+    breakdownEl.innerHTML = '';
+
+    // Per-resource bars
+    const resourceConfig = [
+      { key: 'stars', label: 'Stars', color: 'var(--gold)', icon: '\u2605' },
+      { key: 'starDust', label: 'Star Dust', color: 'var(--accent)', icon: '\u2726' },
+      { key: 'starFragments', label: 'Fragments', color: 'var(--accent2)', icon: '\u25C6' },
+      { key: 'bondPoints', label: 'Bond Pts', color: 'var(--error)', icon: '\u2665' },
+    ];
+
+    resourceConfig.forEach(rc => {
+      const val = totalIncome[rc.key];
+      if (val <= 0) return;
+      const maxVal = Math.max(totalPerMin, 1);
+      const pct = (val / maxVal) * 100;
+
+      const row = document.createElement('div');
+      row.className = 'income-row';
+      row.innerHTML = `
+        <span class="income-label">${rc.icon} ${rc.label}</span>
+        <div class="income-bar-track">
+          <div class="income-bar-fill" style="width:${Math.max(pct, 5)}%;background:${rc.color};"></div>
+        </div>
+        <span class="income-value" style="color:${rc.color}">${formatNum(val, 1)}</span>
+      `;
+      breakdownEl.appendChild(row);
+    });
+
+    if (totalPerMin <= 0) {
+      breakdownEl.innerHTML = '<div class="income-empty">Assign characters to stations to start earning!</div>';
+    }
+  }
+
+  // Sprint 4: Unlock Roadmap
+  function renderUnlockRoadmap() {
+    const state = Game.getState();
+    const container = document.getElementById('unlock-items');
+    container.innerHTML = '';
+
+    Game.STATION_LEVELS.forEach(lv => {
+      const isUnlocked = state.studio.level >= lv.level;
+      const isCurrent = state.studio.level === lv.level;
+      const isNext = state.studio.level === lv.level - 1;
+
+      const el = document.createElement('div');
+      el.className = `unlock-item${isUnlocked ? ' unlocked' : ''}${isCurrent ? ' current' : ''}${isNext ? ' next-up' : ''}`;
+
+      const statusIcon = isUnlocked ? '\u2713' : isNext ? '\u25B6' : '\u25CB';
+      const statusClass = isUnlocked ? 'unlocked' : isNext ? 'next' : 'locked';
+
+      el.innerHTML = `
+        <span class="unlock-lv">Lv ${lv.level}</span>
+        <span class="unlock-what">${lv.unlocks}</span>
+        <span class="unlock-status unlock-${statusClass}">${statusIcon}</span>
+      `;
+      container.appendChild(el);
+    });
   }
 
   // ═══════════════════════════════════════════════
@@ -959,6 +1057,17 @@ const UI = (() => {
       grid.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:var(--space-lg);grid-column:1/-1;">No characters available</div>';
       return;
     }
+
+    // Sprint 4: Sort by variant rarity (SSR > SR > Normal), then by level
+    const rarityOrder = { ssr: 3, sr: 2, normal: 1 };
+    available.sort((a, b) => {
+      const aState = state.characters[a.slug];
+      const bState = state.characters[b.slug];
+      const aBest = rarityOrder[Game.getBestVariant(aState.variants)] || 0;
+      const bBest = rarityOrder[Game.getBestVariant(bState.variants)] || 0;
+      if (bBest !== aBest) return bBest - aBest;
+      return bState.level - aState.level;
+    });
 
     available.forEach(charInfo => {
       const charState = state.characters[charInfo.slug];
