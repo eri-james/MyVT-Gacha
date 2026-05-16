@@ -164,3 +164,23 @@ Stage Summary:
 - Critical typo fix: 1 character change (STUDIO→STATION) resolved the entire game-breaking regression
 - Commit: 0aa9248
 - Live site confirmed working: Player ID generates, game initializes normally
+---
+Task ID: 1
+Agent: Main
+Task: Fix Studio content disappeared + Player ID not loading
+
+Work Log:
+- Analyzed uploaded screenshot with VLM: confirmed Studio tab shows only static HTML (no dynamic rendering)
+- Key finding: income-total shows "0.0 /min" (static default) instead of "0.0 /min combined" (dynamic), proving renderStudio() never executed
+- Root cause: previous STATION_LEVELS typo fix (0aa9248) was deployed to server, but user's browser cached the OLD broken JS where the Game IIFE crashes on load
+- Fix 1: Added ?v=7 cache-busting query strings to all CSS and JS references in index.html
+- Fix 2: Updated static income-total default text to match dynamic render output
+- Fix 3: Wrapped init(), updateUI(), renderStudio() in try-catch blocks so a single error no longer kills the entire game silently
+- Fix 4: On init failure, Player ID field shows "Error — check console" instead of eternal "Loading..."
+- All 6 JS files pass syntax validation
+- Committed as d4afa7c and pushed to main
+
+Stage Summary:
+- The Studio content disappearance was caused by browser cache serving the old broken game.js (with STUDIO_LEVELS typo that crashed the entire Game module)
+- Cache-busting query strings force the browser to download the latest fixed files
+- Error resilience ensures future bugs won't silently kill the game
