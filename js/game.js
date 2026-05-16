@@ -90,6 +90,10 @@ const Game = (() => {
   const DAILY_INCREMENT = 50;
   const DAILY_CAP = 500;
 
+  // Stamina system
+  const STAMINA_MAX = 200;
+  const STAMINA_RECOVERY_INTERVAL_MS = 4 * 60 * 1000; // 1 point every 4 minutes
+
   // Starting resources
   const STARTING_STARS = 1000;
 
@@ -144,6 +148,7 @@ const Game = (() => {
       lastOnline: Date.now(),
       milestones: [], // Track milestone rewards claimed
       pullHistory: {}, // slug -> { firstPullDate, totalPulls }
+      stamina: { current: STAMINA_MAX, lastRecovery: Date.now() },
       minigame: { dailyPlays: 0, lastPlayDate: null, highScore: 0 },
     };
   }
@@ -187,6 +192,7 @@ const Game = (() => {
     if (!merged.milestones) merged.milestones = [];
     if (!merged.pullHistory) merged.pullHistory = {};
     if (!merged.minigame) merged.minigame = { dailyPlays: 0, lastPlayDate: null, highScore: 0 };
+    if (!merged.stamina) merged.stamina = { current: STAMINA_MAX, lastRecovery: Date.now() };
     return merged;
   }
 
@@ -386,6 +392,43 @@ const Game = (() => {
     }
   }
 
+  // ── Stamina System ──
+  function recoverStamina() {
+    if (!state.stamina) state.stamina = { current: STAMINA_MAX, lastRecovery: Date.now() };
+    const now = Date.now();
+    const elapsed = now - (state.stamina.lastRecovery || now);
+    const pointsToAdd = Math.floor(elapsed / STAMINA_RECOVERY_INTERVAL_MS);
+    if (pointsToAdd > 0) {
+      state.stamina.current = Math.min(STAMINA_MAX, state.stamina.current + pointsToAdd);
+      state.stamina.lastRecovery = now;
+    }
+  }
+
+  function useStamina(amount) {
+    recoverStamina();
+    if (state.stamina.current < amount) return false;
+    state.stamina.current -= amount;
+    save();
+    return true;
+  }
+
+  function getStamina() {
+    recoverStamina();
+    return {
+      current: state.stamina.current,
+      max: STAMINA_MAX,
+      isFull: state.stamina.current >= STAMINA_MAX,
+    };
+  }
+
+  function getStaminaTimeToNext() {
+    if (!state.stamina) return 0;
+    recoverStamina();
+    if (state.stamina.current >= STAMINA_MAX) return 0;
+    const sinceLast = Date.now() - (state.stamina.lastRecovery || Date.now());
+    return Math.max(0, STAMINA_RECOVERY_INTERVAL_MS - sinceLast);
+  }
+
   // Tick loop (runs every second while game is open)
   function startTickLoop() {
     if (_tickInterval) clearInterval(_tickInterval);
@@ -397,6 +440,9 @@ const Game = (() => {
       state.currencies.bondPoints += earnings.bondPoints / 60;
       addStudioExp(earnings.studioExp / 60);
       state.lastOnline = Date.now();
+
+      // Stamina recovery tick
+      recoverStamina();
 
       if (_onStateChange) _onStateChange();
     }, 1000);
@@ -571,5 +617,7 @@ const Game = (() => {
     BASE_RATES, getLevelCost, ASCENSION_COSTS,
     getBestVariant, SAVE_KEY,
     getTotalIncome, getTotalIncomePerMin, getStationIncomeBreakdown,
+    getStamina, useStamina, getStaminaTimeToNext,
+    STAMINA_MAX, STAMINA_RECOVERY_INTERVAL_MS,
   };
 })();

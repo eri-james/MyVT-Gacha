@@ -190,6 +190,9 @@ const UI = (() => {
     document.getElementById('res-fragments').textContent = formatNum(Math.floor(state.currencies.starFragments));
     document.getElementById('res-bonds').textContent = formatNum(Math.floor(state.currencies.bondPoints));
 
+    // Stamina
+    updateStaminaDisplay();
+
     // Home stats
     document.getElementById('stat-collection').textContent = `${stats.owned} / ${stats.total}`;
     document.getElementById('stat-ssr').textContent = stats.ssr;
@@ -236,6 +239,35 @@ const UI = (() => {
       const unlockText = unlock ? `Unlocked: ${unlock.unlocks}` : '';
       showToast(`Studio leveled up to Lv ${newLv}! ${unlockText}`, 'success');
       _lastStudioLevel = newLv;
+    }
+  }
+
+  function updateStaminaDisplay() {
+    const stam = Game.getStamina();
+    const pct = (stam.current / stam.max) * 100;
+
+    // Nav bar stamina
+    const navFill = document.getElementById('stamina-bar-fill-nav');
+    const navVal = document.getElementById('res-stamina-val');
+    if (navFill) navFill.style.width = pct + '%';
+    if (navVal) navVal.textContent = stam.current;
+
+    // Minigame tab stamina bar
+    const scFill = document.getElementById('sc-stamina-bar-fill');
+    const scVal = document.getElementById('sc-stamina-val');
+    const scTimer = document.getElementById('sc-stamina-timer');
+    if (scFill) scFill.style.width = pct + '%';
+    if (scVal) scVal.textContent = `${stam.current} / ${stam.max}`;
+    if (scTimer) {
+      if (stam.isFull) {
+        scTimer.textContent = 'Full';
+      } else {
+        const msToNext = Game.getStaminaTimeToNext();
+        const totalSec = Math.ceil(msToNext / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        scTimer.textContent = `+1 in ${m}:${s.toString().padStart(2, '0')}`;
+      }
     }
   }
 
@@ -1320,7 +1352,7 @@ const UI = (() => {
 
   function startMinigameRound() {
     if (!Minigame.canPlay()) {
-      showToast('Not enough Bond Points!', 'error');
+      showToast('Not enough Stamina!', 'error');
       return;
     }
 

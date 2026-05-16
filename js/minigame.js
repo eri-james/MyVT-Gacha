@@ -6,7 +6,6 @@ const Minigame = (() => {
   // ── Constants ──
   const ROUND_DURATION = 30;
   const STAMINA_COST = 15;
-  const DAILY_FREE_PLAYS = 5;
   const SUPER_MODE_DURATION = 5;
   const BOOST_DECAY_RATE = 1;
   const BUBBLE_BASE_SPEED = 80; // px/s
@@ -67,47 +66,16 @@ const Minigame = (() => {
     $superOverlay = document.getElementById('sc-super-overlay');
   }
 
-  // ── Daily Play System ──
-  function getDailyPlays() {
-    const state = Game.getState();
-    if (!state.minigame) return { used: DAILY_FREE_PLAYS, total: DAILY_FREE_PLAYS };
-    const today = new Date().toISOString().split('T')[0];
-    if (state.minigame.lastPlayDate !== today) {
-      state.minigame.dailyPlays = 0;
-      state.minigame.lastPlayDate = today;
-      Game.save();
-    }
-    return { used: state.minigame.dailyPlays || 0, total: DAILY_FREE_PLAYS };
-  }
-
-  function useDailyPlay() {
-    const state = Game.getState();
-    if (!state.minigame) {
-      state.minigame = { dailyPlays: 1, lastPlayDate: new Date().toISOString().split('T')[0], highScore: 0 };
-    } else {
-      const today = new Date().toISOString().split('T')[0];
-      if (state.minigame.lastPlayDate !== today) {
-        state.minigame.dailyPlays = 0;
-        state.minigame.lastPlayDate = today;
-      }
-      state.minigame.dailyPlays = (state.minigame.dailyPlays || 0) + 1;
-    }
-    Game.save();
-  }
-
+  // ── Stamina Play System ──
   function canPlay() {
     if (isRunning) return false;
-    const daily = getDailyPlays();
-    if (daily.used < daily.total) return true;
-    const state = Game.getState();
-    return state.currencies.bondPoints >= STAMINA_COST;
+    const stam = Game.getStamina();
+    return stam.current >= STAMINA_COST;
   }
 
   function getPlayCostLabel() {
-    const daily = getDailyPlays();
-    const remaining = daily.total - daily.used;
-    if (remaining > 0) return `FREE (${remaining} left today)`;
-    return `${STAMINA_COST} Bond Points`;
+    const stam = Game.getStamina();
+    return `${stam.current} / ${stam.max} Stamina`;
   }
 
   // ── Character Lead Bonus ──
@@ -178,7 +146,7 @@ const Minigame = (() => {
     const x = Math.random() * (areaW - size - 16) + 8;
     const phase = DIFFICULTY.find(p => elapsed >= p.start && elapsed < p.end) || DIFFICULTY[DIFFICULTY.length - 1];
     const speedMult = 1 + (elapsed / ROUND_DURATION) * 0.8; // 1x at start, 1.8x at end
-    const speed = BUBBLE_BASE_SPEED * speedMult;
+    let speed = BUBBLE_BASE_SPEED * speedMult;
     if (isSuperMode) speed *= 0.6; // slower in super mode
 
     const bubble = {
@@ -412,17 +380,15 @@ const Minigame = (() => {
   function startRound(slug) {
     if (isRunning) return;
     if (!canPlay()) {
-      UI.showToast('Not enough Bond Points!', 'error');
+      UI.showToast('Not enough Stamina!', 'error');
       return;
     }
 
-    const daily = getDailyPlays();
-    const isFree = daily.used < daily.total;
-    if (!isFree) {
-      const state = Game.getState();
-      state.currencies.bondPoints -= STAMINA_COST;
+    // Deduct stamina
+    if (!Game.useStamina(STAMINA_COST)) {
+      UI.showToast('Not enough Stamina!', 'error');
+      return;
     }
-    useDailyPlay();
 
     // Init state
     leadSlug = slug;
@@ -461,15 +427,10 @@ const Minigame = (() => {
     $superOverlay.style.display = 'none';
     $gameArea.classList.remove('sc-super-mode');
 
-    // Store stamina cost label for results
-    _lastPlayWasFree = isFree;
-
     isRunning = true;
     updateHUD();
     animFrameId = requestAnimationFrame(gameLoop);
   }
-
-  let _lastPlayWasFree = false;
 
   // ── End Round ──
   function endRound() {
@@ -561,8 +522,6 @@ const Minigame = (() => {
     getPlayCostLabel,
     getIsRunning,
     getLeadSlug,
-    getDailyPlays,
     STAMINA_COST,
-    DAILY_FREE_PLAYS,
   };
 })();

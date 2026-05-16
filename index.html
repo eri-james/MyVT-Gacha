@@ -22,6 +22,10 @@
       <span class="resource" id="res-stardust" title="Star Dust">+</span>
       <span class="resource" id="res-fragments" title="Star Fragments">#</span>
       <span class="resource" id="res-bonds" title="Bond Points">~</span>
+      <span class="resource" id="res-stamina" title="Stamina">
+        <span class="stamina-bar-mini"><span class="stamina-bar-mini-fill" id="stamina-bar-fill-nav"></span></span>
+        <span id="res-stamina-val">200</span>
+      </span>
     </div>
     <button class="nav-settings" id="btn-settings" title="Settings">&equiv;</button>
   </nav>
@@ -189,9 +193,17 @@
             </div>
             <button class="btn btn-secondary" id="sc-pick-lead">Choose Character</button>
           </div>
+          <div class="sc-stamina-display">
+            <span class="sc-stamina-label">Stamina</span>
+            <div class="sc-stamina-bar-track">
+              <div class="sc-stamina-bar-fill" id="sc-stamina-bar-fill"></div>
+            </div>
+            <span class="sc-stamina-val" id="sc-stamina-val">200 / 200</span>
+            <span class="sc-stamina-timer" id="sc-stamina-timer"></span>
+          </div>
           <div class="sc-info-row">
             <span class="sc-info-item">Round: 30 seconds</span>
-            <span class="sc-info-item">Cost: <span id="sc-cost-label">FREE (5 left today)</span></span>
+            <span class="sc-info-item">Cost: <span id="sc-cost-label">15 Stamina</span></span>
           </div>
           <div class="sc-high-score-display" id="sc-high-score-display" style="display:none;">
             High Score: <span id="sc-high-score-val">0</span>
