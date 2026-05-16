@@ -87,13 +87,16 @@ const Gacha = (() => {
 
     const variant = rollVariant();
 
+    // Check if character is new before adding
+    const isNewChar = !state.characters[character.slug] || !state.characters[character.slug].owned;
+
     // Add to collection
     addPullToCollection(character, variant);
 
     Game.save();
     if (Game.onStateChange) {} // Will trigger via save
 
-    return { character, variant, isNew: false };
+    return { character, variant, isNew: isNewChar };
   }
 
   // Perform multi pull (10x)
@@ -111,6 +114,9 @@ const Gacha = (() => {
       const character = rollCharacter();
       if (!character) continue;
 
+      // Check if character is new before adding
+      const isNewChar = !state.characters[character.slug] || !state.characters[character.slug].owned;
+
       let variant = rollVariant();
       if (variant === 'sr' || variant === 'ssr') hasSR = true;
 
@@ -125,7 +131,7 @@ const Gacha = (() => {
       }
 
       addPullToCollection(character, variant);
-      results.push({ character, variant, isNew: false });
+      results.push({ character, variant, isNew: isNewChar });
     }
 
     Game.save();

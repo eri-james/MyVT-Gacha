@@ -79,6 +79,15 @@ const UI = (() => {
     document.getElementById('filter-variant').addEventListener('change', renderCollection);
     document.getElementById('filter-agency').addEventListener('change', renderCollection);
     document.getElementById('filter-search').addEventListener('input', debounce(renderCollection, 300));
+    document.getElementById('filter-sort').addEventListener('change', renderCollection);
+
+    // Assign modal
+    document.getElementById('btn-close-assign').addEventListener('click', closeAssignModal);
+    document.getElementById('btn-close-assign-x').addEventListener('click', closeAssignModal);
+    document.getElementById('assign-search').addEventListener('input', debounce(() => {
+      const stationId = document.getElementById('assign-grid').dataset.station;
+      if (stationId) populateAssignGrid(stationId);
+    }, 200));
 
     // Settings buttons
     document.getElementById('btn-save-manual').addEventListener('click', () => {
@@ -191,7 +200,10 @@ const UI = (() => {
 
     // Update active tab content
     if (currentTab === 'studio') renderStudio();
-    if (currentTab === 'collection') updateCollectionProgress();
+    if (currentTab === 'collection') {
+      updateCollectionProgress();
+      updateCollectionVariantStats();
+    }
   }
 
   // ── Offline Earnings ──
@@ -232,34 +244,82 @@ const UI = (() => {
     const overlay = document.getElementById('pull-overlay');
     const container = document.getElementById('pull-animation');
     overlay.style.display = 'flex';
+    overlay.className = 'pull-overlay';
     container.innerHTML = '';
 
+    // Sort results for dramatic effect: Normal first, SR next, SSR last
+    const rarityOrder = { normal: 0, sr: 1, ssr: 2 };
+    const sorted = [...results].sort((a, b) => (rarityOrder[a.variant] || 0) - (rarityOrder[b.variant] || 0));
+
+    // Build pull summary (e.g. "SR x2, SSR x1")
+    const counts = { normal: 0, sr: 0, ssr: 0 };
+    sorted.forEach(r => { if (counts[r.variant] !== undefined) counts[r.variant]++; });
+    const summaryParts = [];
+    if (counts.sr > 0) summaryParts.push(`<span class="sum-sr">SR x${counts.sr}</span>`);
+    if (counts.ssr > 0) summaryParts.push(`<span class="sum-ssr">SSR x${counts.ssr}</span>`);
+    const summaryEl = document.createElement('div');
+    summaryEl.className = 'pull-summary';
+    summaryEl.innerHTML = summaryParts.length > 0
+      ? summaryParts.join('&nbsp;&nbsp;')
+      : `${sorted.length} Normal`;
+    container.appendChild(summaryEl);
+
     // Set grid columns based on count
-    if (results.length <= 5) {
-      container.style.gridTemplateColumns = `repeat(${results.length}, 1fr)`;
+    if (sorted.length <= 5) {
+      container.style.gridTemplateColumns = `repeat(${sorted.length}, 1fr)`;
     } else {
       container.style.gridTemplateColumns = 'repeat(5, 1fr)';
     }
 
-    results.forEach((result, i) => {
-      const card = createPullCard(result);
+    // Create cards with staggered flip delays
+    sorted.forEach((result, i) => {
+      const card = createPullCard(result, i * 200);
       container.appendChild(card);
     });
+
+    // Add tap hint
+    const tapHint = document.createElement('div');
+    tapHint.className = 'pull-tap-hint';
+    tapHint.textContent = 'TAP TO CONTINUE';
+    container.appendChild(tapHint);
+
+    // Screen flash effect: check best rarity in results
+    const hasSSR = sorted.some(r => r.variant === 'ssr');
+    const hasSR = sorted.some(r => r.variant === 'sr');
+    if (hasSSR) {
+      // Delay flash to coincide with SSR card reveal
+      setTimeout(() => {
+        overlay.classList.add('flash-ssr');
+        setTimeout(() => overlay.classList.remove('flash-ssr'), 600);
+      }, sorted.length > 1 ? (sorted.length - 1) * 200 + 300 : 300);
+    } else if (hasSR) {
+      setTimeout(() => {
+        overlay.classList.add('flash-sr');
+        setTimeout(() => overlay.classList.remove('flash-sr'), 600);
+      }, sorted.length > 1 ? sorted.findIndex(r => r.variant === 'sr') * 200 + 300 : 300);
+    }
+
+    // Count new characters for post-pull toast
+    const newCount = sorted.filter(r => r.isNew).length;
 
     // Close on click
     const closeHandler = () => {
       overlay.style.display = 'none';
       overlay.removeEventListener('click', closeHandler);
+      // Show pull summary toast
+      showPullResultToast(sorted.length, newCount, counts);
     };
+    overlay.addEventListener('click', closeHandler);
 
-    // Auto-close after 3 seconds
-    setTimeout(() => {
+    // Auto-close after 8 seconds
+    const autoCloseTimer = setTimeout(() => {
       overlay.style.display = 'none';
       overlay.removeEventListener('click', closeHandler);
-    }, 4000);
+      showPullResultToast(sorted.length, newCount, counts);
+    }, 8000);
   }
 
-  function createPullCard(result) {
+  function createPullCard(result, delay) {
     const wrapper = document.createElement('div');
     wrapper.className = 'card-flip';
 
@@ -300,17 +360,26 @@ const UI = (() => {
     back.appendChild(overlay);
     back.appendChild(badge);
 
+    // NEW badge for new characters
+    if (result.isNew) {
+      const newBadge = document.createElement('div');
+      newBadge.className = 'char-card-new';
+      newBadge.textContent = 'NEW';
+      back.appendChild(newBadge);
+    }
+
     inner.appendChild(front);
     inner.appendChild(back);
     wrapper.appendChild(inner);
 
-    // Flip animation with delay
+    // Flip animation with staggered delay
     setTimeout(() => {
       inner.classList.add('flipped');
-    }, 300 + Math.random() * 500);
+    }, 300 + delay);
 
     // Click to view details
-    wrapper.addEventListener('click', () => {
+    wrapper.addEventListener('click', (e) => {
+      e.stopPropagation();
       showCharacterDetail(result.character.slug);
     });
     wrapper.style.cursor = 'pointer';
@@ -347,6 +416,7 @@ const UI = (() => {
     const variant = document.getElementById('filter-variant').value;
     const agency = document.getElementById('filter-agency').value;
     const search = document.getElementById('filter-search').value.toLowerCase().trim();
+    const sortBy = document.getElementById('filter-sort').value;
 
     let filtered = chars;
 
@@ -371,6 +441,28 @@ const UI = (() => {
       filtered = filtered.filter(c => c.name.toLowerCase().includes(search));
     }
 
+    // Sorting
+    if (sortBy === 'name') {
+      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'variant') {
+      const rarityOrder = { ssr: 3, sr: 2, normal: 1 };
+      filtered = [...filtered].sort((a, b) => {
+        const aData = state.characters[a.slug];
+        const bData = state.characters[b.slug];
+        const aBest = aData && aData.owned ? (rarityOrder[Game.getBestVariant(aData.variants)] || 0) : 0;
+        const bBest = bData && bData.owned ? (rarityOrder[Game.getBestVariant(bData.variants)] || 0) : 0;
+        return bBest - aBest || a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === 'level') {
+      filtered = [...filtered].sort((a, b) => {
+        const aData = state.characters[a.slug];
+        const bData = state.characters[b.slug];
+        const aLv = aData && aData.owned ? aData.level : 0;
+        const bLv = bData && bData.owned ? bData.level : 0;
+        return bLv - aLv || a.name.localeCompare(b.name);
+      });
+    }
+
     grid.innerHTML = '';
     filtered.forEach(char => {
       const card = createCollectionCard(char);
@@ -378,6 +470,7 @@ const UI = (() => {
     });
 
     updateCollectionProgress();
+    updateCollectionVariantStats();
   }
 
   function createCollectionCard(char) {
@@ -439,6 +532,14 @@ const UI = (() => {
     const stats = Game.getCollectionStats();
     document.getElementById('collection-progress-fill').style.width = stats.pct + '%';
     document.getElementById('collection-progress-text').textContent = `${stats.owned} / ${stats.total} (${stats.pct}%)`;
+  }
+
+  function updateCollectionVariantStats() {
+    const stats = Game.getCollectionStats();
+    const el = document.getElementById('collection-variant-stats');
+    if (el) {
+      el.innerHTML = `<span class="vs-normal">Normal: ${stats.normal}</span> | <span class="vs-sr">SR: ${stats.sr}</span> | <span class="vs-ssr">SSR: ${stats.ssr}</span>`;
+    }
   }
 
   // ── Studio ──
@@ -604,7 +705,22 @@ const UI = (() => {
     }
   }
 
+  // ── Pull Result Summary Toast ──
+  function showPullResultToast(total, newCount, counts) {
+    const parts = [];
+    if (counts.ssr > 0) parts.push(`${counts.ssr} SSR`);
+    if (counts.sr > 0) parts.push(`${counts.sr} SR`);
+    if (counts.normal > 0) parts.push(`${counts.normal} Normal`);
+    const newPart = newCount > 0 ? `${newCount} NEW` : '';
+    const msg = newPart
+      ? `Pulled x${total}: ${newPart}, ${parts.join(', ')}`
+      : `Pulled x${total}: ${parts.join(', ')}`;
+    showToast(msg, newCount > 0 ? 'success' : 'info');
+  }
+
   // ── Station Assignment Modal ──
+  let _assignStationId = null;
+
   function showAssignModal(stationId) {
     const owned = Characters.getOwnedCharacters();
     if (owned.length === 0) {
@@ -612,20 +728,73 @@ const UI = (() => {
       return;
     }
 
-    // Use a simple prompt approach for now (will be proper modal in future sprint)
-    const name = prompt('Type VTuber name to assign (or leave blank to cancel):');
-    if (!name) return;
+    _assignStationId = stationId;
+    document.getElementById('assign-search').value = '';
+    document.getElementById('assign-grid').dataset.station = stationId;
+    populateAssignGrid(stationId);
+    toggleModal('modal-assign');
+  }
 
-    const match = owned.find(c => c.name.toLowerCase().includes(name.toLowerCase()));
-    if (!match) {
-      showToast('Character not found in your collection!', 'error');
+  function populateAssignGrid(stationId) {
+    const grid = document.getElementById('assign-grid');
+    const search = document.getElementById('assign-search').value.toLowerCase().trim();
+    const owned = Characters.getOwnedCharacters();
+
+    const state = Game.getState();
+    // Filter out characters already assigned to other stations
+    const available = owned.filter(c => {
+      for (const [sid, st] of Object.entries(state.studio.stations)) {
+        if (st.assigned === c.slug && sid !== stationId) return false;
+      }
+      if (search && !c.name.toLowerCase().includes(search)) return false;
+      return true;
+    });
+
+    grid.innerHTML = '';
+    if (available.length === 0) {
+      grid.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:var(--space-lg);grid-column:1/-1;">No characters available</div>';
       return;
     }
 
-    if (Game.assignToStation(stationId, match.slug)) {
-      showToast(`Assigned ${match.name} to ${Game.STATION_DEFS[stationId].name}!`, 'success');
-      renderStudio();
-    }
+    available.forEach(charInfo => {
+      const charState = state.characters[charInfo.slug];
+      const bestVariant = Game.getBestVariant(charState.variants);
+
+      const el = document.createElement('div');
+      el.className = 'assign-char';
+
+      const img = document.createElement('img');
+      img.src = charInfo.image;
+      img.alt = charInfo.name;
+      img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="%231c1b18"><rect width="120" height="160"/><text x="60" y="85" text-anchor="middle" fill="%23908e87" font-size="12">No Img</text></svg>'; };
+
+      const info = document.createElement('div');
+      info.className = 'assign-char-info';
+      info.textContent = `${charInfo.name} Lv${charState.level}`;
+
+      const badge = document.createElement('div');
+      badge.className = `assign-char-badge badge-${bestVariant}`;
+      badge.textContent = bestVariant.toUpperCase();
+
+      el.appendChild(img);
+      el.appendChild(info);
+      el.appendChild(badge);
+
+      el.addEventListener('click', () => {
+        if (Game.assignToStation(stationId, charInfo.slug)) {
+          showToast(`Assigned ${charInfo.name} to ${Game.STATION_DEFS[stationId].name}!`, 'success');
+          closeAssignModal();
+          renderStudio();
+        }
+      });
+
+      grid.appendChild(el);
+    });
+  }
+
+  function closeAssignModal() {
+    toggleModal('modal-assign');
+    _assignStationId = null;
   }
 
   // ── Modal Toggle ──
