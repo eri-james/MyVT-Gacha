@@ -167,6 +167,21 @@ const UI = (() => {
 
   // ── Tab Navigation ──
   function switchTab(tab) {
+    // V5-03: Stop minigame if leaving the tab while running
+    if (currentTab === 'minigame' && tab !== 'minigame' && Minigame.getIsRunning()) {
+      Minigame.stop();
+      // Refund stamina
+      const gameState = Game.getState();
+      if (gameState.stamina) {
+        gameState.stamina.current = Math.min(Game.STAMINA_MAX, gameState.stamina.current + Minigame.STAMINA_COST);
+        Game.save();
+      }
+      // Reset minigame UI
+      document.getElementById('sc-game-area').style.display = 'none';
+      document.getElementById('sc-start-screen').style.display = 'block';
+      document.getElementById('sc-results-screen').style.display = 'none';
+    }
+
     currentTab = tab;
     document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${tab}`));
@@ -191,6 +206,10 @@ const UI = (() => {
     document.getElementById('res-stardust').textContent = formatNum(Math.floor(state.currencies.starDust));
     document.getElementById('res-fragments').textContent = formatNum(Math.floor(state.currencies.starFragments));
     document.getElementById('res-bonds').textContent = formatNum(Math.floor(state.currencies.bondPoints));
+
+    // V5-04: Gems display
+    const gemsEl = document.getElementById('res-gems');
+    if (gemsEl) gemsEl.textContent = formatNum(Math.floor(state.currencies.gems || 0));
 
     // Stamina
     updateStaminaDisplay();

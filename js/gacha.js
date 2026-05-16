@@ -191,10 +191,14 @@ const Gacha = (() => {
     return Game.getState().currencies.stars >= cost;
   }
 
-  // Get random featured characters
+  // Get random featured characters (Fisher-Yates shuffle)
   function generateFeatured() {
     const chars = DataLoader.get();
-    const shuffled = [...chars].sort(() => Math.random() - 0.5);
+    const shuffled = [...chars];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
     return shuffled.slice(0, 4).map(c => c.slug);
   }
 

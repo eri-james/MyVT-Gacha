@@ -331,25 +331,35 @@ const Game = (() => {
     };
   }
 
-  // Daily login
+  // Daily login (read-only — does NOT mutate state)
   function getDailyLoginReward() {
     const today = new Date().toISOString().split('T')[0];
     if (state.dailyLogin.lastClaim === today) return null;
 
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    let projectedStreak;
     if (state.dailyLogin.lastClaim === yesterday) {
-      state.dailyLogin.streak++;
-    } else if (state.dailyLogin.lastClaim !== today) {
-      state.dailyLogin.streak = 1;
+      projectedStreak = state.dailyLogin.streak + 1;  // READ ONLY
+    } else {
+      projectedStreak = 1;
     }
 
-    const reward = Math.min(DAILY_BASE + (state.dailyLogin.streak - 1) * DAILY_INCREMENT, DAILY_CAP);
-    return { streak: state.dailyLogin.streak, reward };
+    const reward = Math.min(DAILY_BASE + (projectedStreak - 1) * DAILY_INCREMENT, DAILY_CAP);
+    return { streak: projectedStreak, reward };
   }
 
   function claimDailyLogin() {
     const reward = getDailyLoginReward();
     if (!reward) return null;
+
+    // NOW mutate state
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (state.dailyLogin.lastClaim === yesterday) {
+      state.dailyLogin.streak++;
+    } else {
+      state.dailyLogin.streak = 1;
+    }
+
     state.currencies.stars += reward.reward;
     state.dailyLogin.lastClaim = new Date().toISOString().split('T')[0];
     save();
@@ -395,7 +405,7 @@ const Game = (() => {
     const pointsToAdd = Math.floor(elapsed / STAMINA_RECOVERY_INTERVAL_MS);
     if (pointsToAdd > 0) {
       state.stamina.current = Math.min(STAMINA_MAX, state.stamina.current + pointsToAdd);
-      state.stamina.lastRecovery = now;
+      state.stamina.lastRecovery += pointsToAdd * STAMINA_RECOVERY_INTERVAL_MS;
     }
   }
 
