@@ -11,19 +11,26 @@ const UI = (() => {
 
   // ── Initialization ──
   async function init() {
-    await DataLoader.load();
-    Game.load();
-    Game.onStateChange(updateUI);
-    Game.startTickLoop();
-    Game.startAutoSave();
-    bindEvents();
-    setupFeaturedBanner();
-    populateAgencyFilter();
-    updateUI();
-    checkOfflineEarnings();
-    checkMilestoneCelebration();
-    _lastStudioLevel = Game.getState().studio.level; // Sprint 4: init studio level tracker
-    showToast('Welcome back to MyVT Gacha!', 'info');
+    try {
+      await DataLoader.load();
+      Game.load();
+      Game.onStateChange(updateUI);
+      Game.startTickLoop();
+      Game.startAutoSave();
+      bindEvents();
+      setupFeaturedBanner();
+      populateAgencyFilter();
+      updateUI();
+      checkOfflineEarnings();
+      checkMilestoneCelebration();
+      _lastStudioLevel = Game.getState().studio.level; // Sprint 4: init studio level tracker
+      showToast('Welcome back to MyVT Gacha!', 'info');
+    } catch (err) {
+      console.error('Init failed:', err);
+      // Ensure events are bound even if init partially fails
+      try { bindEvents(); } catch (_) {}
+      document.getElementById('player-id').textContent = 'Error — check console';
+    }
   }
 
   // ── Event Binding ──
@@ -198,6 +205,7 @@ const UI = (() => {
 
   // ── Main UI Update ──
   function updateUI() {
+    try {
     const state = Game.getState();
     const stats = Game.getCollectionStats();
 
@@ -261,6 +269,7 @@ const UI = (() => {
       showToast(`Studio leveled up to Lv ${newLv}! ${unlockText}`, 'success');
       _lastStudioLevel = newLv;
     }
+    } catch (err) { console.error('updateUI failed:', err); }
   }
 
   function updateStaminaDisplay() {
@@ -786,6 +795,7 @@ const UI = (() => {
   };
 
   function renderStudio() {
+    try {
     const state = Game.getState();
     const grid = document.getElementById('stations-grid');
     const maxSlots = Game.getMaxSlots();
@@ -877,6 +887,7 @@ const UI = (() => {
         });
       }
     }
+    } catch (err) { console.error('renderStudio failed:', err); }
   }
 
   // Sprint 4: Income Dashboard

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MyVT Gacha Collection</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
   <!-- Top Navigation Bar -->
@@ -166,7 +166,7 @@
         <!-- Sprint 4: Income Dashboard -->
         <div class="studio-income-dashboard" id="studio-income-dashboard">
           <h3>Income Overview</h3>
-          <div class="income-total" id="income-total">0.0 /min</div>
+          <div class="income-total" id="income-total">0.0 /min combined</div>
           <div class="income-breakdown" id="income-breakdown"></div>
         </div>
         <!-- Sprint 4: Unlock Roadmap -->
@@ -335,12 +335,12 @@
   <!-- Toast Notification -->
   <div class="toast-container" id="toast-container"></div>
 
-  <!-- Scripts -->
-  <script src="js/data.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/gacha.js"></script>
-  <script src="js/characters.js"></script>
-  <script src="js/minigame.js"></script>
-  <script src="js/ui.js"></script>
+  <!-- Scripts (versioned for cache-busting) -->
+  <script src="js/data.js?v=7"></script>
+  <script src="js/game.js?v=7"></script>
+  <script src="js/gacha.js?v=7"></script>
+  <script src="js/characters.js?v=7"></script>
+  <script src="js/minigame.js?v=7"></script>
+  <script src="js/ui.js?v=7"></script>
 </body>
 </html>
