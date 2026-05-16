@@ -92,3 +92,26 @@ Stage Summary:
 - Two commits pushed: `6144082` (submodule removal), `1fdf50a` (.nojekyll)
 - All GitHub Actions checks now green
 - Live site: https://eri-james.github.io/MyVT-Gacha/
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix CI failure + Code Review v5 fixes
+
+Work Log:
+- Fixed GitHub Actions CI failure: ghost submodule `myvt-gacha` (mode 160000) had no .gitmodules entry (commit 6144082)
+- Added .nojekyll to disable Jekyll Liquid processing of skills/ directory (commit 1fdf50a)
+- All 3 CI checks passing (build, deploy, report-build-status)
+- Read code review v5 at rentry.co/n8itb6bg — 5 new issues identified
+- Fixed V5-01 (HIGH): getDailyLoginReward() no longer mutates state on every tick. Moved streak increment to claimDailyLogin()
+- Fixed V5-02 (MEDIUM): Stamina recovery preserves fractional time by advancing lastRecovery by exact intervals
+- Fixed V5-03 (MEDIUM): Minigame stops on tab switch, stamina refunded, UI reset to start screen
+- Fixed V5-04 (MEDIUM): Gems currency now displayed in nav bar with purple icon
+- Fixed V5-05 (LOW): generateFeatured() uses Fisher-Yates shuffle instead of biased sort
+
+Stage Summary:
+- 3 commits pushed: 6144082 (submodule), 1fdf50a (.nojekyll), 8e3f632 (v5 review)
+- All CI checks green
+- Live site: https://eri-james.github.io/MyVT-Gacha/
+- 4 files changed in review fix: game.js, ui.js, gacha.js, index.html (+43 -9)
+- 5 previously open issues remain deferred: HP-03, HP-05, V4-08, LP-01-05
