@@ -9,7 +9,7 @@ const Game = (() => {
   const OFFLINE_EARNINGS_CAP_HOURS = 12;
 
   // Studio Level thresholds
-  const STUDIO_LEVELS = [
+  const STATION_LEVELS = [
     { level: 1, exp: 0, unlocks: 'Stream Room + 2 slots' },
     { level: 2, exp: 200, unlocks: 'Creative Corner' },
     { level: 3, exp: 600, unlocks: '3rd station slot' },
