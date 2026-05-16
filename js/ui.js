@@ -7,6 +7,7 @@ const UI = (() => {
   let _collectionPage = 0;
   const COLLECTION_PAGE_SIZE = 40;
   let _lastStudioLevel = 0; // Sprint 4: Track studio level changes
+  let _scLeadSlug = null; // Sprint 8: Minigame lead character
 
   // ── Initialization ──
   async function init() {
@@ -141,6 +142,20 @@ const UI = (() => {
 
     // Character modal
     document.getElementById('btn-close-character').addEventListener('click', () => toggleModal('modal-character'));
+
+    // Sprint 8: Minigame events
+    document.getElementById('sc-pick-lead').addEventListener('click', openMinigameLeadPicker);
+    document.getElementById('btn-close-sc-lead').addEventListener('click', closeMinigameLeadPicker);
+    document.getElementById('btn-close-sc-lead-x').addEventListener('click', closeMinigameLeadPicker);
+    document.getElementById('sc-lead-search').addEventListener('input', debounce(() => {
+      populateMinigameLeadGrid();
+    }, 200));
+    document.getElementById('sc-start-btn').addEventListener('click', () => startMinigameRound());
+    document.getElementById('sc-play-again-btn').addEventListener('click', () => {
+      document.getElementById('sc-results-screen').style.display = 'none';
+      document.getElementById('sc-start-screen').style.display = 'block';
+      updateMinigameCostLabel();
+    });
   }
 
   function setupFeaturedBanner() {
@@ -160,6 +175,7 @@ const UI = (() => {
       updateBannerInfo();
       document.getElementById('pity-count').textContent = Gacha.getPityCount();
     }
+    if (tab === 'minigame') renderMinigame();
     updateUI();
   }
 
@@ -1165,6 +1181,165 @@ const UI = (() => {
       opt.textContent = agency;
       select.appendChild(opt);
     });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  MINIGAME — Super Chat Toss (Sprint 8)
+  // ═══════════════════════════════════════════════
+
+  function renderMinigame() {
+    Minigame.cacheDOM();
+    updateMinigameCostLabel();
+    updateMinigameHighScore();
+    updateMinigameLeadPreview();
+
+    // Show start screen, hide game area and results
+    if (!Minigame.getIsRunning()) {
+      document.getElementById('sc-start-screen').style.display = 'block';
+      document.getElementById('sc-game-area').style.display = 'none';
+      document.getElementById('sc-results-screen').style.display = 'none';
+    }
+  }
+
+  function updateMinigameCostLabel() {
+    const label = document.getElementById('sc-cost-label');
+    if (label) label.textContent = Minigame.getPlayCostLabel();
+  }
+
+  function updateMinigameHighScore() {
+    const state = Game.getState();
+    const hs = state.minigame && state.minigame.highScore ? state.minigame.highScore : 0;
+    const display = document.getElementById('sc-high-score-display');
+    const val = document.getElementById('sc-high-score-val');
+    if (display && val) {
+      if (hs > 0) {
+        display.style.display = 'block';
+        val.textContent = formatNum(hs);
+      } else {
+        display.style.display = 'none';
+      }
+    }
+  }
+
+  function updateMinigameLeadPreview() {
+    const img = document.getElementById('sc-lead-preview-img');
+    const name = document.getElementById('sc-lead-preview-name');
+    if (!img || !name) return;
+
+    if (_scLeadSlug) {
+      const charInfo = DataLoader.getBySlug(_scLeadSlug);
+      if (charInfo) {
+        img.src = charInfo.image;
+        img.style.display = 'block';
+        img.alt = charInfo.name;
+        img.onerror = () => { img.style.display = 'none'; };
+        name.textContent = charInfo.name;
+        return;
+      }
+    }
+    img.style.display = 'none';
+    name.textContent = 'Pick a Streamer';
+  }
+
+  function openMinigameLeadPicker() {
+    const owned = Characters.getOwnedCharacters();
+    if (owned.length === 0) {
+      showToast('No characters owned! Pull some first.', 'warning');
+      return;
+    }
+    document.getElementById('sc-lead-search').value = '';
+    populateMinigameLeadGrid();
+    toggleModal('modal-sc-lead');
+  }
+
+  function closeMinigameLeadPicker() {
+    toggleModal('modal-sc-lead');
+  }
+
+  function populateMinigameLeadGrid() {
+    const grid = document.getElementById('sc-lead-grid');
+    const search = document.getElementById('sc-lead-search').value.toLowerCase().trim();
+    const owned = Characters.getOwnedCharacters();
+    const state = Game.getState();
+
+    const filtered = search
+      ? owned.filter(c => c.name.toLowerCase().includes(search))
+      : owned;
+
+    // Sort by variant rarity, then level
+    const rarityOrder = { ssr: 3, sr: 2, normal: 1 };
+    filtered.sort((a, b) => {
+      const aState = state.characters[a.slug];
+      const bState = state.characters[b.slug];
+      const aBest = rarityOrder[Game.getBestVariant(aState.variants)] || 0;
+      const bBest = rarityOrder[Game.getBestVariant(bState.variants)] || 0;
+      if (bBest !== aBest) return bBest - aBest;
+      return bState.level - aState.level;
+    });
+
+    grid.innerHTML = '';
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:var(--space-lg);grid-column:1/-1;">No characters found</div>';
+      return;
+    }
+
+    filtered.forEach(charInfo => {
+      const charState = state.characters[charInfo.slug];
+      const bestVariant = Game.getBestVariant(charState.variants);
+
+      const el = document.createElement('div');
+      el.className = 'assign-char';
+
+      const img = document.createElement('img');
+      img.src = charInfo.image;
+      img.alt = charInfo.name;
+      img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="%231c1b18"><rect width="120" height="160"/><text x="60" y="85" text-anchor="middle" fill="%23908e87" font-size="12">No Img</text></svg>'; };
+
+      const info = document.createElement('div');
+      info.className = 'assign-char-info';
+      info.textContent = `${charInfo.name} Lv${charState.level}`;
+
+      const badge = document.createElement('div');
+      badge.className = `assign-char-badge badge-${bestVariant}`;
+      badge.textContent = bestVariant.toUpperCase();
+
+      el.appendChild(img);
+      el.appendChild(info);
+      el.appendChild(badge);
+
+      el.addEventListener('click', () => {
+        _scLeadSlug = charInfo.slug;
+        updateMinigameLeadPreview();
+        closeMinigameLeadPicker();
+        showToast(`Lead: ${charInfo.name} (${bestVariant.toUpperCase()})`, 'success');
+      });
+
+      grid.appendChild(el);
+    });
+  }
+
+  function startMinigameRound() {
+    if (!Minigame.canPlay()) {
+      showToast('Not enough Bond Points!', 'error');
+      return;
+    }
+
+    const lead = _scLeadSlug;
+    if (!lead) {
+      showToast('Pick a streamer character first!', 'warning');
+      return;
+    }
+
+    // Show game area, hide start screen
+    document.getElementById('sc-start-screen').style.display = 'none';
+    document.getElementById('sc-game-area').style.display = 'block';
+    document.getElementById('sc-results-screen').style.display = 'none';
+
+    // Clear game area
+    const area = document.getElementById('sc-game-area');
+    area.querySelectorAll('.sc-bubble, .sc-float, .sc-super-splash').forEach(el => el.remove());
+
+    Minigame.startRound(lead);
   }
 
   return {

@@ -15,6 +15,7 @@
       <button class="nav-tab" data-tab="pull">Pull</button>
       <button class="nav-tab" data-tab="collection">Collection</button>
       <button class="nav-tab" data-tab="studio">Studio</button>
+      <button class="nav-tab" data-tab="minigame">Minigame</button>
     </div>
     <div class="nav-resources">
       <span class="resource" id="res-stars" title="Stars">*</span>
@@ -173,6 +174,75 @@
         </div>
       </div>
     </section>
+
+    <!-- MINIGAME TAB -->
+    <section class="tab-content" id="tab-minigame">
+      <div class="sc-container">
+        <h2>Super Chat Toss</h2>
+        <p class="sc-desc">Tap falling super chats to earn Stars! Avoid the red landmines. Fill the boost meter for SUPER CHAT MODE!</p>
+        <!-- Start Screen -->
+        <div id="sc-start-screen" class="sc-start-screen">
+          <div class="sc-lead-select">
+            <div class="sc-lead-preview" id="sc-lead-preview">
+              <img id="sc-lead-preview-img" src="" alt="" style="display:none;" onerror="this.style.display='none';">
+              <span id="sc-lead-preview-name">Pick a Streamer</span>
+            </div>
+            <button class="btn btn-secondary" id="sc-pick-lead">Choose Character</button>
+          </div>
+          <div class="sc-info-row">
+            <span class="sc-info-item">Round: 30 seconds</span>
+            <span class="sc-info-item">Cost: <span id="sc-cost-label">FREE (5 left today)</span></span>
+          </div>
+          <div class="sc-high-score-display" id="sc-high-score-display" style="display:none;">
+            High Score: <span id="sc-high-score-val">0</span>
+          </div>
+          <button class="btn btn-primary sc-start-btn" id="sc-start-btn">Start Round</button>
+          <div class="sc-bubble-legend">
+            <span class="sc-legend-item"><span class="sc-legend-dot" style="background:#4caf50;"></span> Coin +10</span>
+            <span class="sc-legend-item"><span class="sc-legend-dot" style="background:#42a5f5;"></span> Premium +25</span>
+            <span class="sc-legend-item"><span class="sc-legend-dot" style="background:#ab47bc;"></span> Gem +50</span>
+            <span class="sc-legend-item"><span class="sc-legend-dot" style="background:#ef5350;"></span> Landmine!</span>
+            <span class="sc-legend-item"><span class="sc-legend-dot" style="background:#ffd54f;"></span> Gift +3s</span>
+          </div>
+        </div>
+        <!-- Game Area -->
+        <div id="sc-game-area" class="sc-game-area" style="display:none;">
+          <!-- HUD -->
+          <div class="sc-hud">
+            <div class="sc-hud-item"><span class="sc-hud-icon">⏱</span> <span id="sc-timer">0:30</span></div>
+            <div class="sc-hud-item"><span class="sc-hud-icon">★</span> <span id="sc-score">0</span></div>
+            <div class="sc-hud-item"><span class="sc-hud-icon">⚡</span> <span id="sc-boost-text">0%</span></div>
+          </div>
+          <!-- Bubbles spawn here -->
+          <div id="sc-super-overlay" class="sc-super-overlay" style="display:none;">SUPER CHAT!</div>
+          <!-- Streamer zone -->
+          <div class="sc-streamer-zone">
+            <img id="sc-streamer-avatar" class="sc-streamer-avatar" src="" alt="" style="display:none;" onerror="this.style.display='none';">
+            <span id="sc-streamer-name" class="sc-streamer-name"></span>
+          </div>
+          <!-- Boost meter bar -->
+          <div class="sc-boost-bar" id="sc-boost-bar">
+            <div class="sc-boost-fill" id="sc-boost-fill" style="width:0%;"></div>
+          </div>
+        </div>
+        <!-- Results Screen -->
+        <div id="sc-results-screen" class="sc-results-screen" style="display:none;">
+          <h3 class="sc-results-title">Round Complete!</h3>
+          <div class="sc-results-grid">
+            <div class="sc-reward-card"><span class="sc-reward-label">Stars</span><span class="sc-reward-value" id="sc-res-coins">+0</span></div>
+            <div class="sc-reward-card"><span class="sc-reward-label">Gems</span><span class="sc-reward-value" id="sc-res-gems">--</span></div>
+            <div class="sc-reward-card"><span class="sc-reward-label">Bond</span><span class="sc-reward-value" id="sc-res-bonds">+10</span></div>
+          </div>
+          <div class="sc-results-stats">
+            <span id="sc-res-score"></span>
+            <span id="sc-res-combo"></span>
+            <span id="sc-res-accuracy"></span>
+            <span id="sc-res-highscore"></span>
+          </div>
+          <button class="btn btn-primary sc-start-btn" id="sc-play-again-btn">Play Again</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Settings Modal -->
@@ -237,6 +307,18 @@
     </div>
   </div>
 
+  <!-- Minigame Character Picker Modal -->
+  <div class="modal-overlay" id="modal-sc-lead" style="display:none;">
+    <div class="modal">
+      <h3>Pick a Streamer</h3>
+      <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:var(--space-sm);">Higher rarity = better bonuses!</p>
+      <input type="text" class="assign-search" id="sc-lead-search" placeholder="Search by name...">
+      <div class="assign-grid" id="sc-lead-grid"></div>
+      <button class="btn btn-secondary" id="btn-close-sc-lead" style="margin-top:var(--space-sm);width:100%;">Cancel</button>
+      <button class="modal-close" id="btn-close-sc-lead-x">&times;</button>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast-container" id="toast-container"></div>
 
@@ -245,6 +327,7 @@
   <script src="js/game.js"></script>
   <script src="js/gacha.js"></script>
   <script src="js/characters.js"></script>
+  <script src="js/minigame.js"></script>
   <script src="js/ui.js"></script>
 </body>
 </html>

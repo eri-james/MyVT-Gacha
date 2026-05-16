@@ -144,6 +144,7 @@ const Game = (() => {
       lastOnline: Date.now(),
       milestones: [], // Track milestone rewards claimed
       pullHistory: {}, // slug -> { firstPullDate, totalPulls }
+      minigame: { dailyPlays: 0, lastPlayDate: null, highScore: 0 },
     };
   }
 
@@ -185,6 +186,7 @@ const Game = (() => {
     // Ensure new fields exist in migrated state
     if (!merged.milestones) merged.milestones = [];
     if (!merged.pullHistory) merged.pullHistory = {};
+    if (!merged.minigame) merged.minigame = { dailyPlays: 0, lastPlayDate: null, highScore: 0 };
     return merged;
   }
 
@@ -414,6 +416,10 @@ const Game = (() => {
     _onStateChange = callback;
   }
 
+  function notifyStateChange() {
+    if (_onStateChange) _onStateChange();
+  }
+
   // Collection stats
   function getCollectionStats() {
     const chars = DataLoader.get();
@@ -555,7 +561,7 @@ const Game = (() => {
     getOfflineEarnings, claimOfflineEarnings,
     getDailyLoginReward, claimDailyLogin,
     exportSaveCode, importSaveCode,
-    onStateChange, getCollectionStats,
+    onStateChange, notifyStateChange, getCollectionStats,
     getMaxSlots, getStationIncome,
     assignToStation, unassignStation, upgradeStation,
     getStudioExpProgress, getPullHistory, checkMilestones, getMilestones,
