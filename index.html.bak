@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyVT Gacha Collection</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <nav id="top-nav">
+    <div class="nav-brand">MyVT Gacha</div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="home">Home</button>
+      <button class="nav-tab" data-tab="pull">Pull</button>
+      <button class="nav-tab" data-tab="collection">Collection</button>
+      <button class="nav-tab" data-tab="studio">Studio</button>
+      <button class="nav-tab" data-tab="profile">Profile</button>
+    </div>
+    <div class="nav-resources">
+      <span class="resource" id="res-stars" title="Stars">*</span>
+      <span class="resource" id="res-stardust" title="Star Dust">+</span>
+      <span class="resource" id="res-fragments" title="Star Fragments">#</span>
+      <span class="resource" id="res-bonds" title="Bond Points">~</span>
+    </div>
+    <button class="nav-settings" id="btn-settings" title="Settings">&equiv;</button>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main id="main-content">
+    <!-- HOME TAB -->
+    <section class="tab-content active" id="tab-home">
+      <div class="home-container">
+        <div class="home-welcome">
+          <h1>Welcome to MyVT Gacha</h1>
+          <p class="subtitle">Collect Malaysian VTubers, build your studio, and idle your way to greatness!</p>
+        </div>
+        <div class="home-stats">
+          <div class="stat-card">
+            <div class="stat-label">Collection</div>
+            <div class="stat-value" id="stat-collection">0 / 319</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">SSR Owned</div>
+            <div class="stat-value" id="stat-ssr">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Studio Level</div>
+            <div class="stat-value" id="stat-studio-lv">1</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Pulls</div>
+            <div class="stat-value" id="stat-pulls">0</div>
+          </div>
+        </div>
+        <div class="home-actions">
+          <button class="btn btn-primary" id="btn-claim-offline" style="display:none;">
+            Claim Offline Earnings
+          </button>
+          <button class="btn btn-secondary" id="btn-daily-login">
+            Daily Login Bonus
+          </button>
+        </div>
+        <div class="home-id">
+          <span class="id-label">Player ID:</span>
+          <span class="id-value" id="player-id">Loading...</span>
+          <button class="btn-icon" id="btn-copy-id" title="Copy Player ID">&copy;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PULL TAB -->
+    <section class="tab-content" id="tab-pull">
+      <div class="pull-container">
+        <h2>Gacha Pull</h2>
+        <div class="banner-select">
+          <button class="banner-btn active" data-banner="standard">Standard Banner</button>
+          <button class="banner-btn" data-banner="featured">Featured Banner</button>
+        </div>
+        <div class="banner-info">
+          <div class="banner-name" id="banner-name">Standard Banner</div>
+          <div class="banner-desc" id="banner-desc">All 319 Malaysian VTubers</div>
+          <div class="banner-rates">
+            <span class="rate rate-ssr">SSR 3%</span>
+            <span class="rate rate-sr">SR 15%</span>
+            <span class="rate rate-normal">Normal 82%</span>
+          </div>
+          <div class="pity-info">Pity: <span id="pity-count">0</span>/50 pulls</div>
+        </div>
+        <div class="pull-buttons">
+          <button class="btn btn-primary btn-pull" data-count="1">
+            Pull x1<br><span class="cost">100 *</span>
+          </button>
+          <button class="btn btn-primary btn-pull btn-pull-10" data-count="10">
+            Pull x10<br><span class="cost">1,000 *</span>
+          </button>
+        </div>
+        <div class="pull-results" id="pull-results"></div>
+      </div>
+    </section>
+
+    <!-- COLLECTION TAB -->
+    <section class="tab-content" id="tab-collection">
+      <div class="collection-container">
+        <h2>Collection Gallery</h2>
+        <div class="collection-filters">
+          <select id="filter-ownership">
+            <option value="all">All Characters</option>
+            <option value="owned">Owned Only</option>
+            <option value="unowned">Not Owned</option>
+          </select>
+          <select id="filter-variant">
+            <option value="all">All Variants</option>
+            <option value="ssr">SSR</option>
+            <option value="sr">SR</option>
+            <option value="normal">Normal</option>
+          </select>
+          <select id="filter-agency">
+            <option value="all">All Agencies</option>
+          </select>
+          <select id="filter-station">
+            <option value="all">Any Station</option>
+            <option value="assigned">Assigned</option>
+            <option value="unassigned">Unassigned</option>
+          </select>
+          <input type="text" id="filter-search" placeholder="Search VTuber name...">
+          <select id="filter-sort">
+            <option value="name">Sort by Name</option>
+            <option value="variant">Sort by Variant</option>
+            <option value="level">Sort by Level</option>
+          </select>
+        </div>
+        <div class="collection-variant-stats" id="collection-variant-stats"></div>
+        <div class="collection-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" id="collection-progress-fill"></div>
+          </div>
+          <span class="progress-text" id="collection-progress-text">0 / 319 (0%)</span>
+        </div>
+        <div class="collection-grid" id="collection-grid"></div>
+        <div class="collection-pagination" id="collection-pagination"></div>
+        <div class="milestone-tracker" id="milestone-tracker">
+          <h3>Collection Milestones</h3>
+          <div class="milestone-list" id="milestone-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDIO TAB -->
+    <section class="tab-content" id="tab-studio">
+      <div class="studio-container">
+        <h2>Studio Room</h2>
+        <div class="studio-level">
+          <span class="studio-lv-label">Studio Level</span>
+          <span class="studio-lv-value" id="studio-level">1</span>
+          <div class="studio-exp-bar">
+            <div class="studio-exp-fill" id="studio-exp-fill"></div>
+          </div>
+          <span class="studio-exp-text" id="studio-exp-text">0 / 200 EXP</span>
+        </div>
+        <!-- Sprint 4: Income Dashboard -->
+        <div class="studio-income-dashboard" id="studio-income-dashboard">
+          <h3>Income Overview</h3>
+          <div class="income-total" id="income-total">0.0 /min</div>
+          <div class="income-breakdown" id="income-breakdown"></div>
+        </div>
+        <!-- Sprint 4: Unlock Roadmap -->
+        <div class="studio-unlock-roadmap" id="studio-unlock-roadmap">
+          <h3>Unlock Roadmap</h3>
+          <div class="unlock-items" id="unlock-items"></div>
+        </div>
+        <div class="stations-grid" id="stations-grid">
+          <!-- Stations are dynamically generated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFILE TAB (Sprint 5) -->
+    <section class="tab-content" id="tab-profile">
+      <div class="profile-container">
+        <h2>Profile</h2>
+
+        <!-- Profile Header -->
+        <div class="profile-header">
+          <div class="profile-id-row">
+            <span class="profile-id-label">Player ID:</span>
+            <span class="profile-id-value" id="profile-player-id">Loading...</span>
+            <button class="btn-icon" id="btn-copy-profile-id" title="Copy Player ID">&copy;</button>
+          </div>
+          <div class="profile-meta">
+            <div class="profile-meta-item">
+              <span class="profile-meta-label">Play Time</span>
+              <span class="profile-meta-value" id="profile-play-time">0d 0h 0m</span>
+            </div>
+            <div class="profile-meta-item">
+              <span class="profile-meta-label">Created</span>
+              <span class="profile-meta-value" id="profile-created-date">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Dashboard -->
+        <div class="stats-dashboard">
+          <div class="stat-card-dashboard">
+            <div class="stat-card-dashboard-label">Total Pulls</div>
+            <div class="stat-card-dashboard-value" id="profile-total-pulls">0</div>
+          </div>
+          <div class="stat-card-dashboard">
+            <div class="stat-card-dashboard-label">Collection</div>
+            <div class="stat-card-dashboard-value" id="profile-collection-pct">0%</div>
+            <div class="stat-card-progress">
+              <div class="stat-card-progress-fill" id="profile-collection-bar"></div>
+            </div>
+          </div>
+          <div class="stat-card-dashboard">
+            <div class="stat-card-dashboard-label">SSR Count</div>
+            <div class="stat-card-dashboard-value" id="profile-ssr-count">0</div>
+          </div>
+          <div class="stat-card-dashboard">
+            <div class="stat-card-dashboard-label">Best SSR Streak</div>
+            <div class="stat-card-dashboard-value" id="profile-ssr-streak">0</div>
+          </div>
+        </div>
+
+        <!-- Rarity Breakdown -->
+        <div class="rarity-breakdown-section">
+          <h3>Rarity Breakdown</h3>
+          <div class="rarity-breakdown-bar">
+            <div class="rarity-segment rarity-segment-normal" id="rb-normal"></div>
+            <div class="rarity-segment rarity-segment-sr" id="rb-sr"></div>
+            <div class="rarity-segment rarity-segment-ssr" id="rb-ssr"></div>
+          </div>
+          <div class="rarity-breakdown-labels">
+            <span class="rarity-label rl-normal"><span id="rb-normal-count">0</span> Normal</span>
+            <span class="rarity-label rl-sr"><span id="rb-sr-count">0</span> SR</span>
+            <span class="rarity-label rl-ssr"><span id="rb-ssr-count">0</span> SSR</span>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="profile-section">
+          <h3>Recent Activity</h3>
+          <div class="activity-log" id="profile-activity-log">
+            <div class="activity-empty">No activity yet. Start pulling!</div>
+          </div>
+        </div>
+
+        <!-- Pull History -->
+        <div class="profile-section">
+          <div class="profile-section-header">
+            <h3>Pull History</h3>
+            <button class="btn btn-secondary btn-sm" id="btn-clear-pull-history">Clear History</button>
+          </div>
+          <div class="pull-history" id="profile-pull-history">
+            <div class="pull-history-empty">No pulls yet.</div>
+          </div>
+        </div>
+
+        <!-- Achievements -->
+        <div class="profile-section">
+          <h3>Achievements <span class="achievement-count" id="achievement-count">0/15</span></h3>
+          <div class="achievement-grid" id="profile-achievement-grid"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="modal-settings" style="display:none;">
+    <div class="modal">
+      <h3>Settings</h3>
+      <div class="settings-group">
+        <h4>Save Data</h4>
+        <button class="btn btn-secondary" id="btn-save-manual">Save Now</button>
+        <button class="btn btn-secondary" id="btn-export-save">Export Save Code</button>
+        <button class="btn btn-secondary" id="btn-import-save">Import Save Code</button>
+        <button class="btn btn-secondary" id="btn-cloud-sync">Sync to Cloud</button>
+        <button class="btn btn-secondary" id="btn-load-cloud">Load from Cloud</button>
+      </div>
+      <div class="settings-group">
+        <h4>Transfer Device</h4>
+        <div class="transfer-section">
+          <label for="input-player-id">Enter your Player ID:</label>
+          <div class="input-row">
+            <input type="text" id="input-player-id" placeholder="MYVT-XXXX-XXXX-XXXX">
+            <button class="btn btn-primary" id="btn-transfer-download">Download Save</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h4>Profile</h4>
+        <div class="stat-row"><span>Total Pulls:</span> <span id="settings-total-pulls">0</span></div>
+        <div class="stat-row"><span>SSR Streak:</span> <span id="settings-ssr-streak">0</span></div>
+        <div class="stat-row"><span>Collection %:</span> <span id="settings-collection-pct">0%</span></div>
+        <div class="stat-row"><span>Studio Level:</span> <span id="settings-studio-lv">1</span></div>
+      </div>
+      <button class="btn btn-danger" id="btn-reset">Reset All Data</button>
+      <button class="modal-close" id="btn-close-settings">&times;</button>
+    </div>
+  </div>
+
+  <!-- Character Detail Modal -->
+  <div class="modal-overlay" id="modal-character" style="display:none;">
+    <div class="modal modal-character">
+      <div class="char-detail" id="char-detail">
+        <!-- Dynamically populated -->
+      </div>
+      <button class="modal-close" id="btn-close-character">&times;</button>
+    </div>
+  </div>
+
+  <!-- Pull Animation Overlay -->
+  <div class="pull-overlay" id="pull-overlay" style="display:none;">
+    <div class="pull-animation" id="pull-animation">
+      <!-- Card flip animations happen here -->
+    </div>
+  </div>
+
+  <!-- Assign Character Modal -->
+  <div class="modal-overlay" id="modal-assign" style="display:none;">
+    <div class="modal">
+      <h3>Assign Character</h3>
+      <input type="text" class="assign-search" id="assign-search" placeholder="Search by name...">
+      <div class="assign-grid" id="assign-grid"></div>
+      <button class="btn btn-secondary" id="btn-close-assign" style="margin-top:var(--space-sm);width:100%;">Cancel</button>
+      <button class="modal-close" id="btn-close-assign-x">&times;</button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/gacha.js"></script>
+  <script src="js/characters.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
