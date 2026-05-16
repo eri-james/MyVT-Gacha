@@ -16,3 +16,13 @@ Thumbs.db
 # Build
 dist/
 *.log
+
+# Backup files
+*.bak
+
+# AI agent workspace (not game code)
+skills/
+
+# Generated / upload artifacts
+upload/
+download/
