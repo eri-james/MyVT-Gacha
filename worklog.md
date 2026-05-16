@@ -51,3 +51,24 @@ Stage Summary:
 - Sprint 5 pushed (commit 016407c): 6 files changed, 902 insertions
 - Live site: https://eri-james.github.io/MyVT-Gacha/
 - Sprint progress: 5/9 complete
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Sprint 8 — Super Chat Toss Minigame
+
+Work Log:
+- Restored repo from commit a9e6f94 (previous session files had lost Sprint 5/7 content)
+- Used subagent to carefully apply minigame changes to the full repo files
+- Created js/minigame.js (568 lines) — complete Super Chat Toss game engine
+- Modified game.js: added minigame state field + migration (3 lines)
+- Modified index.html: added Minigame nav tab, game section, character picker modal, script tag (+83 lines)
+- Modified ui.js: added lead picker, round start, results display — 8 new functions (+175 lines)
+- Modified css/style.css: full minigame styling + 768px responsive (+413 lines)
+- All JS files pass syntax checks
+- Zero existing lines removed — pure additions
+
+Stage Summary:
+- Sprint 8 pushed (commit ef7da23): 5 files changed, 1242 insertions
+- Live site: https://eri-james.github.io/MyVT-Gacha/
+- Key features: 30-second rounds, 5 bubble types, boost meter, SUPER CHAT MODE, character lead bonuses, 5 daily free plays
