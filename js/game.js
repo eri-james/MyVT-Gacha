@@ -272,7 +272,7 @@ const Game = (() => {
   function addStudioExp(amount) {
     state.studio.exp += amount;
     while (true) {
-      const nextLevel = STUDIO_LEVELS.find(l => l.level === state.studio.level + 1);
+      const nextLevel = STATION_LEVELS.find(l => l.level === state.studio.level + 1);
       if (!nextLevel || state.studio.exp < nextLevel.exp) break;
       state.studio.level = nextLevel.level;
     }
@@ -321,8 +321,8 @@ const Game = (() => {
   }
 
   function getStudioExpProgress() {
-    const current = STUDIO_LEVELS.find(l => l.level === state.studio.level);
-    const next = STUDIO_LEVELS.find(l => l.level === state.studio.level + 1);
+    const current = STATION_LEVELS.find(l => l.level === state.studio.level);
+    const next = STATION_LEVELS.find(l => l.level === state.studio.level + 1);
     if (!next) return { current: state.studio.exp, required: state.studio.exp, pct: 100 };
     return {
       current: state.studio.exp - (current ? current.exp : 0),
