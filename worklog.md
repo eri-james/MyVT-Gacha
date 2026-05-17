@@ -184,3 +184,34 @@ Stage Summary:
 - The Studio content disappearance was caused by browser cache serving the old broken game.js (with STUDIO_LEVELS typo that crashed the entire Game module)
 - Cache-busting query strings force the browser to download the latest fixed files
 - Error resilience ensures future bugs won't silently kill the game
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Build portrait self-hosting tools + update game image loading
+
+Work Log:
+- Diagnosed missing card images: hololist.net added Cloudflare Turnstile protection (HTTP 403 on hotlinked images)
+- Created tools/download-portraits.html: browser-based batch downloader with JSZip
+  - 3 load methods: paste JSON, upload file, fetch from URL
+  - 2 fetch modes: direct (no-referrer) and CORS proxy (corsproxy.io)
+  - Progress bar, live log, ETA counter, preview grid
+  - Batch processing (5 concurrent) with retry logic
+  - Auto ZIP generation and download
+- Created tools/download_portraits.py: Python fallback script
+  - Concurrent workers (default 3), configurable delay
+  - cf_clearance cookie support for bypassing Cloudflare
+  - ZIP archive creation, dry-run mode
+- Updated js/data.js: added getImageUrl(slug) and getOriginalImageUrl(slug) helpers
+- Updated all 8 image references across ui.js (7) and minigame.js (1):
+  - Primary src: DataLoader.getImageUrl(slug) → data/portraits/{slug}.jpg
+  - Fallback on error: original hololist.net URL
+  - Final fallback: SVG placeholder
+- Bumped cache buster to v=12 in index.html
+- Committed and pushed as d7274f1
+
+Stage Summary:
+- Portrait self-hosting infrastructure ready — game tries local images first
+- User needs to run the downloader tool, extract ZIP to data/portraits/
+- Commit: d7274f1 (6 files changed, +791 -22)
+- Live site: https://eri-james.github.io/MyVT-Gacha/
