@@ -2232,20 +2232,15 @@ body {
   }
 
   .pull-animation {
-    grid-template-columns: repeat(5, 1fr);
-    gap: var(--space-xs);
+    grid-template-columns: repeat(auto-fill, 90px);
+    gap: var(--space-sm);
     padding: var(--space-sm);
     max-width: 100%;
+    justify-content: center;
   }
   .pull-animation .card-flip {
-    width: 100%;
-    max-width: 72px;
-    height: auto;
-    aspect-ratio: 5/7;
-  }
-  .pull-animation .card-flip-inner {
-    width: 100%;
-    height: 100%;
+    width: 90px;
+    height: 126px;
   }
 
   /* Sprint 8: Minigame responsive */
@@ -2308,24 +2303,19 @@ body {
   }
 
   .pull-animation {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 2px;
+    grid-template-columns: repeat(auto-fill, 80px);
+    gap: var(--space-xs);
     max-width: 100%;
     padding: var(--space-xs);
+    justify-content: center;
   }
   .pull-animation .card-flip {
-    width: 100%;
-    max-width: 60px;
-    height: auto;
-    aspect-ratio: 5/7;
-  }
-  .pull-animation .card-flip-inner {
-    width: 100%;
-    height: 100%;
+    width: 80px;
+    height: 112px;
   }
   .pull-animation.single-pull .card-flip {
-    max-width: 150px;
-    aspect-ratio: 5/7;
+    width: 160px;
+    height: 224px;
   }
   /* Make overlay fit content with safe scrolling */
   .pull-overlay {
