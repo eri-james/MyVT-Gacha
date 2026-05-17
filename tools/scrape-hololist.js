@@ -1,6 +1,7 @@
 /**
  * ============================================================
- *  HoloList Malaysia VTuber Scraper — Chrome DevTools Snippet
+ *  HoloList Malaysia VTuber Scraper + Image Downloader
+ *  Chrome DevTools Snippet v2
  * ============================================================
  *
  *  HOW TO USE:
@@ -8,28 +9,31 @@
  *  2. Wait for the page to fully load (pass Cloudflare check)
  *  3. Press F12 → Console tab
  *  4. Paste this entire script and press Enter
- *  5. It will auto-detect the page structure, scrape all pages,
- *     and download a fresh characters.json
+ *  5. It scrapes all pages, downloads characters_new.json,
+ *     then asks if you want to download portrait images
  *
- *  TIP: If you see a "dry run" preview first, check that the
- *  entries look correct, then the full scrape continues automatically.
+ *  IMAGE DOWNLOAD:
+ *  - Prompts a directory picker (Chrome 86+)
+ *  - Falls back to ZIP download if directory picker unavailable
+ *  - Each image saved as {slug}.jpg
  */
 
 (async function HoloListScraper() {
   'use strict';
 
   // ── Config ──────────────────────────────────────────────
-  const BASE_URL = 'https://hololist.net/category/my/';
-  const DELAY_MS = 1500;          // delay between page fetches
-  const FILENAME = 'characters_new.json';
-  const DRY_RUN_COUNT = 5;        // how many entries to preview
+  const BASE_URL   = 'https://hololist.net/category/my/';
+  const DELAY_MS   = 1500;       // delay between page fetches
+  const IMG_DELAY  = 300;        // delay between image fetches
+  const FILENAME   = 'characters_new.json';
+  const DRY_RUN_CT = 5;          // how many entries to preview
 
   // ── UI helpers ──────────────────────────────────────────
   const banner = document.createElement('div');
   Object.assign(banner.style, {
     position: 'fixed', top: '10px', right: '10px', zIndex: '999999',
     background: '#1a1a2e', color: '#0f0', fontFamily: 'monospace',
-    padding: '16px 20px', borderRadius: '8px', maxWidth: '420px',
+    padding: '16px 20px', borderRadius: '8px', maxWidth: '440px',
     fontSize: '13px', lineHeight: '1.6', boxShadow: '0 4px 24px rgba(0,0,0,.5)',
     overflow: 'auto', maxHeight: '90vh'
   });
@@ -38,17 +42,29 @@
   function log(msg, color) {
     console.log(`%c[Scraper] ${msg}`, color ? `color:${color}` : '');
     banner.innerHTML += `<div style="color:${color || '#0f0'}">${msg}</div>`;
+    banner.scrollTop = banner.scrollHeight;
   }
-  function err(msg) { log(msg, '#f44'); }
+  function err(msg)  { log(msg, '#f44'); }
   function warn(msg) { log(msg, '#ff0'); }
-  function ok(msg) { log(msg, '#0f0'); }
+  function ok(msg)   { log(msg, '#0f0'); }
 
-  // ── Step 1: Detect page structure ───────────────────────
+  // ── Progress bar helper ─────────────────────────────────
+  function progressBar(current, total, label) {
+    const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+    const filled = Math.round(pct / 2.5);
+    const bar = '█'.repeat(filled) + '░'.repeat(40 - filled);
+    log(`${label} [${bar}] ${current}/${total} (${pct}%)`, '#8cf');
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // PHASE 1: SCRAPE
+  // ══════════════════════════════════════════════════════════
+
   ok('🔍 Detecting page structure...');
 
   const candidates = [];
 
-  // Strategy A: Look for article/post elements with links
+  // Strategy A: article/post elements with linked images
   const articles = document.querySelectorAll(
     'article, .post, .entry, .vtuber-card, .card, .item, ' +
     '[class*="entry-"], [class*="post-"], [class*="card-"], ' +
@@ -57,325 +73,349 @@
   );
   articles.forEach(el => {
     const link = el.querySelector('a[href]');
-    const img = el.querySelector('img[src]');
-    if (link && img) {
-      candidates.push({ el, link, img, strategy: 'A (article/post element)' });
-    }
+    const img  = el.querySelector('img[src], img[data-src]');
+    if (link && img) candidates.push({ el, link, img, strategy: 'A' });
   });
 
-  // Strategy B: Look for grid/list containers with linked images
-  if (candidates.length === 0) {
-    const containers = document.querySelectorAll(
-      '.grid, .list, .archive, .content, main, #content, .site-content, ' +
-      '[class*="grid"], [class*="list"], [class*="archive"], ' +
-      '[class*="wrapper"], [class*="container"]'
-    );
-    containers.forEach(container => {
-      const items = container.querySelectorAll(':scope > *');
-      items.forEach(item => {
-        const link = item.querySelector('a[href]');
-        const img = item.querySelector('img[src]');
-        if (link && img) {
-          candidates.push({ el: item, link, img, strategy: 'B (container child)' });
-        }
+  // Strategy B: container children with linked images
+  if (!candidates.length) {
+    document.querySelectorAll(
+      '.grid, .list, .archive, .content, main, #content, ' +
+      '[class*="grid"], [class*="list"], [class*="wrapper"]'
+    ).forEach(c => c.querySelectorAll(':scope > *').forEach(item => {
+      const link = item.querySelector('a[href]');
+      const img  = item.querySelector('img[src], img[data-src]');
+      if (link && img) candidates.push({ el: item, link, img, strategy: 'B' });
+    }));
+  }
+
+  // Strategy C: links matching hololist.net/{slug}/
+  if (!candidates.length) {
+    document.querySelectorAll('a[href]').forEach(a => {
+      const h = a.getAttribute('href') || '';
+      if (/^https?:\/\/hololist\.net\/[^\/]+\/?$/.test(h) &&
+          !h.includes('category') && !h.includes('language') &&
+          !h.includes('page')    && !h.includes('tag')) {
+        const img = a.querySelector('img[src], img[data-src]');
+        if (img) candidates.push({ el: a, link: a, img, strategy: 'C' });
+      }
+    });
+  }
+
+  // Strategy D: any portrait-like images
+  if (!candidates.length) {
+    document.querySelectorAll('img[src*="portrait"], img[src*="300x300"], img[src*="hololist"]')
+      .forEach(img => {
+        let link = img.closest('a[href]') || img.parentElement?.querySelector('a[href]');
+        if (link) candidates.push({ el: link, link, img, strategy: 'D' });
       });
-    });
   }
 
-  // Strategy C: Find all links that point to hololist.net/{slug}/
-  if (candidates.length === 0) {
-    const allLinks = document.querySelectorAll('a[href]');
-    allLinks.forEach(a => {
-      const href = a.getAttribute('href') || '';
-      if (/^https?:\/\/hololist\.net\/[^\/]+\/?$/.test(href) &&
-          !href.includes('category') && !href.includes('language') &&
-          !href.includes('page') && !href.includes('tag')) {
-        const img = a.querySelector('img[src]');
-        if (img) {
-          candidates.push({ el: a, link: a, img, strategy: 'C (hololist link match)' });
-        }
-      }
-    });
-  }
-
-  // Strategy D: Brute force — every img with a portrait-like URL
-  if (candidates.length === 0) {
-    const imgs = document.querySelectorAll('img[src*="portrait"], img[src*="300x300"], img[src*="hololist"]');
-    imgs.forEach(img => {
-      let link = img.closest('a[href]');
-      if (!link) link = img.parentElement?.querySelector('a[href]');
-      if (link) {
-        candidates.push({ el: link, link, img, strategy: 'D (portrait image match)' });
-      }
-    });
-  }
-
-  if (candidates.length === 0) {
+  if (!candidates.length) {
     err('❌ Could not detect any VTuber entries on this page!');
     err('Make sure you are on: https://hololist.net/category/my/');
-    err('Please wait for the page to fully load, then try again.');
-    banner.innerHTML += `
-      <div style="margin-top:12px; color:#88f">
-        <b>Debug info:</b><br>
-        URL: ${location.href}<br>
-        Articles: ${articles.length}<br>
-        Links: ${document.querySelectorAll('a[href]').length}<br>
-        Images: ${document.querySelectorAll('img').length}<br>
-        Portrait imgs: ${document.querySelectorAll('img[src*="portrait"]').length}
-      </div>`;
     return;
   }
+  ok(`✅ Found ${candidates.length} entries (strategy ${candidates[0].strategy})`);
 
-  ok(`✅ Found ${candidates.length} entries using ${candidates[0].strategy}`);
-
-  // ── Step 2: Deduplicate by URL ─────────────────────────
+  // Deduplicate
   const seen = new Set();
-  const unique = [];
-  candidates.forEach(c => {
-    const href = c.link.getAttribute('href') || '';
-    if (!seen.has(href)) {
-      seen.add(href);
-      unique.push(c);
-    }
+  const unique = candidates.filter(c => {
+    const h = c.link.getAttribute('href');
+    if (seen.has(h)) return false;
+    seen.add(h);
+    return true;
   });
 
-  // ── Step 3: Extract data helper ─────────────────────────
-  function extractEntry(candidate) {
-    const href = candidate.link.getAttribute('href') || '';
-    const slug = href.replace(/^https?:\/\/hololist\.net\/|\/$/g, '').split('/')[0] || '';
-    const imgSrc = candidate.img.getAttribute('src') || candidate.img.getAttribute('data-src') || '';
+  // ── Extract data from one candidate ─────────────────────
+  function extractEntry(c) {
+    const href  = c.link.getAttribute('href') || '';
+    const slug  = href.replace(/^https?:\/\/hololist\.net\/|\/$/g, '').split('/')[0] || '';
+    const imgSrc = c.img.getAttribute('src') || c.img.getAttribute('data-src') || '';
 
-    // Get the highest-res image URL
-    let image = imgSrc;
-    if (imgSrc.includes('300x300')) {
-      // Try to get a larger version by removing the size suffix
-      image = imgSrc.replace(/-\d+x\d+\./, '.');
-    }
+    // Prefer higher-res image
+    let image = imgSrc.replace(/-\d+x\d+\./, '.');
 
-    // Get name from the link text, title attr, or img alt
-    let name = candidate.link.textContent?.trim() ||
-               candidate.link.getAttribute('title') ||
-               candidate.img.getAttribute('alt') ||
-               slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    // Name
+    let name = c.link.textContent?.trim() ||
+               c.link.getAttribute('title') ||
+               c.img.getAttribute('alt') ||
+               slug.replace(/-/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+    name = name.replace(/\s*(VTuber|Malaysia|my)\s*$/gi, '').trim();
 
-    // Clean up name
-    name = name.replace(/\s*VTuber.*$/i, '').replace(/\s*Malaysia.*$/i, '').replace(/\s*my\s*$/i, '').trim();
-
-    // Get agency from nearby text
-    const parent = candidate.el.closest('article') || candidate.el.parentElement?.parentElement || candidate.el;
-    const parentText = parent?.textContent || '';
+    // Agency
+    const parent = c.el.closest('article') || c.el.parentElement?.parentElement || c.el;
     let agency = 'Independent';
-
-    // Look for agency/group keywords in parent text
-    const agencyPatterns = [
-      /(?:Agency|Group|Affiliation|Org)[:\s]*([^\n,]+)/i,
-    ];
-    for (const pat of agencyPatterns) {
-      const m = parentText.match(pat);
-      if (m) { agency = m[1].trim(); break; }
-    }
-
-    // Also look for category/tag links
     const catLinks = parent?.querySelectorAll('a[href*="/category/"], a[href*="/tag/"], a[rel="category tag"]');
     if (catLinks?.length) {
       const cats = [...catLinks].map(a => a.textContent.trim()).filter(t =>
         t !== 'VTuber' && t !== 'my' && t !== 'Malaysia' && t !== 'MY' && t.length > 1
       );
-      if (cats.length > 0) agency = cats[0];
+      if (cats.length) agency = cats[0];
     }
 
     return { name, slug, url: href, image, agency };
   }
 
-  // ── Step 4: Dry run — show preview ─────────────────────
-  ok('\n📋 DRY RUN — First ' + Math.min(DRY_RUN_COUNT, unique.length) + ' entries:');
-  const previewEntries = [];
-  for (let i = 0; i < Math.min(DRY_RUN_COUNT, unique.length); i++) {
-    const entry = extractEntry(unique[i]);
-    previewEntries.push(entry);
-    const shortImg = entry.image.length > 60 ? entry.image.slice(0, 60) + '...' : entry.image;
-    console.log(`  ${entry.name} | ${entry.slug} | ${entry.agency} | ${shortImg}`);
-    banner.innerHTML += `<div style="color:#8cf; font-size:11px">
-      ${i + 1}. <b>${entry.name}</b> (${entry.agency}) → ${entry.slug}
-    </div>`;
+  // ── Dry run ─────────────────────────────────────────────
+  ok(`\n📋 DRY RUN — First ${Math.min(DRY_RUN_CT, unique.length)} entries:`);
+  for (let i = 0; i < Math.min(DRY_RUN_CT, unique.length); i++) {
+    const e = extractEntry(unique[i]);
+    banner.innerHTML += `<div style="color:#8cf;font-size:11px">${i+1}. <b>${e.name}</b> (${e.agency})</div>`;
+    console.log(`  ${e.name} | ${e.slug} | ${e.agency}`);
   }
 
-  ok(`\n🔄 Starting full scrape of all pages...`);
-  ok(`Base URL: ${BASE_URL}`);
+  // ── Detect pagination ───────────────────────────────────
+  let maxPage = 1;
+  document.querySelectorAll('a[href*="/page/"]').forEach(a => {
+    const m = a.href.match(/\/page\/(\d+)/);
+    if (m) maxPage = Math.max(maxPage, +m[1]);
+  });
+  const totalMatch = document.body.innerText.match(/Page\s+\d+\s+of\s+(\d+)/i);
+  if (totalMatch) maxPage = Math.max(maxPage, +totalMatch[1]);
 
-  // ── Step 5: Detect total pages ──────────────────────────
-  function detectMaxPage() {
-    // Look for pagination links
-    const pageLinks = document.querySelectorAll('a[href*="/page/"]');
-    let maxPage = 1;
-    pageLinks.forEach(a => {
-      const m = a.href.match(/\/page\/(\d+)/);
-      if (m) maxPage = Math.max(maxPage, parseInt(m[1]));
-    });
+  ok(`\n🔄 Scraping ${maxPage} page(s)...`);
 
-    // Also look for "Page X of Y" text
-    const pageText = document.body.innerText;
-    const totalMatch = pageText.match(/Page\s+\d+\s+of\s+(\d+)/i);
-    if (totalMatch) maxPage = Math.max(maxPage, parseInt(totalMatch[1]));
-
-    return maxPage;
-  }
-
-  const totalPages = detectMaxPage();
-  ok(`Pages detected: ${totalPages} (current = page 1)`);
-
-  // ── Step 6: Scrape all pages ────────────────────────────
-  const allEntries = [];
+  // ── Scrape all pages ────────────────────────────────────
+  const allEntries = new Map();
 
   async function scrapePage(pageNum) {
-    const url = pageNum === 1
-      ? BASE_URL
-      : BASE_URL.replace(/\/$/, '') + `/page/${pageNum}/`;
-
-    ok(`📄 Fetching page ${pageNum}/${totalPages}: ${url}`);
-
+    const url = pageNum === 1 ? BASE_URL : BASE_URL.replace(/\/$/, '') + `/page/${pageNum}/`;
+    ok(`📄 Page ${pageNum}/${maxPage}...`);
     try {
       const resp = await fetch(url, { credentials: 'include' });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const html = await resp.text();
+      const doc = new DOMParser().parseFromString(await resp.text(), 'text/html');
 
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-
-      // Try the same detection strategies on the fetched page
-      let pageCandidates = [];
-
-      // Strategy A
-      const arts = doc.querySelectorAll(
+      let items = [];
+      doc.querySelectorAll(
         'article, .post, .entry, .vtuber-card, .card, .item, ' +
         '[class*="entry-"], [class*="post-"], [class*="card-"], ' +
-        '[class*="item-"], [class*="vtuber"], [class*="profile"], ' +
+        '[class*="item-"], [class*="vtuber"], ' +
         '.type-post, .status-publish'
-      );
-      arts.forEach(el => {
+      ).forEach(el => {
         const link = el.querySelector('a[href]');
-        const img = el.querySelector('img[src], img[data-src]');
-        if (link && img) pageCandidates.push({ el, link, img });
+        const img  = el.querySelector('img[src], img[data-src]');
+        if (link && img) items.push({ el, link, img });
       });
 
-      // Strategy C fallback
-      if (pageCandidates.length === 0) {
-        const allLinks = doc.querySelectorAll('a[href]');
-        allLinks.forEach(a => {
-          const href = a.getAttribute('href') || '';
-          if (/^https?:\/\/hololist\.net\/[^\/]+\/?$/.test(href) &&
-              !href.includes('category') && !href.includes('language') &&
-              !href.includes('page') && !href.includes('tag')) {
+      if (!items.length) {
+        doc.querySelectorAll('a[href]').forEach(a => {
+          const h = a.getAttribute('href') || '';
+          if (/^https?:\/\/hololist\.net\/[^\/]+\/?$/.test(h) &&
+              !h.includes('category') && !h.includes('language') &&
+              !h.includes('page')    && !h.includes('tag')) {
             const img = a.querySelector('img[src], img[data-src]');
-            if (img) pageCandidates.push({ el: a, link: a, img });
+            if (img) items.push({ el: a, link: a, img });
           }
         });
       }
 
-      // Strategy D fallback
-      if (pageCandidates.length === 0) {
-        const imgs = doc.querySelectorAll('img[src*="portrait"], img[src*="300x300"], img[src*="hololist"]');
-        imgs.forEach(img => {
-          let link = img.closest('a[href]');
-          if (!link) link = img.parentElement?.querySelector('a[href]');
-          if (link) pageCandidates.push({ el: link, link, img });
-        });
-      }
-
-      // Deduplicate
-      const seenUrls = new Set();
       let count = 0;
-      pageCandidates.forEach(c => {
-        const href = c.link.getAttribute('href') || '';
-        if (!seenUrls.has(href)) {
-          seenUrls.add(href);
-          const entry = extractEntry(c);
-          allEntries.push(entry);
+      items.forEach(c => {
+        const e = extractEntry(c);
+        if (e.slug && e.name && !allEntries.has(e.slug)) {
+          allEntries.set(e.slug, e);
           count++;
         }
       });
-
-      ok(`   ✅ Extracted ${count} entries from page ${pageNum}`);
+      ok(`   ✅ +${count} entries`);
       return count;
-
     } catch (e) {
-      err(`   ❌ Failed to fetch page ${pageNum}: ${e.message}`);
+      err(`   ❌ ${e.message}`);
       return 0;
     }
   }
 
-  // Scrape page 1 (current page — use DOM directly)
-  {
-    const seenUrls = new Set(allEntries.map(e => e.url));
-    let count = 0;
-    unique.forEach(c => {
-      const href = c.link.getAttribute('href') || '';
-      if (!seenUrls.has(href)) {
-        seenUrls.add(href);
-        const entry = extractEntry(c);
-        allEntries.push(entry);
-        count++;
-      }
-    });
-    ok(`   ✅ Extracted ${count} entries from page 1 (current page)`);
-  }
+  // Page 1 from current DOM
+  unique.forEach(c => {
+    const e = extractEntry(c);
+    if (e.slug && e.name) allEntries.set(e.slug, e);
+  });
+  ok(`   ✅ Page 1 done (${allEntries.size} entries)`);
 
-  // Scrape remaining pages
-  for (let p = 2; p <= totalPages; p++) {
+  // Remaining pages
+  for (let p = 2; p <= maxPage; p++) {
     await scrapePage(p);
     await new Promise(r => setTimeout(r, DELAY_MS));
   }
 
-  // ── Step 7: Deduplicate & validate ──────────────────────
-  const finalMap = new Map();
-  allEntries.forEach(e => {
-    if (e.slug && e.name) {
-      finalMap.set(e.slug, e);
-    }
-  });
-
-  // Remove any non-Malaysia entries (filter out generic links)
-  const entries = [...finalMap.values()].filter(e =>
+  const entries = [...allEntries.values()].filter(e =>
     e.url.includes('hololist.net/') &&
-    !e.slug.includes('category') &&
-    !e.slug.includes('language') &&
-    !e.slug.includes('page') &&
+    !['category','language','page'].some(k => e.slug.includes(k)) &&
     e.slug.length > 1
   );
 
-  // ── Step 8: Compare with old data ──────────────────────
-  ok(`\n📊 Results:`);
-  ok(`Total entries scraped: ${entries.length}`);
-  ok(`Unique slugs: ${new Set(entries.map(e => e.slug)).size}`);
+  ok(`\n📊 Scraped ${entries.length} VTubers, ${new Set(entries.map(e=>e.agency)).size} agencies`);
 
-  const agencies = new Set(entries.map(e => e.agency));
-  ok(`Agencies found: ${agencies.size}`);
-  agencies.forEach(a => {
-    const count = entries.filter(e => e.agency === a).length;
-    banner.innerHTML += `<div style="color:#adf; font-size:11px">  &bull; ${a}: ${count}</div>`;
-  });
-
-  // ── Step 9: Download JSON ───────────────────────────────
+  // ── Download JSON ───────────────────────────────────────
   const json = JSON.stringify(entries, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = FILENAME;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const dl = document.createElement('a');
+  dl.href = blobUrl; dl.download = FILENAME;
+  document.body.appendChild(dl); dl.click(); document.body.removeChild(dl);
+  URL.revokeObjectURL(blobUrl);
+  ok(`✅ Downloaded ${FILENAME}`);
 
-  ok(`\n✅ DONE! Downloaded ${FILENAME}`);
-  ok(`   ${entries.length} VTubers saved.`);
-  ok(`\n📋 Next steps:`);
-  ok('   1. Open the downloaded file and verify the data');
-  ok('   2. Replace data/characters.json with the new file');
-  ok('   3. Commit and push to GitHub');
+  // ══════════════════════════════════════════════════════════
+  // PHASE 2: IMAGE DOWNLOAD
+  // ══════════════════════════════════════════════════════════
 
-  // Also log to console for easy copy-paste
+  ok('\n' + '═'.repeat(40));
+  ok('🖼️  IMAGE DOWNLOAD PHASE');
+  ok('═'.repeat(40));
+
+  // Check if File System Access API is available
+  const hasDirPicker = typeof window.showDirectoryPicker === 'function';
+
+  if (hasDirPicker) {
+    ok('Your browser supports directory picker!');
+    ok('Choose a folder to save images directly...');
+    log('', '');
+
+    try {
+      const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      ok(`📁 Selected: ${dirHandle.name}`);
+      ok(`   Will save ${entries.length} images as {slug}.jpg`);
+
+      let success = 0, fail = 0;
+
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        const imgUrl = e.image;
+
+        progressBar(i, entries.length, `📥 ${e.slug}`);
+
+        try {
+          const resp = await fetch(imgUrl, { credentials: 'include' });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const imgBlob = await resp.blob();
+
+          if (imgBlob.size < 500) {
+            warn(`   ⚠ ${e.slug}: file too small (${imgBlob.size}B), likely broken — skipped`);
+            fail++;
+            continue;
+          }
+
+          const fileHandle = await dirHandle.getFileHandle(`${e.slug}.jpg`, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(imgBlob);
+          await writable.close();
+          success++;
+        } catch (imgErr) {
+          warn(`   ⚠ ${e.slug}: ${imgErr.message}`);
+          fail++;
+        }
+
+        // Small delay to avoid hammering
+        if (i % 10 === 9) await new Promise(r => setTimeout(r, IMG_DELAY));
+      }
+
+      progressBar(entries.length, entries.length, '📥');
+      ok(`\n✅ Image download complete!`);
+      ok(`   ✅ Success: ${success}`);
+      if (fail) err(`   ❌ Failed:  ${fail}`);
+      ok(`   📁 Folder:   ${dirHandle.name}`);
+      ok(`\n📋 Done! You now have:`);
+      ok(`   1. ${FILENAME} — VTuber data`);
+      ok(`   2. ${dirHandle.name}/ — Portrait images`);
+      ok(`\n   Next: replace data/characters.json, copy portraits to data/portraits/`);
+
+    } catch (dirErr) {
+      if (dirErr.name === 'AbortError') {
+        warn('Directory picker cancelled. Falling back to ZIP...');
+      } else {
+        err(`Directory error: ${dirErr.message}. Falling back to ZIP...`);
+      }
+      await downloadAsZip(entries);
+    }
+
+  } else {
+    warn('Directory picker not supported in this browser.');
+    warn('Falling back to ZIP download...');
+    await downloadAsZip(entries);
+  }
+
+  // ── ZIP fallback ────────────────────────────────────────
+  async function downloadAsZip(entries) {
+    ok('📦 Loading JSZip library...');
+
+    // Load JSZip from CDN
+    if (typeof JSZip === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load JSZip'));
+        document.head.appendChild(s);
+      });
+    }
+
+    ok('📦 Downloading images and building ZIP...');
+    const zip = new JSZip();
+    let success = 0, fail = 0;
+
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      progressBar(i, entries.length, `📥 ${e.slug}`);
+
+      try {
+        const resp = await fetch(e.image, { credentials: 'include' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const imgBlob = await resp.blob();
+
+        if (imgBlob.size < 500) {
+          warn(`   ⚠ ${e.slug}: too small (${imgBlob.size}B), skipped`);
+          fail++;
+          continue;
+        }
+
+        zip.file(`${e.slug}.jpg`, imgBlob);
+        success++;
+      } catch (imgErr) {
+        warn(`   ⚠ ${e.slug}: ${imgErr.message}`);
+        fail++;
+      }
+
+      if (i % 10 === 9) await new Promise(r => setTimeout(r, IMG_DELAY));
+    }
+
+    progressBar(entries.length, entries.length, '📦 Compressing...');
+    ok('📦 Compressing ZIP (this may take a moment)...');
+
+    const zipBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    }, (meta) => {
+      const pct = Math.round(meta.percent);
+      if (pct % 10 === 0) log(`   Compressing... ${pct}%`, '#8cf');
+    });
+
+    const sizeMB = (zipBlob.size / 1024 / 1024).toFixed(1);
+    ok(`📦 ZIP ready (${sizeMB} MB)`);
+
+    const zipUrl = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = zipUrl;
+    a.download = 'hololist-my-portraits.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(zipUrl);
+
+    ok(`\n✅ Downloaded hololist-my-portraits.zip`);
+    ok(`   ✅ Images: ${success}`);
+    if (fail) err(`   ❌ Failed: ${fail}`);
+    ok(`   📦 Size:   ${sizeMB} MB`);
+    ok(`\n📋 Done! You now have:`);
+    ok(`   1. ${FILENAME} — VTuber data`);
+    ok(`   2. hololist-my-portraits.zip — Portrait images`);
+    ok(`\n   Extract the ZIP, then copy .jpg files to data/portraits/`);
+  }
+
+  // ── Console log full data ───────────────────────────────
   console.log('\n========== SCRAPED DATA ==========');
-  console.log(json);
+  console.log(JSON.stringify(entries, null, 2));
   console.log('=================================\n');
 })();
