@@ -410,9 +410,9 @@ const Minigame = (() => {
     // Set lead character display
     const charInfo = DataLoader.getBySlug(slug);
     if (charInfo && $streamerAvatar) {
-      $streamerAvatar.src = charInfo.image;
+      $streamerAvatar.src = DataLoader.getImageUrl(charInfo.slug);
       $streamerAvatar.style.display = 'block';
-      $streamerAvatar.onerror = () => { $streamerAvatar.style.display = 'none'; };
+      $streamerAvatar.onerror = () => { $streamerAvatar.src = charInfo.image || $streamerAvatar.src; $streamerAvatar.onerror = () => { $streamerAvatar.style.display = 'none'; }; };
       $streamerName.textContent = charInfo.name;
     }
 

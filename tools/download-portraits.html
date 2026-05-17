@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyVT Gacha - Portrait Downloader</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0e0c;
+    --surface: #1c1b18;
+    --card: #252420;
+    --border: #3a3830;
+    --text: #e8e4d9;
+    --muted: #908e87;
+    --accent: #f0a030;
+    --accent2: #e06040;
+    --success: #50c878;
+    --error: #e05050;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 {
+    font-size: 1.8em;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.95em; }
+
+  /* Instructions */
+  .instructions {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .instructions h2 { font-size: 1.15em; margin-bottom: 12px; color: var(--accent); }
+  .instructions ol { padding-left: 24px; }
+  .instructions li { margin-bottom: 8px; line-height: 1.5; color: var(--muted); font-size: 0.92em; }
+  .instructions li strong { color: var(--text); }
+  .instructions a { color: var(--accent); text-decoration: none; }
+  .instructions a:hover { text-decoration: underline; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #1a1a1a; }
+  .btn-primary:hover:not(:disabled) { background: #f5b040; transform: translateY(-1px); }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover:not(:disabled) { background: var(--border); }
+  .btn-stop { background: var(--error); color: white; }
+  .btn-stop:hover:not(:disabled) { background: #f06060; }
+
+  select {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 0.9em;
+  }
+
+  /* Progress */
+  .progress-bar {
+    width: 100%;
+    height: 24px;
+    background: var(--surface);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+  .stats {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 16px;
+    font-size: 0.85em;
+    color: var(--muted);
+  }
+  .stats span strong { color: var(--text); }
+  .stat-success { color: var(--success) !important; }
+  .stat-success strong { color: var(--success) !important; }
+  .stat-error { color: var(--error) !important; }
+  .stat-error strong { color: var(--error) !important; }
+
+  /* Log */
+  .log-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.8em;
+    line-height: 1.6;
+  }
+  .log-entry { padding: 2px 0; }
+  .log-ok { color: var(--success); }
+  .log-fail { color: var(--error); }
+  .log-warn { color: var(--accent); }
+  .log-info { color: var(--muted); }
+
+  /* Status */
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+  .status-ready { background: #2a4a2a; color: var(--success); }
+  .status-running { background: #4a3a1a; color: var(--accent); }
+  .status-done { background: #1a3a4a; color: #60b0e0; }
+  .status-stopped { background: #4a1a1a; color: var(--error); }
+
+  /* Grid preview */
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 6px;
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .preview-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    opacity: 0.6;
+    transition: opacity 0.3s;
+  }
+  .preview-thumb.loaded { opacity: 1; }
+  .preview-thumb.failed { opacity: 0.2; border-color: var(--error); }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    h1 { font-size: 1.4em; }
+    .controls { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>MyVT Gacha - Portrait Downloader</h1>
+  <p class="subtitle">Download all 319 VTuber portrait images from hololist.net and package as ZIP</p>
+
+  <div class="instructions">
+    <h2>How to Use</h2>
+    <ol>
+      <li><strong>First</strong>, open <a href="https://hololist.net" target="_blank">hololist.net</a> in a new tab and wait for the page to fully load (this gives your browser a Cloudflare clearance cookie).</li>
+      <li>Come back to <strong>this page</strong> and paste your characters.json data below (or load it from a URL).</li>
+      <li>Click <strong>"Start Download"</strong> &mdash; the tool will fetch each image and build a ZIP.</li>
+      <li>When done, click <strong>"Download ZIP"</strong> to save the file. Extract into your repo's <code>data/portraits/</code> folder.</li>
+      <li>If images fail, try the <strong>"CORS Proxy"</strong> mode or run the <strong>Python script</strong> instead.</li>
+    </ol>
+  </div>
+
+  <!-- Input method -->
+  <div class="controls">
+    <select id="loadMethod">
+      <option value="json">Load from JSON string</option>
+      <option value="file">Load from local file</option>
+      <option value="url">Load from URL</option>
+    </select>
+    <button class="btn btn-secondary" id="btnLoad" onclick="loadCharacters()">Load Character Data</button>
+  </div>
+
+  <div id="jsonInput" style="margin-bottom:16px;">
+    <textarea id="charJson" rows="6" style="width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:0.8em;resize:vertical;" placeholder="Paste the contents of data/characters.json here... (it starts with a [ bracket)"></textarea>
+  </div>
+  <div id="fileInput" style="margin-bottom:16px;display:none;">
+    <input type="file" id="charFile" accept=".json" style="color:var(--text);">
+  </div>
+  <div id="urlInput" style="margin-bottom:16px;display:none;">
+    <input type="text" id="charUrl" style="width:100%;padding:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;" placeholder="https://eri-james.github.io/MyVT-Gacha/data/characters.json">
+  </div>
+
+  <!-- Download controls -->
+  <div class="controls" id="downloadControls" style="display:none;">
+    <button class="btn btn-primary" id="btnStart" onclick="startDownload()">Start Download</button>
+    <button class="btn btn-stop" id="btnStop" onclick="stopDownload()" style="display:none;">Stop</button>
+    <button class="btn btn-secondary" id="btnDownloadZip" onclick="downloadZip()" style="display:none;">Download ZIP</button>
+    <span id="statusBadge" class="status-badge status-ready">Ready</span>
+    <select id="fetchMode" title="Download mode">
+      <option value="direct">Direct fetch (same-origin or no-referrer)</option>
+      <option value="proxy">CORS Proxy (corsproxy.io)</option>
+    </select>
+  </div>
+
+  <!-- Progress -->
+  <div id="progressSection" style="display:none;">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="stats">
+      <span>Progress: <strong id="statProgress">0/0</strong></span>
+      <span class="stat-success">Success: <strong id="statSuccess">0</strong></span>
+      <span class="stat-error">Failed: <strong id="statFail">0</strong></span>
+      <span>ETA: <strong id="statEta">--</strong></span>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div id="logContainer" class="log-container" style="display:none;"></div>
+
+  <!-- Preview grid -->
+  <div id="previewSection" class="preview-grid" style="display:none;"></div>
+
+</div>
+
+<script>
+// ─── State ───
+let characters = [];
+let zip = null;
+let running = false;
+let shouldStop = false;
+let successCount = 0;
+let failCount = 0;
+let startTime = 0;
+
+// ─── Toggle input areas ───
+document.getElementById('loadMethod').addEventListener('change', e => {
+  const v = e.target.value;
+  document.getElementById('jsonInput').style.display = v === 'json' ? 'block' : 'none';
+  document.getElementById('fileInput').style.display = v === 'file' ? 'block' : 'none';
+  document.getElementById('urlInput').style.display = v === 'url' ? 'block' : 'none';
+});
+
+// ─── Load character data ───
+async function loadCharacters() {
+  const method = document.getElementById('loadMethod').value;
+  let data = null;
+
+  try {
+    if (method === 'json') {
+      const raw = document.getElementById('charJson').value.trim();
+      if (!raw) { log('Paste JSON data first!', 'warn'); return; }
+      data = JSON.parse(raw);
+    } else if (method === 'file') {
+      const file = document.getElementById('charFile').files[0];
+      if (!file) { log('Select a file first!', 'warn'); return; }
+      const text = await file.text();
+      data = JSON.parse(text);
+    } else if (method === 'url') {
+      const url = document.getElementById('charUrl').value.trim();
+      if (!url) { log('Enter a URL first!', 'warn'); return; }
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      data = await resp.json();
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('Invalid data: expected a non-empty JSON array');
+    }
+
+    characters = data;
+    log(`Loaded ${characters.length} characters from ${method}`, 'ok');
+
+    // Build preview grid
+    const grid = document.getElementById('previewSection');
+    grid.innerHTML = '';
+    grid.style.display = 'grid';
+    characters.forEach(c => {
+      const img = document.createElement('img');
+      img.className = 'preview-thumb';
+      img.alt = c.name;
+      img.title = c.name;
+      img.src = c.image;
+      img.onload = () => img.classList.add('loaded');
+      img.onerror = () => img.classList.add('failed');
+      grid.appendChild(img);
+    });
+
+    // Show download controls
+    document.getElementById('downloadControls').style.display = 'flex';
+    document.getElementById('btnStart').disabled = false;
+    log('Preview grid loaded. Images that appear are fetchable. Red-border ones will likely fail.', 'info');
+    log('TIP: If many previews are broken, try visiting hololist.net first, or use CORS Proxy mode.', 'info');
+
+  } catch (err) {
+    log(`Load failed: ${err.message}`, 'fail');
+  }
+}
+
+// ─── Get fetch URL based on mode ───
+function getFetchUrl(originalUrl) {
+  const mode = document.getElementById('fetchMode').value;
+  if (mode === 'proxy') {
+    return 'https://corsproxy.io/?' + encodeURIComponent(originalUrl);
+  }
+  return originalUrl;
+}
+
+// ─── Download one image as blob ───
+async function fetchImage(char) {
+  const url = getFetchUrl(char.image);
+  const slug = char.slug;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const resp = await fetch(url, {
+        mode: 'cors',
+        cache: 'no-store'
+      });
+
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const blob = await resp.blob();
+      if (blob.size < 100) {
+        throw new Error('File too small (likely error page)');
+      }
+
+      // Derive extension from content-type or original URL
+      let ext = '.jpg';
+      const ct = resp.headers.get('content-type') || '';
+      if (ct.includes('png')) ext = '.png';
+      else if (ct.includes('webp')) ext = '.webp';
+      else if (ct.includes('gif')) ext = '.gif';
+
+      return { blob, filename: `${slug}${ext}`, slug };
+    } catch (err) {
+      if (attempt === 2) {
+        throw err;
+      }
+      // Wait briefly and retry
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+}
+
+// ─── Main download loop ───
+async function startDownload() {
+  if (characters.length === 0) {
+    log('Load character data first!', 'warn');
+    return;
+  }
+
+  running = true;
+  shouldStop = false;
+  successCount = 0;
+  failCount = 0;
+  zip = new JSZip();
+
+  // UI updates
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('btnStart').style.display = 'none';
+  document.getElementById('btnStop').style.display = 'inline-block';
+  document.getElementById('btnDownloadZip').style.display = 'none';
+  document.getElementById('progressSection').style.display = 'block';
+  document.getElementById('logContainer').style.display = 'block';
+  setStatus('running', 'Downloading...');
+  startTime = Date.now();
+
+  log(`Starting download of ${characters.length} images (mode: ${document.getElementById('fetchMode').value})`, 'info');
+  log('─'.repeat(50), 'info');
+
+  // Process in batches of 5 for speed without overwhelming
+  const batchSize = 5;
+  for (let i = 0; i < characters.length; i += batchSize) {
+    if (shouldStop) break;
+
+    const batch = characters.slice(i, Math.min(i + batchSize, characters.length));
+    const promises = batch.map(async (char) => {
+      const idx = i + batch.indexOf(char) + 1;
+      try {
+        const result = await fetchImage(char);
+        zip.file(result.filename, result.blob);
+        successCount++;
+        log(`[${idx}/${characters.length}] OK: ${char.name} (${result.filename}, ${(result.blob.size / 1024).toFixed(1)}KB)`, 'ok');
+      } catch (err) {
+        failCount++;
+        log(`[${idx}/${characters.length}] FAIL: ${char.name} - ${err.message}`, 'fail');
+      }
+      updateProgress(idx, characters.length);
+    });
+
+    await Promise.all(promises);
+  }
+
+  // Done
+  running = false;
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  if (shouldStop) {
+    setStatus('stopped', 'Stopped');
+    log(`Stopped at ${successCount + failCount}/${characters.length} after ${elapsed}s`, 'warn');
+  } else {
+    setStatus('done', 'Complete');
+    log('─'.repeat(50), 'info');
+    log(`Done in ${elapsed}s | Success: ${successCount} | Failed: ${failCount}`, 'ok');
+  }
+
+  if (successCount > 0) {
+    log('Click "Download ZIP" to save the file.', 'info');
+    document.getElementById('btnDownloadZip').style.display = 'inline-block';
+  }
+
+  document.getElementById('btnStop').style.display = 'none';
+  document.getElementById('btnStart').style.display = 'inline-block';
+  document.getElementById('btnStart').disabled = false;
+
+  if (failCount > 0) {
+    log('', 'info');
+    log('Some images failed. You can:', 'warn');
+    log('1. Try the other fetch mode (Direct / CORS Proxy)', 'info');
+    log('2. Make sure you visited hololist.net first to get Cloudflare clearance', 'info');
+    log('3. Use the Python script instead (see README)', 'info');
+    log('', 'info');
+    log('Failed images list:', 'warn');
+    characters.forEach((c, idx) => {
+      const logEl = document.getElementById('logContainer');
+      // We tracked failures above, but let's print a summary
+    });
+  }
+}
+
+function stopDownload() {
+  shouldStop = true;
+  log('Stopping after current batch finishes...', 'warn');
+}
+
+// ─── Download ZIP ───
+async function downloadZip() {
+  if (!zip) return;
+  log('Generating ZIP file...', 'info');
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } }, (meta) => {
+    // Could show ZIP generation progress here
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `myvt-portraits-${successCount}of${characters.length}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
+  log(`ZIP downloaded! (${sizeMB} MB, ${successCount} images)`, 'ok');
+}
+
+// ─── Helpers ───
+function updateProgress(current, total) {
+  const pct = Math.round((current / total) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('statProgress').textContent = `${current}/${total}`;
+  document.getElementById('statSuccess').textContent = successCount;
+  document.getElementById('statFail').textContent = failCount;
+
+  // ETA
+  if (current > 0) {
+    const elapsed = (Date.now() - startTime) / 1000;
+    const rate = current / elapsed;
+    const remaining = (total - current) / rate;
+    const mins = Math.floor(remaining / 60);
+    const secs = Math.floor(remaining % 60);
+    document.getElementById('statEta').textContent = remaining > 0 ? `${mins}m ${secs}s` : '--';
+  }
+}
+
+function setStatus(type, text) {
+  const badge = document.getElementById('statusBadge');
+  badge.className = 'status-badge status-' + type;
+  badge.textContent = text;
+}
+
+function log(msg, type = 'info') {
+  const container = document.getElementById('logContainer');
+  container.style.display = 'block';
+  const div = document.createElement('div');
+  div.className = 'log-entry log-' + type;
+  const time = new Date().toLocaleTimeString();
+  div.textContent = `[${time}] ${msg}`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// ─── Pre-load the textarea with a hint ───
+log('Portrait Downloader ready. Load character data to begin.', 'info');
+</script>
+</body>
+</html>

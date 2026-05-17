@@ -523,10 +523,10 @@ const UI = (() => {
     back.className = `card-flip-back char-card variant-${result.variant}`;
     const img = document.createElement('img');
     img.className = 'char-card-img';
-    img.src = result.character.image;
+    img.src = DataLoader.getImageUrl(result.character.slug);
     img.alt = result.character.name;
     img.loading = 'eager';
-    img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231c1b18"><rect width="300" height="300"/><text x="150" y="160" text-anchor="middle" fill="%23908e87" font-size="14">No Image</text></svg>'; };
+    img.onerror = () => { img.src = result.character.image || img.src; img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231c1b18"><rect width="300" height="300"/><text x="150" y="160" text-anchor="middle" fill="%23908e87" font-size="14">No Image</text></svg>'; }; };
 
     const overlay = document.createElement('div');
     overlay.className = 'char-card-overlay';
@@ -767,11 +767,11 @@ const UI = (() => {
 
     const img = document.createElement('img');
     img.className = 'char-card-img';
-    img.src = char.image;
+    img.src = DataLoader.getImageUrl(char.slug);
     img.alt = char.name;
     img.loading = 'lazy';
     img.style.opacity = owned ? '1' : '0.3';
-    img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231c1b18"><rect width="300" height="300"/><text x="150" y="160" text-anchor="middle" fill="%23908e87" font-size="14">No Image</text></svg>'; };
+    img.onerror = () => { img.src = char.image || img.src; img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231c1b18"><rect width="300" height="300"/><text x="150" y="160" text-anchor="middle" fill="%23908e87" font-size="14">No Image</text></svg>'; }; };
 
     const overlay = document.createElement('div');
     overlay.className = 'char-card-overlay';
@@ -923,7 +923,7 @@ const UI = (() => {
         </div>
         <div class="station-slot${assigned ? ' assigned' : ''}" data-station="${stationId}">
           ${assigned && assignedChar
-            ? `<img src="${assignedChar.image}" alt="${assignedChar.name}" onerror="this.style.display='none'">
+            ? `<img src="${DataLoader.getImageUrl(assignedChar.slug)}" alt="${assignedChar.name}" onerror="this.onerror=function(){this.src='${assignedChar.image}';this.onerror=function(){this.style.display='none'};}">
                <div class="station-slot-name">${assignedChar.name}</div>`
             : `<span class="station-slot-empty-text">${isLocked ? 'Locked' : 'Tap to assign'}</span>`
           }
@@ -1067,7 +1067,7 @@ const UI = (() => {
     }
 
     detail.innerHTML = `
-      <img class="char-detail-img" src="${data.image}" alt="${data.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22260%22 fill=%22%231c1b18%22><rect width=%22200%22 height=%22260%22/><text x=%22100%22 y=%22140%22 text-anchor=%22middle%22 fill=%22%23908e87%22 font-size=%2214%22>No Image</text></svg>'">
+      <img class="char-detail-img" src="${DataLoader.getImageUrl(data.slug)}" alt="${data.name}" onerror="this.onerror=function(){this.src='${data.image}';this.onerror=function(){this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22260%22 fill=%22%231c1b18%22><rect width=%22200%22 height=%22260%22/><text x=%22100%22 y=%22140%22 text-anchor=%22middle%22 fill=%22%23908e87%22 font-size=%2214%22>No Image</text></svg>';};}">
       <div class="char-detail-name">${data.name}</div>
       <div class="char-detail-agency">${data.agency}</div>
       <div class="char-detail-variants">
@@ -1246,9 +1246,9 @@ const UI = (() => {
       el.className = 'assign-char';
 
       const img = document.createElement('img');
-      img.src = charInfo.image;
+      img.src = DataLoader.getImageUrl(charInfo.slug);
       img.alt = charInfo.name;
-      img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="%231c1b18"><rect width="120" height="160"/><text x="60" y="85" text-anchor="middle" fill="%23908e87" font-size="12">No Img</text></svg>'; };
+      img.onerror = () => { img.src = charInfo.image || img.src; img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="%231c1b18"><rect width="120" height="160"/><text x="60" y="85" text-anchor="middle" fill="%23908e87" font-size="12">No Img</text></svg>'; }; };
 
       const info = document.createElement('div');
       info.className = 'assign-char-info';
@@ -1382,10 +1382,10 @@ const UI = (() => {
     if (_scLeadSlug) {
       const charInfo = DataLoader.getBySlug(_scLeadSlug);
       if (charInfo) {
-        img.src = charInfo.image;
+        img.src = DataLoader.getImageUrl(charInfo.slug);
         img.style.display = 'block';
         img.alt = charInfo.name;
-        img.onerror = () => { img.style.display = 'none'; };
+        img.onerror = () => { img.src = charInfo.image || img.src; img.onerror = () => { img.style.display = 'none'; }; };
         name.textContent = charInfo.name;
         return;
       }
@@ -1444,9 +1444,9 @@ const UI = (() => {
       el.className = 'assign-char';
 
       const img = document.createElement('img');
-      img.src = charInfo.image;
+      img.src = DataLoader.getImageUrl(charInfo.slug);
       img.alt = charInfo.name;
-      img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="%231c1b18"><rect width="120" height="160"/><text x="60" y="85" text-anchor="middle" fill="%23908e87" font-size="12">No Img</text></svg>'; };
+      img.onerror = () => { img.src = charInfo.image || img.src; img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" fill="%231c1b18"><rect width="120" height="160"/><text x="60" y="85" text-anchor="middle" fill="%23908e87" font-size="12">No Img</text></svg>'; }; };
 
       const info = document.createElement('div');
       info.className = 'assign-char-info';
