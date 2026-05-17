@@ -626,7 +626,7 @@ const Game = (() => {
     assignToStation, unassignStation, upgradeStation,
     getStudioExpProgress, getPullHistory, checkMilestones, getMilestones,
     getCharacterStation, MILESTONES,
-    STATION_DEFS, STUDIO_LEVELS, STATION_UPGRADE_COSTS,
+    STATION_DEFS, STATION_LEVELS, STATION_UPGRADE_COSTS,
     STATION_MULTIPLIERS, VARIANT_MULTIPLIERS, LEVEL_CAPS,
     BASE_RATES, getLevelCost, ASCENSION_COSTS,
     getBestVariant, SAVE_KEY,

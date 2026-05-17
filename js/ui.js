@@ -272,7 +272,7 @@ const UI = (() => {
     const currentLv = Game.getState().studio.level;
     if (currentLv > _lastStudioLevel && _lastStudioLevel > 0) {
       const newLv = currentLv;
-      const unlock = Game.STUDIO_LEVELS.find(l => l.level === newLv);
+      const unlock = Game.STATION_LEVELS.find(l => l.level === newLv);
       const unlockText = unlock ? `Unlocked: ${unlock.unlocks}` : '';
       showToast(`Studio leveled up to Lv ${newLv}! ${unlockText}`, 'success');
       _lastStudioLevel = newLv;
@@ -1017,7 +1017,7 @@ const UI = (() => {
     const container = document.getElementById('unlock-items');
     container.innerHTML = '';
 
-    Game.STUDIO_LEVELS.forEach(lv => {
+    Game.STATION_LEVELS.forEach(lv => {
       const isUnlocked = state.studio.level >= lv.level;
       const isCurrent = state.studio.level === lv.level;
       const isNext = state.studio.level === lv.level - 1;
