@@ -253,7 +253,16 @@ const Game = (() => {
   function claimOfflineEarnings() {
     const offline = getOfflineEarnings();
     if (!offline) return null;
+    return applyOfflineEarnings(offline);
+  }
 
+  // Accept pre-calculated offline result (avoids race condition with tick loop)
+  function claimCachedOfflineEarnings(offline) {
+    if (!offline || !offline.earnings) return null;
+    return applyOfflineEarnings(offline);
+  }
+
+  function applyOfflineEarnings(offline) {
     state.currencies.stars += Math.floor(offline.earnings.stars);
     state.currencies.starDust += Math.floor(offline.earnings.starDust);
     state.currencies.starFragments += Math.floor(offline.earnings.starFragments);
@@ -609,7 +618,7 @@ const Game = (() => {
   return {
     load, save, getState, resetState,
     startTickLoop, startAutoSave, stopLoops,
-    getOfflineEarnings, claimOfflineEarnings,
+    getOfflineEarnings, claimOfflineEarnings, claimCachedOfflineEarnings,
     getDailyLoginReward, claimDailyLogin,
     exportSaveCode, importSaveCode,
     onStateChange, notifyStateChange, getCollectionStats,
@@ -617,7 +626,7 @@ const Game = (() => {
     assignToStation, unassignStation, upgradeStation,
     getStudioExpProgress, getPullHistory, checkMilestones, getMilestones,
     getCharacterStation, MILESTONES,
-    STATION_DEFS, STATION_LEVELS, STATION_UPGRADE_COSTS,
+    STATION_DEFS, STUDIO_LEVELS, STATION_UPGRADE_COSTS,
     STATION_MULTIPLIERS, VARIANT_MULTIPLIERS, LEVEL_CAPS,
     BASE_RATES, getLevelCost, ASCENSION_COSTS,
     getBestVariant, SAVE_KEY,

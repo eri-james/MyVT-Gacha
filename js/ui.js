@@ -46,12 +46,20 @@ const UI = (() => {
 
     // Home actions
     document.getElementById('btn-claim-offline').addEventListener('click', () => {
-      const result = Game.claimOfflineEarnings();
+      // Use cached result to avoid race condition with tick loop overwriting lastOnline
+      let result = null;
+      if (_cachedOfflineResult) {
+        result = Game.claimCachedOfflineEarnings(_cachedOfflineResult);
+        _cachedOfflineResult = null;
+      }
       if (result) {
         const e = result.earnings;
         showToast(`Claimed ${result.minutes}min offline: +${Math.floor(e.stars)} Stars, +${Math.floor(e.starDust)} Dust, +${Math.floor(e.starFragments)} Fragments`, 'success');
         document.getElementById('btn-claim-offline').style.display = 'none';
         updateUI();
+      } else {
+        showToast('No offline earnings to claim.', 'warning');
+        document.getElementById('btn-claim-offline').style.display = 'none';
       }
     });
 
@@ -264,7 +272,7 @@ const UI = (() => {
     const currentLv = Game.getState().studio.level;
     if (currentLv > _lastStudioLevel && _lastStudioLevel > 0) {
       const newLv = currentLv;
-      const unlock = Game.STATION_LEVELS.find(l => l.level === newLv);
+      const unlock = Game.STUDIO_LEVELS.find(l => l.level === newLv);
       const unlockText = unlock ? `Unlocked: ${unlock.unlocks}` : '';
       showToast(`Studio leveled up to Lv ${newLv}! ${unlockText}`, 'success');
       _lastStudioLevel = newLv;
@@ -302,9 +310,13 @@ const UI = (() => {
   }
 
   // ── Offline Earnings ──
+  let _cachedOfflineResult = null;
+
   function checkOfflineEarnings() {
     const offline = Game.getOfflineEarnings();
     if (offline) {
+      // Cache result so tick loop doesn't destroy the timestamp before user clicks
+      _cachedOfflineResult = offline;
       const btn = document.getElementById('btn-claim-offline');
       const totalStars = Math.floor(offline.earnings.stars);
       btn.textContent = `Claim Offline (${Math.round(offline.minutes)}min) +${formatNum(totalStars)} Stars`;
@@ -1005,7 +1017,7 @@ const UI = (() => {
     const container = document.getElementById('unlock-items');
     container.innerHTML = '';
 
-    Game.STATION_LEVELS.forEach(lv => {
+    Game.STUDIO_LEVELS.forEach(lv => {
       const isUnlocked = state.studio.level >= lv.level;
       const isCurrent = state.studio.level === lv.level;
       const isNext = state.studio.level === lv.level - 1;
