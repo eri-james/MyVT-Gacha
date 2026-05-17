@@ -18,6 +18,7 @@ const UI = (() => {
       Game.startTickLoop();
       Game.startAutoSave();
       bindEvents();
+      setupResponsiveResources();
       setupFeaturedBanner();
       populateAgencyFilter();
       updateUI();
@@ -174,6 +175,39 @@ const UI = (() => {
   }
 
   let _featuredDisplay = [];
+
+  // ── Responsive: Move resources to footer on mobile ──
+  let _resourcesInFooter = false;
+  function setupResponsiveResources() {
+    const resources = document.querySelector('.nav-resources');
+    const topNav = document.getElementById('top-nav');
+    const mobileFooter = document.getElementById('mobile-footer');
+    if (!resources || !topNav || !mobileFooter) return;
+
+    function moveResources() {
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile && !_resourcesInFooter) {
+        mobileFooter.appendChild(resources);
+        _resourcesInFooter = true;
+      } else if (!isMobile && _resourcesInFooter) {
+        // Re-insert before the settings button
+        const settingsBtn = document.getElementById('btn-settings');
+        topNav.insertBefore(resources, settingsBtn);
+        _resourcesInFooter = false;
+      }
+    }
+
+    moveResources();
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(moveResources, 100);
+    });
+    // Also handle orientation change for mobile
+    window.addEventListener('orientationchange', () => {
+      setTimeout(moveResources, 150);
+    });
+  }
 
   function setupFeaturedBanner() {
     _featuredDisplay = Gacha.generateFeatured();

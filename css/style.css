@@ -65,6 +65,7 @@
 
   /* Layout */
   --nav-height: 56px;
+  --footer-height: 48px;
   --max-width: 1200px;
 }
 
@@ -2111,32 +2112,76 @@ body {
 }
 
 /* ═══════════════════════════════════════════════
+   MOBILE FOOTER (Resource Bar)
+   ═══════════════════════════════════════════════ */
+
+#mobile-footer {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
+  /* Hide brand logo on mobile — give tabs full width */
+  .nav-brand {
+    display: none;
+  }
+
+  /* Hide resources from top nav on mobile (moved to footer by JS) */
+  #top-nav .nav-resources {
+    display: none;
+  }
+
+  /* Mobile footer: persistent resource bar at bottom */
+  #mobile-footer {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: var(--footer-height);
+    background: var(--bg-section);
+    border-top: 1px solid var(--border);
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: 0 var(--space-sm);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  #mobile-footer .nav-resources {
+    display: flex;
+    gap: var(--space-xs);
+    align-items: center;
+    justify-content: center;
+  }
+  #mobile-footer .resource {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+  }
+  #mobile-footer .resource::before {
+    display: none;
+  }
+  #mobile-footer .stamina-bar-mini {
+    min-width: 30px;
+  }
+
   #top-nav {
     padding: 0 var(--space-sm);
     gap: var(--space-sm);
-  }
-  .nav-brand {
-    font-size: 0.9rem;
   }
   .nav-tab {
     font-size: 0.8rem;
     padding: var(--space-xs) var(--space-sm);
   }
-  .resource {
-    font-size: 0.75rem;
-    padding: 3px 6px;
-  }
-  .resource::before {
-    display: none;
+
+  /* Account for footer in main content */
+  #main-content {
+    padding: var(--space-md) var(--space-sm) calc(var(--footer-height) + var(--space-md));
   }
 
-  #main-content {
-    padding: var(--space-md) var(--space-sm);
-  }
 
   .home-welcome h1 {
     font-size: 1.4rem;
@@ -2187,7 +2232,6 @@ body {
     width: 90px;
     height: 126px;
   }
-}
 
   /* Sprint 8: Minigame responsive */
   .sc-game-area {
@@ -2202,16 +2246,18 @@ body {
 }
 
 @media (max-width: 480px) {
-  .nav-resources {
+  /* Footer resource tweaks for very small screens */
+  #mobile-footer .nav-resources {
     gap: 2px;
   }
-  .resource span {
-    display: none;
-  }
-  .resource {
-    min-width: 32px;
+  #mobile-footer .resource {
+    min-width: 28px;
     justify-content: center;
-    padding: 4px 6px;
+    padding: 3px 5px;
+    font-size: 0.7rem;
+  }
+  #mobile-footer .resource span {
+    display: none;
   }
   /* Hide text nav stamina on very small screens, keep bar only */
   #res-stamina-val {
