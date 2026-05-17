@@ -621,6 +621,24 @@ body {
   font-weight: 700;
 }
 
+.char-card-shard-indicator {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  background: #e53935;
+  border: 2px solid var(--bg-card);
+  border-radius: 50%;
+  z-index: 4;
+  box-shadow: 0 0 6px rgba(229, 57, 53, 0.6);
+  animation: shardPulse 2s ease-in-out infinite;
+}
+@keyframes shardPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 6px rgba(229, 57, 53, 0.4); }
+  50% { transform: scale(1.15); box-shadow: 0 0 12px rgba(229, 57, 53, 0.7); }
+}
+
 .char-card-lock {
   position: absolute;
   inset: 0;

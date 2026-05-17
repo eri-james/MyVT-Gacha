@@ -8,7 +8,7 @@ const Minigame = (() => {
   const STAMINA_COST = 15;
   const SUPER_MODE_DURATION = 5;
   const BOOST_DECAY_RATE = 1;
-  const BUBBLE_BASE_SPEED = 80; // px/s
+  const BUBBLE_BASE_SPEED = 120; // px/s (was 80, increased 1.5x)
   const GEM_REWARD_THRESHOLDS = [250, 500, 1000];
 
   const BUBBLE_DEFS = {
@@ -21,10 +21,10 @@ const Minigame = (() => {
 
   // Difficulty: [startSec, endSec, spawnIntervalMs, landmineWeight]
   const DIFFICULTY = [
-    { start: 0,  end: 8,  interval: 1200, lmW: 8  },
-    { start: 8,  end: 16, interval: 900,  lmW: 12 },
-    { start: 16, end: 24, interval: 600,  lmW: 16 },
-    { start: 24, end: 99, interval: 400,  lmW: 20 },
+    { start: 0,  end: 8,  interval: 1200, lmW: 14 },
+    { start: 8,  end: 16, interval: 900,  lmW: 20 },
+    { start: 16, end: 24, interval: 600,  lmW: 26 },
+    { start: 24, end: 99, interval: 400,  lmW: 32 },
   ];
 
   // ── Game State ──

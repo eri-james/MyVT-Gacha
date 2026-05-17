@@ -800,6 +800,14 @@ const UI = (() => {
       card.appendChild(badge);
     }
 
+    // Shard indicator — red circle if unconverted shards available
+    if (owned && charData.shards > 0 && !charData.variants.includes('ssr')) {
+      const shardDot = document.createElement('div');
+      shardDot.className = 'char-card-shard-indicator';
+      shardDot.title = `${charData.shards} shard${charData.shards > 1 ? 's' : ''} available`;
+      card.appendChild(shardDot);
+    }
+
     // Station indicator badge
     if (assignedStation) {
       const stBadge = document.createElement('div');
