@@ -1,4 +1,34 @@
 ---
+Task ID: 1
+Agent: Main Agent
+Task: Generate GDD v3.1 PDF with Monetisation Methods section
+
+Work Log:
+- Read existing GDD v2.0 generation script (ReportLab, 15 sections, 1006 lines)
+- Read existing cover HTML template (gdd_cover.html) for design reference
+- Created new generate_gdd_v31_body.py (~1300 lines) with all v2 content preserved
+- Updated version references from "v2.0" to "v3.1" throughout
+- Updated footer text from "GDD v2.0" to "GDD v3.1"
+- Added Section 12: Firebase Cloud Save (8 subsections: Overview, Architecture, Data Model, Sync Strategy, Free Tier Analysis, Security Rules, Privacy, Sprint 9 Implementation Plan)
+- Added Section 17: Monetisation Methods (Future Plans) (9 subsections: Philosophy, Cosmetic Card Skins, Battle Pass, Supporter Membership, VTuber Collaboration Banners, Physical Merch Tie-In, Ad-Supported Free Pulls, Revenue Projection Model, Recommended Strategy with phased rollout)
+- Renumbered old sections 12-15 to 13-16
+- Each monetisation option includes a detailed comparison table (Description, Revenue Potential, Dev Effort, Community Impact, Implementation Sprint)
+- Revenue projection table covers 4 DAU milestones (100, 1K, 10K, 100K) for top 3 models
+- Updated cover HTML for v3.1 (version badge, subtitle, added "17 sections" pill)
+- Generated cover PDF using html2pdf-next.js (1 page, 101.9 KB)
+- Generated body PDF using ReportLab (32 pages)
+- Merged cover + body into final PDF (33 pages total)
+- Quality check passed: 7 checks OK, 5 warnings (metadata only, no content issues)
+
+Stage Summary:
+- GDD v3.1 PDF generated at /home/z/my-project/download/MyVT_Gacha_GDD_v3.1.pdf
+- 33 total pages (1 cover + 32 body), 259.6 KB file size
+- 17 total sections (was 15 in v2.0)
+- New sections: Firebase Cloud Save (#12), Monetisation Methods (#17)
+- All monetisation options presented as evaluation/consideration, not decided plans
+- Generation script: /home/z/my-project/download/generate_gdd_v31_body.py
+
+---
 Task ID: 4
 Agent: Main Agent
 Task: Sprint 4 — Studio Room Improvements
