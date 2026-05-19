@@ -80,9 +80,9 @@ const UI = (() => {
       if (result) {
         const e = result.earnings;
         const parts = [];
-        if (e.vgems) parts.push(`${currencyIcon('vgems', 12)}+${Math.floor(e.vgems)}`);
-        if (e.vringgit) parts.push(`${currencyIcon('vringgit', 12)}+${Math.floor(e.vringgit)}`);
-        if (e.blueTicket) parts.push(`${currencyIcon('ticket_blue', 12)}+${Math.floor(e.blueTicket)}`);
+        if (e.vgems) parts.push(`VGems +${Math.floor(e.vgems)}`);
+        if (e.vringgit) parts.push(`VRinggit +${Math.floor(e.vringgit)}`);
+        if (e.blueTicket) parts.push(`Blue Tickets +${Math.floor(e.blueTicket)}`);
         showToast(`Claimed ${result.minutes}min offline: ${parts.join(', ') || 'nothing'}`, 'success');
         document.getElementById('btn-claim-offline').style.display = 'none';
         updateUI();
@@ -95,7 +95,7 @@ const UI = (() => {
     document.getElementById('btn-daily-login').addEventListener('click', () => {
       const reward = Game.claimDailyLogin();
       if (reward) {
-        showToast(`Day ${reward.streak} login! ${currencyIcon('vgems', 12)}+${reward.vgems} ${currencyIcon('ticket_blue', 12)}+${reward.tickets}`, 'success');
+        showToast(`Day ${reward.streak} login! VGems +${reward.vgems}, Blue Tickets +${reward.tickets}`, 'success');
         updateUI();
       } else {
         showToast('Already claimed today!', 'warning');
@@ -416,9 +416,9 @@ const UI = (() => {
     if (reached.length > 0) {
       for (const m of reached) {
         const parts = [];
-        if (m.vgems) parts.push(`${currencyIcon('vgems', 12)}+${formatNum(m.vgems)}`);
-        if (m.vringgit) parts.push(`${currencyIcon('vringgit', 12)}+${formatNum(m.vringgit)}`);
-        if (m.tickets) parts.push(`${currencyIcon('ticket_blue', 12)}+${m.tickets}`);
+        if (m.vgems) parts.push(`VGems +${formatNum(m.vgems)}`);
+        if (m.vringgit) parts.push(`VRinggit +${formatNum(m.vringgit)}`);
+        if (m.tickets) parts.push(`Blue Tickets +${m.tickets}`);
         showToast(`Milestone: ${m.label} ${parts.join(', ')}`, 'success');
       }
       renderMilestones();
