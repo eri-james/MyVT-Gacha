@@ -2,12 +2,36 @@
    ui.js — All UI Rendering, Navigation, Animations
    ═══════════════════════════════════════════════ */
 
+// ── Global Currency SVG Icons (shared across modules) ──
+const CurrencyIcons = {
+  vgems: function(size = 14) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:2px;"><path d="M12 2L14.5 8.5L21 9.5L16 14L17.5 21L12 17.5L6.5 21L8 14L3 9.5L9.5 8.5L12 2Z" fill="#00e5ff" stroke="#00b8d4" stroke-width="1"/></svg>`;
+  },
+  vringgit: function(size = 14) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="10" fill="#ffa726" stroke="#fb8c00" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" fill="#5d4037" font-size="9" font-weight="bold" font-family="sans-serif">VR</text></svg>`;
+  },
+  livecache: function(size = 14) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:2px;"><rect x="3" y="5" width="18" height="14" rx="2" fill="#66bb6a" stroke="#43a047" stroke-width="1.2"/><rect x="6" y="3" width="4" height="3" rx="1" fill="#a5d6a7"/><rect x="14" y="3" width="4" height="3" rx="1" fill="#a5d6a7"/><rect x="7" y="9" width="10" height="2" rx="1" fill="#e8f5e9"/><rect x="7" y="13" width="10" height="2" rx="1" fill="#e8f5e9"/></svg>`;
+  },
+  ticket_blue: function(size = 14) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:2px;"><rect x="4" y="4" width="16" height="16" rx="2" fill="#42a5f5" stroke="#1e88e5" stroke-width="1.2"/><circle cx="8" cy="12" r="1.5" fill="#bbdefb"/><circle cx="12" cy="12" r="1.5" fill="#bbdefb"/><circle cx="16" cy="12" r="1.5" fill="#bbdefb"/></svg>`;
+  },
+  ticket_red: function(size = 14) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:2px;"><rect x="4" y="4" width="16" height="16" rx="2" fill="#ef5350" stroke="#c62828" stroke-width="1.2"/><circle cx="8" cy="12" r="1.5" fill="#ffcdd2"/><circle cx="12" cy="12" r="1.5" fill="#ffcdd2"/><circle cx="16" cy="12" r="1.5" fill="#ffcdd2"/></svg>`;
+  },
+};
+
 const UI = (() => {
   let currentTab = 'home';
   let _collectionPage = 0;
   const COLLECTION_PAGE_SIZE = 40;
   let _lastStudioLevel = 0; // Sprint 4: Track studio level changes
   let _scLeadSlug = null; // Sprint 8: Minigame lead character
+
+  // ── Currency Icon helper (delegates to global CurrencyIcons) ──
+  function currencyIcon(type, size = 14) {
+    return CurrencyIcons[type] ? CurrencyIcons[type](size) : '';
+  }
 
   // ── Initialization ──
   async function init() {
@@ -55,7 +79,11 @@ const UI = (() => {
       }
       if (result) {
         const e = result.earnings;
-        showToast(`Claimed ${result.minutes}min offline: +${Math.floor(e.stars)} Stars, +${Math.floor(e.starDust)} Dust, +${Math.floor(e.starFragments)} Fragments`, 'success');
+        const parts = [];
+        if (e.vgems) parts.push(`${currencyIcon('vgems', 12)}+${Math.floor(e.vgems)}`);
+        if (e.vringgit) parts.push(`${currencyIcon('vringgit', 12)}+${Math.floor(e.vringgit)}`);
+        if (e.blueTicket) parts.push(`${currencyIcon('ticket_blue', 12)}+${Math.floor(e.blueTicket)}`);
+        showToast(`Claimed ${result.minutes}min offline: ${parts.join(', ') || 'nothing'}`, 'success');
         document.getElementById('btn-claim-offline').style.display = 'none';
         updateUI();
       } else {
@@ -67,7 +95,7 @@ const UI = (() => {
     document.getElementById('btn-daily-login').addEventListener('click', () => {
       const reward = Game.claimDailyLogin();
       if (reward) {
-        showToast(`Day ${reward.streak} login! +${reward.reward} Stars`, 'success');
+        showToast(`Day ${reward.streak} login! ${currencyIcon('vgems', 12)}+${reward.vgems} ${currencyIcon('ticket_blue', 12)}+${reward.tickets}`, 'success');
         updateUI();
       } else {
         showToast('Already claimed today!', 'warning');
@@ -157,7 +185,16 @@ const UI = (() => {
     });
 
     // Character modal
-    document.getElementById('btn-close-character').addEventListener('click', () => toggleModal('modal-character'));
+    document.getElementById('btn-close-character').addEventListener('click', () => {
+      if (_detailMode && _detailMode.stationId) {
+        // In assign mode: close detail, reopen assign modal
+        _detailMode = null;
+        toggleModal('modal-character');
+        toggleModal('modal-assign');
+      } else {
+        toggleModal('modal-character');
+      }
+    });
 
     // Sprint 8: Minigame events
     document.getElementById('sc-pick-lead').addEventListener('click', openMinigameLeadPicker);
@@ -210,8 +247,7 @@ const UI = (() => {
   }
 
   function setupFeaturedBanner() {
-    _featuredDisplay = Gacha.generateFeatured();
-    Gacha.setFeatured(_featuredDisplay);
+    _featuredDisplay = ['liliana-vampaia', 'lunaris-urufi'];
   }
 
   // ── Tab Navigation ──
@@ -251,22 +287,25 @@ const UI = (() => {
     const state = Game.getState();
     const stats = Game.getCollectionStats();
 
-    // Resources
-    document.getElementById('res-stars').textContent = formatNum(Math.floor(state.currencies.stars));
-    document.getElementById('res-stardust').textContent = formatNum(Math.floor(state.currencies.starDust));
-    document.getElementById('res-fragments').textContent = formatNum(Math.floor(state.currencies.starFragments));
-    document.getElementById('res-bonds').textContent = formatNum(Math.floor(state.currencies.bondPoints));
-
-    // V5-04: Gems display
-    const gemsEl = document.getElementById('res-gems');
-    if (gemsEl) gemsEl.textContent = formatNum(Math.floor(state.currencies.gems || 0));
+    // New overhaul currency resources
+    const vgemsEl = document.getElementById('res-vgems');
+    if (vgemsEl) vgemsEl.innerHTML = CurrencyIcons.vgems(12) + formatNum(Math.floor(state.currencies.vgems || 0));
+    const blueEl = document.getElementById('res-myticket-blue');
+    if (blueEl) blueEl.innerHTML = CurrencyIcons.ticket_blue(12) + formatNum(state.currencies.myTicket ? (state.currencies.myTicket.blue || 0) : 0);
+    const redEl = document.getElementById('res-myticket-red');
+    if (redEl) redEl.innerHTML = CurrencyIcons.ticket_red(12) + formatNum(state.currencies.myTicket ? (state.currencies.myTicket.red || 0) : 0);
+    const lcEl = document.getElementById('res-livecache');
+    if (lcEl) lcEl.innerHTML = CurrencyIcons.livecache(12) + formatNum(Math.floor(state.currencies.liveCache || 0));
+    const vrEl = document.getElementById('res-vringgit');
+    if (vrEl) vrEl.innerHTML = CurrencyIcons.vringgit(12) + formatNum(Math.floor(state.currencies.vringgit || 0));
 
     // Stamina
     updateStaminaDisplay();
 
     // Home stats
     document.getElementById('stat-collection').textContent = `${stats.owned} / ${stats.total}`;
-    document.getElementById('stat-ssr').textContent = stats.ssr;
+    const highRarityEl = document.getElementById('stat-high-rarity');
+    if (highRarityEl) highRarityEl.textContent = stats.highRarity || 0;
     document.getElementById('stat-studio-lv').textContent = state.studio.level;
     document.getElementById('stat-pulls').textContent = formatNum(state.stats.totalPulls);
 
@@ -275,8 +314,8 @@ const UI = (() => {
 
     // Daily login button
     const dailyReward = Game.getDailyLoginReward();
-    document.getElementById('btn-daily-login').textContent = dailyReward
-      ? `Daily Login (Day ${dailyReward.streak}) +${dailyReward.reward} Stars`
+    document.getElementById('btn-daily-login').innerHTML = dailyReward
+      ? `Daily Login (Day ${dailyReward.streak}) ${currencyIcon('vgems', 12)}+${dailyReward.vgems} ${currencyIcon('ticket_blue', 12)}+${dailyReward.tickets}`
       : 'Login Claimed Today';
     document.getElementById('btn-daily-login').disabled = !dailyReward;
 
@@ -318,27 +357,38 @@ const UI = (() => {
     const stam = Game.getStamina();
     const pct = (stam.current / stam.max) * 100;
 
-    // Nav bar stamina
+    // Nav bar stamina (global — still shown for legacy display)
     const navFill = document.getElementById('stamina-bar-fill-nav');
     const navVal = document.getElementById('res-stamina-val');
     if (navFill) navFill.style.width = pct + '%';
     if (navVal) navVal.textContent = stam.current;
 
-    // Minigame tab stamina bar
+    // Minigame tab stamina bar — uses lead character's per-VTuber ST
+    updateMinigameStaminaBar();
+  }
+
+  function updateMinigameStaminaBar() {
     const scFill = document.getElementById('sc-stamina-bar-fill');
     const scVal = document.getElementById('sc-stamina-val');
     const scTimer = document.getElementById('sc-stamina-timer');
-    if (scFill) scFill.style.width = pct + '%';
-    if (scVal) scVal.textContent = `${stam.current} / ${stam.max}`;
-    if (scTimer) {
-      if (stam.isFull) {
-        scTimer.textContent = 'Full';
+    if (scFill || scVal || scTimer) {
+      const leadStam = Minigame.getLeadStaminaInfo();
+      if (leadStam) {
+        const scPct = leadStam.max > 0 ? (leadStam.current / leadStam.max) * 100 : 0;
+        if (scFill) scFill.style.width = scPct + '%';
+        if (scVal) scVal.textContent = `${leadStam.current} / ${leadStam.max}`;
+        if (scTimer) {
+          if (leadStam.isFull) {
+            scTimer.textContent = 'Full';
+          } else {
+            scTimer.textContent = '';
+          }
+        }
       } else {
-        const msToNext = Game.getStaminaTimeToNext();
-        const totalSec = Math.ceil(msToNext / 1000);
-        const m = Math.floor(totalSec / 60);
-        const s = totalSec % 60;
-        scTimer.textContent = `+1 in ${m}:${s.toString().padStart(2, '0')}`;
+        // No lead selected — show dashes
+        if (scFill) scFill.style.width = '0%';
+        if (scVal) scVal.textContent = '- / -';
+        if (scTimer) scTimer.textContent = '';
       }
     }
   }
@@ -352,8 +402,14 @@ const UI = (() => {
       // Cache result so tick loop doesn't destroy the timestamp before user clicks
       _cachedOfflineResult = offline;
       const btn = document.getElementById('btn-claim-offline');
-      const totalStars = Math.floor(offline.earnings.stars);
-      btn.textContent = `Claim Offline (${Math.round(offline.minutes)}min) +${formatNum(totalStars)} Stars`;
+      const vgems = Math.floor(offline.earnings.vgems || 0);
+      const vringgit = Math.floor(offline.earnings.vringgit || 0);
+      const tickets = Math.floor(offline.earnings.blueTicket || 0);
+      const parts = [];
+      if (vgems > 0) parts.push(`${currencyIcon('vgems', 12)}+${formatNum(vgems)}`);
+      if (vringgit > 0) parts.push(`${currencyIcon('vringgit', 12)}+${formatNum(vringgit)}`);
+      if (tickets > 0) parts.push(`${currencyIcon('ticket_blue', 12)}+${tickets}`);
+      btn.innerHTML = `Claim Offline (${Math.round(offline.minutes)}min) ${parts.join(' ')}`;
       btn.style.display = 'inline-flex';
     }
   }
@@ -363,7 +419,11 @@ const UI = (() => {
     const reached = Game.checkMilestones();
     if (reached.length > 0) {
       for (const m of reached) {
-        showToast(`Milestone reached: ${m.label} +${formatNum(m.stars)} Stars!`, 'success');
+        const parts = [];
+        if (m.vgems) parts.push(`${currencyIcon('vgems', 12)}+${formatNum(m.vgems)}`);
+        if (m.vringgit) parts.push(`${currencyIcon('vringgit', 12)}+${formatNum(m.vringgit)}`);
+        if (m.tickets) parts.push(`${currencyIcon('ticket_blue', 12)}+${m.tickets}`);
+        showToast(`Milestone: ${m.label} ${parts.join(', ')}`, 'success');
       }
       renderMilestones();
       updateUI();
@@ -376,14 +436,14 @@ const UI = (() => {
     if (count === 1) {
       results = Gacha.pullSingle();
       if (!results) {
-        showToast('Not enough Stars!', 'error');
+        showToast('Not enough tickets or VGems!', 'error');
         return;
       }
       results = [results];
     } else {
       results = Gacha.pullMulti();
       if (!results || results.length === 0) {
-        showToast('Not enough Stars!', 'error');
+        showToast('Not enough tickets or VGems!', 'error');
         return;
       }
     }
@@ -404,15 +464,16 @@ const UI = (() => {
     container.innerHTML = '';
     container.classList.remove('single-pull');
 
-    // Sort results for dramatic effect: Normal first, SR next, SSR last
-    const rarityOrder = { normal: 0, sr: 1, ssr: 2 };
-    const sorted = [...results].sort((a, b) => (rarityOrder[a.variant] || 0) - (rarityOrder[b.variant] || 0));
+    // Sort results for dramatic effect: R first, SR next, SSR, UR last
+    const rarityOrder = { R: 0, SR: 1, SSR: 2, UR: 3 };
+    const sorted = [...results].sort((a, b) => (rarityOrder[a.rarity] || 0) - (rarityOrder[b.rarity] || 0));
     const isSingle = sorted.length === 1;
 
-    // Count variants
-    const counts = { normal: 0, sr: 0, ssr: 0 };
-    sorted.forEach(r => { if (counts[r.variant] !== undefined) counts[r.variant]++; });
+    // Count rarities
+    const counts = { R: 0, SR: 0, SSR: 0, UR: 0 };
+    sorted.forEach(r => { if (counts[r.rarity] !== undefined) counts[r.rarity]++; });
     const newCount = sorted.filter(r => r.isNew).length;
+    let totalLiveCache = sorted.reduce((sum, r) => sum + (r.liveCacheGained || 0), 0);
 
     // Grid setup
     if (isSingle) {
@@ -428,11 +489,14 @@ const UI = (() => {
     const summaryEl = document.createElement('div');
     summaryEl.className = 'pull-summary';
     const summaryParts = [];
-    if (counts.sr > 0) summaryParts.push(`<span class="sum-sr">SR x${counts.sr}</span>`);
-    if (counts.ssr > 0) summaryParts.push(`<span class="sum-ssr">SSR x${counts.ssr}</span>`);
-    summaryEl.innerHTML = summaryParts.length > 0
+    if (counts.UR > 0) summaryParts.push(`<span class="sum-ur">UR x${counts.UR}</span>`);
+    if (counts.SSR > 0) summaryParts.push(`<span class="sum-ssr">SSR x${counts.SSR}</span>`);
+    if (counts.SR > 0) summaryParts.push(`<span class="sum-sr">SR x${counts.SR}</span>`);
+    let summaryHtml = summaryParts.length > 0
       ? summaryParts.join('&nbsp;&nbsp;')
-      : `${sorted.length} Normal`;
+      : `${sorted.length} R`;
+    if (newCount > 0) summaryHtml += ` &middot; <span style="color:var(--success)">${newCount} NEW</span>`;
+    summaryEl.innerHTML = summaryHtml;
     container.appendChild(summaryEl);
 
     // Animation timing (ms)
@@ -515,10 +579,13 @@ const UI = (() => {
           inner.classList.add('flipped');
 
           // Screen flash for rare pulls
-          if (result.variant === 'ssr') {
+          if (result.rarity === 'UR') {
+            overlay.classList.add('flash-ur');
+            setTimeout(() => overlay.classList.remove('flash-ur'), 600);
+          } else if (result.rarity === 'SSR') {
             overlay.classList.add('flash-ssr');
             setTimeout(() => overlay.classList.remove('flash-ssr'), 600);
-          } else if (result.variant === 'sr') {
+          } else if (result.rarity === 'SR') {
             overlay.classList.add('flash-sr');
             setTimeout(() => overlay.classList.remove('flash-sr'), 600);
           }
@@ -534,9 +601,12 @@ const UI = (() => {
   }
 
   function createPullCard(result) {
+    const rarity = result.rarity || 'R';
+    const rarityClass = rarity.toLowerCase(); // 'r', 'sr', 'ssr', 'ur'
+
     const wrapper = document.createElement('div');
     wrapper.className = 'card-flip';
-    wrapper.dataset.variant = result.variant;
+    wrapper.dataset.variant = rarityClass;
 
     const inner = document.createElement('div');
     inner.className = 'card-flip-inner';
@@ -554,7 +624,7 @@ const UI = (() => {
 
     // Back (revealed card face)
     const back = document.createElement('div');
-    back.className = `card-flip-back char-card variant-${result.variant}`;
+    back.className = `card-flip-back char-card variant-${rarityClass}`;
     const img = document.createElement('img');
     img.className = 'char-card-img';
     img.src = DataLoader.getImageUrl(result.character.slug);
@@ -562,23 +632,23 @@ const UI = (() => {
     img.loading = 'eager';
     img.onerror = () => { img.src = result.character.image || img.src; img.onerror = () => { img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%231c1b18"><rect width="300" height="300"/><text x="150" y="160" text-anchor="middle" fill="%23908e87" font-size="14">No Image</text></svg>'; }; };
 
-    const overlay = document.createElement('div');
-    overlay.className = 'char-card-overlay';
+    const cardOverlay = document.createElement('div');
+    cardOverlay.className = 'char-card-overlay';
     const name = document.createElement('div');
     name.className = 'char-card-name';
     name.textContent = result.character.name;
     const agency = document.createElement('div');
     agency.className = 'char-card-agency';
     agency.textContent = result.character.agency;
-    overlay.appendChild(name);
-    overlay.appendChild(agency);
+    cardOverlay.appendChild(name);
+    cardOverlay.appendChild(agency);
 
     const badge = document.createElement('div');
-    badge.className = `char-card-badge badge-${result.variant}`;
-    badge.textContent = result.variant.toUpperCase();
+    badge.className = `char-card-badge badge-${rarityClass}`;
+    badge.textContent = rarity;
 
     back.appendChild(img);
-    back.appendChild(overlay);
+    back.appendChild(cardOverlay);
     back.appendChild(badge);
 
     // NEW badge for new characters
@@ -589,10 +659,31 @@ const UI = (() => {
       back.appendChild(newBadge);
     }
 
-    // SSR glow ring on the revealed card
-    if (result.variant === 'ssr') {
+    // Echo badge
+    if (result.echo > 0) {
+      const echoBadge = document.createElement('div');
+      echoBadge.className = 'char-card-echo';
+      echoBadge.textContent = result.echo >= 6 ? 'E6 MAX' : `E${result.echo}`;
+      back.appendChild(echoBadge);
+    }
+
+    // LiveCache indicator
+    if (result.liveCacheGained > 0) {
+      const lcBadge = document.createElement('div');
+      lcBadge.className = 'char-card-echo toast-livecache';
+      lcBadge.style.top = result.echo > 0 ? '22px' : '4px';
+      lcBadge.textContent = `+${result.liveCacheGained} LC`;
+      back.appendChild(lcBadge);
+    }
+
+    // SSR/UR glow ring on the revealed card
+    if (rarity === 'SSR') {
       const glowRing = document.createElement('div');
       glowRing.className = 'ssr-glow-ring';
+      back.appendChild(glowRing);
+    } else if (rarity === 'UR') {
+      const glowRing = document.createElement('div');
+      glowRing.className = 'ur-glow-ring';
       back.appendChild(glowRing);
     }
 
@@ -615,17 +706,23 @@ const UI = (() => {
     const banner = Gacha.getBanner();
     const nameEl = document.getElementById('banner-name');
     const descEl = document.getElementById('banner-desc');
+    const costSingle = document.getElementById('cost-single');
+    const costMulti = document.getElementById('cost-multi');
 
     if (banner === 'standard') {
       nameEl.textContent = 'Standard Banner';
       descEl.textContent = 'All 319 Malaysian VTubers';
+      if (costSingle) costSingle.innerHTML = CurrencyIcons.ticket_blue(12) + '1';
+      if (costMulti) costMulti.innerHTML = CurrencyIcons.ticket_blue(12) + '10';
     } else {
       nameEl.textContent = 'Featured Banner';
-      const featured = _featuredDisplay.slice(0, 4).map(s => {
+      const featured = _featuredDisplay.map(s => {
         const c = DataLoader.getBySlug(s);
         return c ? c.name : s;
       }).join(', ');
-      descEl.textContent = `Rate up: ${featured}`;
+      descEl.textContent = `Rate up: ${featured} (75%)`;
+      if (costSingle) costSingle.innerHTML = CurrencyIcons.ticket_red(12) + '1';
+      if (costMulti) costMulti.innerHTML = CurrencyIcons.ticket_red(12) + '10';
     }
   }
 
@@ -650,12 +747,14 @@ const UI = (() => {
       filtered = filtered.filter(c => state.characters[c.slug] && state.characters[c.slug].owned);
     } else if (ownership === 'unowned') {
       filtered = filtered.filter(c => !state.characters[c.slug] || !state.characters[c.slug].owned);
+    } else if (ownership === 'oshi') {
+      filtered = filtered.filter(c => Game.isOshi(c.slug));
     }
 
     if (variant !== 'all') {
       filtered = filtered.filter(c => {
         const data = state.characters[c.slug];
-        return data && data.owned && data.variants.includes(variant);
+        return data && data.owned && (data.rarity === variant);
       });
     }
 
@@ -684,13 +783,13 @@ const UI = (() => {
     if (sortBy === 'name') {
       filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortBy === 'variant') {
-      const rarityOrder = { ssr: 3, sr: 2, normal: 1 };
+      const rarityOrder = { UR: 4, SSR: 3, SR: 2, R: 1 };
       filtered = [...filtered].sort((a, b) => {
         const aData = state.characters[a.slug];
         const bData = state.characters[b.slug];
-        const aBest = aData && aData.owned ? (rarityOrder[Game.getBestVariant(aData.variants)] || 0) : 0;
-        const bBest = bData && bData.owned ? (rarityOrder[Game.getBestVariant(bData.variants)] || 0) : 0;
-        return bBest - aBest || a.name.localeCompare(b.name);
+        const aRarity = aData && aData.owned ? (rarityOrder[aData.rarity] || 0) : 0;
+        const bRarity = bData && bData.owned ? (rarityOrder[bData.rarity] || 0) : 0;
+        return bRarity - aRarity || a.name.localeCompare(b.name);
       });
     } else if (sortBy === 'level') {
       filtered = [...filtered].sort((a, b) => {
@@ -789,11 +888,14 @@ const UI = (() => {
     const state = Game.getState();
     const charData = state.characters[char.slug];
     const owned = charData && charData.owned;
+    const rarity = owned ? (charData.rarity || 'R') : null;
+    const rarityClass = rarity ? rarity.toLowerCase() : null;
+    // Legacy variant for backward compat with studio system
     const bestVariant = owned ? Game.getBestVariant(charData.variants) : null;
     const assignedStation = owned ? Game.getCharacterStation(char.slug) : null;
 
     const card = document.createElement('div');
-    card.className = `char-card${bestVariant ? ` variant-${bestVariant}` : ''}`;
+    card.className = `char-card${rarityClass ? ` variant-${rarityClass}` : ''}`;
 
     if (!owned) {
       card.classList.add('not-owned');
@@ -827,19 +929,56 @@ const UI = (() => {
     card.appendChild(img);
     card.appendChild(overlay);
 
-    if (bestVariant) {
+    if (rarity) {
       const badge = document.createElement('div');
-      badge.className = `char-card-badge badge-${bestVariant}`;
-      badge.textContent = bestVariant.toUpperCase();
+      badge.className = `char-card-badge badge-${rarityClass}`;
+      badge.textContent = rarity;
       card.appendChild(badge);
     }
 
-    // Shard indicator — red circle if unconverted shards available
-    if (owned && charData.shards > 0 && !charData.variants.includes('ssr')) {
+    // Echo indicator
+    if (owned && charData.echo > 0) {
+      const echoBadge = document.createElement('div');
+      echoBadge.className = 'char-card-echo';
+      echoBadge.textContent = charData.echo >= 6 ? 'E6 MAX' : `E${charData.echo}`;
+      card.appendChild(echoBadge);
+    }
+
+    // Legacy shard indicator — only show if old shards data exists
+    if (owned && charData.shards > 0 && !(charData.variants && charData.variants.includes('ssr'))) {
       const shardDot = document.createElement('div');
       shardDot.className = 'char-card-shard-indicator';
       shardDot.title = `${charData.shards} shard${charData.shards > 1 ? 's' : ''} available`;
       card.appendChild(shardDot);
+    }
+
+    // Oshi star badge for favourite characters
+    if (owned && Game.isOshi(char.slug)) {
+      const oshiBadge = document.createElement('div');
+      oshiBadge.className = 'char-card-oshi-badge';
+      oshiBadge.innerHTML = '&#9733;'; // ★
+      oshiBadge.title = 'Oshi (Favourite)';
+      card.appendChild(oshiBadge);
+    }
+
+    // ST / PS display for owned characters
+    if (owned) {
+      const stInfo = Game.getVTuberStaminaInfo(char.slug);
+      if (stInfo) {
+        const statsBar = document.createElement('div');
+        statsBar.className = 'char-card-stats-bar';
+        // ST part
+        const stSpan = document.createElement('span');
+        stSpan.className = 'stats-st' + (stInfo.current < stInfo.max ? ' stats-depleted' : '');
+        stSpan.textContent = `ST ${stInfo.current}/${stInfo.max}`;
+        // PS part
+        const psSpan = document.createElement('span');
+        psSpan.className = 'stats-ps' + (stInfo.psDepleted ? ' stats-depleted' : '');
+        psSpan.textContent = `PS ${stInfo.psCurrent}/${stInfo.psMax}`;
+        statsBar.appendChild(stSpan);
+        statsBar.appendChild(psSpan);
+        card.appendChild(statsBar);
+      }
     }
 
     // Station indicator badge
@@ -874,7 +1013,7 @@ const UI = (() => {
     const stats = Game.getCollectionStats();
     const el = document.getElementById('collection-variant-stats');
     if (el) {
-      el.innerHTML = `<span class="vs-normal">Normal: ${stats.normal}</span> | <span class="vs-sr">SR: ${stats.sr}</span> | <span class="vs-ssr">SSR: ${stats.ssr}</span>`;
+      el.innerHTML = `<span class="vs-r">R: ${stats.R || 0}</span> | <span class="vs-sr">SR: ${stats.SR || 0}</span> | <span class="vs-ssr">SSR: ${stats.SSR || 0}</span> | <span class="vs-ur">UR: ${stats.UR || 0}</span>`;
     }
   }
 
@@ -895,7 +1034,7 @@ const UI = (() => {
         <span class="milestone-icon">${icon}</span>
         <div class="milestone-info">
           <span class="milestone-label">${m.label}</span>
-          <span class="milestone-reward">+${formatNum(m.stars)} Stars</span>
+          <span class="milestone-reward">${currencyIcon('vgems', 12)}+${formatNum(m.vgems)} ${currencyIcon('vringgit', 12)}+${formatNum(m.vringgit)} ${currencyIcon('ticket_blue', 12)}+${m.tickets}</span>
         </div>
         <span class="milestone-status">${m.claimed ? 'Claimed' : stats.owned >= m.count ? 'Ready!' : `${stats.owned}/${m.count}`}</span>
       `;
@@ -915,26 +1054,41 @@ const UI = (() => {
     lounge: '\u2615',
   };
 
+  // Stat name mapping for display
+  const STAT_NAMES = {
+    ST: 'Stamina', PS: 'Passion', TC: 'Tech', CH: 'Charisma', VC: 'Voice', MG: 'Music',
+  };
+  const STAT_COLORS = {
+    ST: '#f472b6', PS: '#fb923c', TC: '#60a5fa', CH: '#a78bfa', VC: '#34d399', MG: '#fbbf24',
+  };
+
   function renderStudio() {
     try {
     const state = Game.getState();
     const grid = document.getElementById('stations-grid');
     const maxSlots = Game.getMaxSlots();
     const expProgress = Game.getStudioExpProgress();
+    const stamina = Game.getStamina();
+    const trending = Game.getTrendingStat();
+    const trendingMs = Game.getTrendingTimeRemaining();
 
+    // Studio level + EXP bar
     document.getElementById('studio-level').textContent = state.studio.level;
     document.getElementById('studio-exp-fill').style.width = Math.min(expProgress.pct, 100) + '%';
     document.getElementById('studio-exp-text').textContent =
       state.studio.level >= 10 ? 'MAX' : `${formatNum(Math.floor(expProgress.current))} / ${formatNum(expProgress.required)} EXP`;
 
-    // Sprint 4: Render Income Dashboard
-    renderIncomeDashboard();
+    // Trending banner
+    renderTrendingBanner(trending, trendingMs);
 
-    // Sprint 4: Render Unlock Roadmap
+    // Studio stats (quality distribution)
+    renderStudioStats();
+
+    // Unlock Roadmap
     renderUnlockRoadmap();
 
+    // Stations grid
     grid.innerHTML = '';
-
     let slotCount = 0;
     for (const [stationId, def] of Object.entries(Game.STATION_DEFS)) {
       if (slotCount >= maxSlots) break;
@@ -943,33 +1097,91 @@ const UI = (() => {
       const isLocked = state.studio.level < def.unlockLv;
       const assigned = station && station.assigned;
       const assignedChar = assigned ? DataLoader.getBySlug(station.assigned) : null;
+      const contentType = Game.CONTENT_TYPES[stationId];
+      const icon = STATION_ICONS[stationId] || '';
+
+      // Quality preview
+      let qualityHTML = '';
+      let staminaCostHTML = '';
+      let outputHTML = '';
+
+      if (!isLocked && station) {
+        const staminaCost = Game.STAMINA_COSTS[(station.level || 1) - 1] || 8;
+        staminaCostHTML = `<span class="station-stamina-cost">${staminaCost} \u26A1</span>`;
+
+        if (assigned) {
+          const quality = Game.getContentQuality(stationId);
+          if (quality) {
+            const qClass = `quality-badge-${quality.quality}`;
+            const trendingIcon = quality.trendingMatch ? ' \uD83D\uDD25' : '';
+            qualityHTML = `<span class="quality-badge ${qClass}">${quality.quality}${trendingIcon}</span>`;
+          }
+
+          const income = Game.getStationIncome(stationId);
+          const expIncome = Game.getStationStudioExp(stationId);
+          const resName = def.resource === 'studioExp' ? 'EXP' : getResourceName(def.resource);
+          let rewardParts = [];
+          if (def.resource === 'studioExp') {
+            rewardParts.push(`+${formatNum(expIncome, 1)} EXP`);
+          } else {
+            rewardParts.push(`+${def.resource === 'blueTicket' ? income.toFixed(2) : formatNum(income, 1)} ${resName}`);
+          }
+          // Lounge bonus VGems
+          if (contentType && contentType.bonusResource) {
+            const bonusVal = contentType.bonusAmount * (quality ? quality.qualityMultiplier : 1) * (state.characters[station.assigned] ? (Game.RarityMultipliers[state.characters[station.assigned].rarity] || 1) : 1);
+            rewardParts.push(`${currencyIcon('vgems', 12)}+${formatNum(bonusVal, 1)}`);
+          }
+          outputHTML = `<div class="station-output"><span class="station-output-rewards">${rewardParts.join(' ')}</span></div>`;
+        } else {
+          outputHTML = `<div class="station-output"><span class="station-output-label">Tap to assign</span></div>`;
+        }
+      }
 
       const el = document.createElement('div');
       el.className = `station${isLocked ? ' locked' : ''}`;
 
-      const income = isLocked ? 0 : Game.getStationIncome(stationId);
-      const icon = STATION_ICONS[stationId] || '';
-
       el.innerHTML = `
         <div class="station-header">
           <span class="station-name">${icon} ${def.name}</span>
-          <span class="station-level">Lv ${station ? station.level : 1}</span>
+          <div class="station-header-right">
+            ${qualityHTML}
+            <span class="station-level">Lv ${station ? station.level : 1}</span>
+          </div>
         </div>
+        ${contentType ? `
+          <div class="station-stats-preview">
+            <span class="station-stat-hint" style="color:${STAT_COLORS[contentType.primary]}">${contentType.primary}</span>
+            <span class="station-stat-arrow">\u2190</span>
+            <span class="station-stat-hint">Main</span>
+            <span style="color:var(--text-dim);margin:0 4px;">|</span>
+            <span class="station-stat-hint" style="color:${STAT_COLORS[contentType.secondary]}">${contentType.secondary}</span>
+            <span class="station-stat-arrow">\u2190</span>
+            <span class="station-stat-hint">Sub</span>
+          </div>
+        ` : ''}
         <div class="station-slot${assigned ? ' assigned' : ''}" data-station="${stationId}">
           ${assigned && assignedChar
-            ? `<img src="${DataLoader.getImageUrl(assignedChar.slug)}" alt="${assignedChar.name}" onerror="this.onerror=function(){this.src='${assignedChar.image}';this.onerror=function(){this.style.display='none'};}">
-               <div class="station-slot-name">${assignedChar.name}</div>`
-            : `<span class="station-slot-empty-text">${isLocked ? 'Locked' : 'Tap to assign'}</span>`
+            ? (() => {
+                const stInfo = Game.getVTuberStaminaInfo(station.assigned);
+                const stPct = stInfo ? Math.round((stInfo.current / Math.max(1, stInfo.max)) * 100) : 0;
+                const stColor = stPct > 50 ? '#66bb6a' : stPct > 20 ? '#fb923c' : '#ef4444';
+                const stLabel = stInfo && stInfo.current <= 0 ? 'Exhausted' : `${stInfo ? stInfo.current : 0}/${stInfo ? stInfo.max : 0}`;
+                return `<img src="${DataLoader.getImageUrl(assignedChar.slug)}" alt="${assignedChar.name}" onerror="this.onerror=function(){this.src='${assignedChar.image}';this.onerror=function(){this.style.display='none'};}">
+               <div class="station-stamina-bar">
+                 <div class="station-stamina-fill" style="width:${stPct}%;background:${stColor};"></div>
+                 <span class="station-stamina-text">\u26A1 ${stLabel}</span>
+               </div>
+               <div class="station-slot-name">${assignedChar.name}</div>`;
+              })()
+            : `<span class="station-slot-empty-text">${isLocked ? '\uD83D\uDD12 Locked' : 'Tap to assign'}</span>`
           }
         </div>
-        <div class="station-output">
-          <span class="station-output-label">${getResourceName(def.resource)}/min</span>
-          <span class="station-output-value">${isLocked ? '--' : formatNum(income, 1)}</span>
-        </div>
+        ${outputHTML}
+        ${staminaCostHTML ? `<div class="station-cost-row">${staminaCostHTML}<span class="station-cycle-info">per 60s</span></div>` : ''}
         ${!isLocked && station && station.level < 5 ? `
           <div class="station-upgrade">
             <button class="btn btn-secondary btn-sm" data-upgrade="${stationId}" style="width:100%;padding:6px;font-size:0.8rem;">
-              Upgrade (${formatNum(Game.STATION_UPGRADE_COSTS[station.level][0])} * + ${formatNum(Game.STATION_UPGRADE_COSTS[station.level][1])} #)
+              Upgrade (${currencyIcon('vringgit', 12)}${formatNum(Game.STATION_UPGRADE_COSTS[station.level])})
             </button>
           </div>
         ` : ''}
@@ -1003,54 +1215,198 @@ const UI = (() => {
             showToast(`${icon} ${def.name} upgraded to Lv ${state.studio.stations[stationId].level}!`, 'success');
             renderStudio();
           } else {
-            showToast('Not enough resources to upgrade!', 'error');
+            showToast('Not enough VRinggit to upgrade!', 'error');
           }
         });
       }
     }
+
+    // Content log feed
+    renderContentLog();
+
     } catch (err) { console.error('renderStudio failed:', err); }
   }
 
-  // Sprint 4: Income Dashboard
-  function renderIncomeDashboard() {
-    const totalIncome = Game.getTotalIncome();
-    const totalPerMin = Game.getTotalIncomePerMin();
-    const breakdown = Game.getStationIncomeBreakdown();
+  // Trending banner
+  function renderTrendingBanner(trending, trendingMs) {
+    const banner = document.getElementById('studio-trending');
+    if (!banner) return;
 
-    document.getElementById('income-total').textContent = `${formatNum(totalPerMin, 1)} /min combined`;
-
-    const breakdownEl = document.getElementById('income-breakdown');
-    breakdownEl.innerHTML = '';
-
-    // Per-resource bars
-    const resourceConfig = [
-      { key: 'stars', label: 'Stars', color: 'var(--gold)', icon: '\u2605' },
-      { key: 'starDust', label: 'Star Dust', color: 'var(--accent)', icon: '\u2726' },
-      { key: 'starFragments', label: 'Fragments', color: 'var(--accent2)', icon: '\u25C6' },
-      { key: 'bondPoints', label: 'Bond Pts', color: 'var(--error)', icon: '\u2665' },
-    ];
-
-    resourceConfig.forEach(rc => {
-      const val = totalIncome[rc.key];
-      if (val <= 0) return;
-      const maxVal = Math.max(totalPerMin, 1);
-      const pct = (val / maxVal) * 100;
-
-      const row = document.createElement('div');
-      row.className = 'income-row';
-      row.innerHTML = `
-        <span class="income-label">${rc.icon} ${rc.label}</span>
-        <div class="income-bar-track">
-          <div class="income-bar-fill" style="width:${Math.max(pct, 5)}%;background:${rc.color};"></div>
-        </div>
-        <span class="income-value" style="color:${rc.color}">${formatNum(val, 1)}</span>
-      `;
-      breakdownEl.appendChild(row);
-    });
-
-    if (totalPerMin <= 0) {
-      breakdownEl.innerHTML = '<div class="income-empty">Assign characters to stations to start earning!</div>';
+    if (!trending) {
+      banner.innerHTML = '<span class="trending-label">Trending: calculating...</span>';
+      return;
     }
+
+    const totalSec = Math.ceil(trendingMs / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    const trendingColor = STAT_COLORS[trending] || 'var(--accent)';
+
+    banner.innerHTML = `
+      <span class="trending-fire">\uD83D\uDD25</span>
+      <span class="trending-label">Trending:</span>
+      <span class="trending-stat" style="color:${trendingColor};">${trending}</span>
+      <span class="trending-name">${STAT_NAMES[trending] || trending}</span>
+      <span class="trending-timer">${timeStr} left</span>
+      <span class="trending-bonus">1.5x bonus!</span>
+    `;
+  }
+
+  // Studio stats panel (quality distribution + estimated income + VTuber stamina)
+  function renderStudioStats() {
+    const dist = Game.getQualityDistribution();
+    const breakdown = Game.getStationIncomeBreakdown();
+    const state = Game.getState();
+
+    const statsEl = document.getElementById('studio-stats-panel');
+    if (!statsEl) return;
+
+    // VTuber stamina info for assigned stations
+    let staminaHTML = '';
+    const maxSlots = Game.getMaxSlots();
+    let slotCount = 0;
+    let hasAssigned = false;
+    for (const [stationId, def] of Object.entries(Game.STATION_DEFS)) {
+      if (slotCount >= maxSlots) break;
+      const station = state.studio.stations[stationId];
+      if (!station || !station.assigned) { slotCount++; continue; }
+      if (state.studio.level < def.unlockLv) { slotCount++; continue; }
+      hasAssigned = true;
+      const staminaCost = Game.STAMINA_COSTS[(station.level || 1) - 1] || 8;
+      const stInfo = Game.getVTuberStaminaInfo(station.assigned);
+      const charInfo = DataLoader.getBySlug(station.assigned);
+      const name = charInfo ? charInfo.name : station.assigned;
+      const stPct = stInfo ? Math.round((stInfo.current / Math.max(1, stInfo.max)) * 100) : 0;
+      const canProduce = stInfo && stInfo.current >= staminaCost;
+      const stColor = stPct > 50 ? '#66bb6a' : stPct > 20 ? '#fb923c' : '#ef4444';
+      staminaHTML += `<div class="studio-stats-row">
+        <span class="studio-stats-label">\u26A1 ${name}</span>
+        <span class="studio-stats-value" style="color:${stColor};">${stInfo ? stInfo.current : 0} / ${stInfo ? stInfo.max : 0}${!canProduce && stInfo && stInfo.current > 0 ? ' (low)' : ''}${stInfo && stInfo.current <= 0 ? ' (exhausted)' : ''}</span>
+      </div>`;
+      slotCount++;
+    }
+
+    // Quality distribution
+    let qualityHTML = '';
+    const qualityOrder = ['SS', 'S', 'A', 'B', 'C', 'D'];
+    const qualityColors = { SS: '#ffd700', S: '#c77dff', A: '#42a5f5', B: '#66bb6a', C: '#b0bec5', D: '#616161' };
+    let totalPieces = 0;
+    for (const q of qualityOrder) { totalPieces += (dist[q] || 0); }
+
+    if (totalPieces > 0) {
+      qualityHTML = '<div class="quality-distribution">';
+      for (const q of qualityOrder) {
+        const count = dist[q] || 0;
+        if (count === 0) continue;
+        const pct = Math.round((count / totalPieces) * 100);
+        qualityHTML += `<span class="quality-dist-item"><span class="quality-badge quality-badge-${q}" style="font-size:0.65rem;">${q}</span><span>${count}</span><span class="quality-dist-pct">(${pct}%)</span></span>`;
+      }
+      qualityHTML += '</div>';
+    }
+
+    // Estimated income per cycle
+    let incomeHTML = '';
+    const totalIncome = Game.getTotalIncome();
+    const hasIncome = totalIncome.vgems > 0 || totalIncome.vringgit > 0 || totalIncome.blueTicket > 0;
+    if (hasIncome) {
+      incomeHTML = '<div class="income-breakdown-mini">';
+      if (totalIncome.vgems > 0) incomeHTML += `<span class="income-mini-item" style="color:#22d3ee;">${currencyIcon('vgems', 12)}+${formatNum(totalIncome.vgems, 1)}</span>`;
+      if (totalIncome.vringgit > 0) incomeHTML += `<span class="income-mini-item" style="color:#fb923c;">${currencyIcon('vringgit', 12)}+${formatNum(totalIncome.vringgit, 1)}</span>`;
+      if (totalIncome.blueTicket > 0) incomeHTML += `<span class="income-mini-item" style="color:#60a5fa;">${currencyIcon('ticket_blue', 12)}+${totalIncome.blueTicket.toFixed(2)}</span>`;
+      incomeHTML += '</div>';
+    }
+
+    statsEl.innerHTML = `
+      ${staminaHTML}
+      ${qualityHTML}
+      ${hasIncome ? '<div class="studio-stats-divider"></div>' : ''}
+      ${incomeHTML ? '<div class="studio-stats-estimate-label">Est. per cycle (60s)</div>' + incomeHTML : ''}
+      ${!hasIncome && totalPieces === 0 ? '<div class="studio-stats-empty">Assign characters to start creating content!</div>' : ''}
+    `;
+  }
+
+  // Content log feed
+  function renderContentLog() {
+    const logContainer = document.getElementById('content-log');
+    if (!logContainer) return;
+
+    const log = Game.getContentLog(10);
+    if (!log || log.length === 0) {
+      logContainer.innerHTML = '<div class="content-log-empty">No content created yet. Assign characters and wait 60 seconds!</div>';
+      return;
+    }
+
+    logContainer.innerHTML = '';
+    log.forEach(entry => {
+      const el = document.createElement('div');
+      el.className = `content-entry${entry.isOffline ? ' content-entry-offline' : ''}`;
+
+      // Format rewards
+      let rewardParts = [];
+      if (entry.rewards) {
+        if (entry.rewards.vgems) rewardParts.push(`${currencyIcon('vgems', 12)}+${formatNum(Math.floor(entry.rewards.vgems))}`);
+        if (entry.rewards.vringgit) rewardParts.push(`${currencyIcon('vringgit', 12)}+${formatNum(Math.floor(entry.rewards.vringgit))}`);
+        if (entry.rewards.blueTicket) rewardParts.push(`${currencyIcon('ticket_blue', 12)}+${entry.rewards.blueTicket.toFixed(2)}`);
+        if (entry.rewards.studioExp) rewardParts.push(`+${Math.floor(entry.rewards.studioExp)} EXP`);
+      }
+      const rewardText = rewardParts.join(' ') || '--';
+
+      // Format time
+      const ago = getTimeAgo(entry.timestamp);
+
+      // Quality badge
+      const qClass = `quality-badge-${entry.quality}`;
+      const trendingIcon = entry.trendingMatch ? ' \uD83D\uDD25' : '';
+
+      // Offline summary entry
+      if (entry.isOffline) {
+        el.innerHTML = `
+          <div class="content-entry-icon">\uD83D\uDD04</div>
+          <div class="content-entry-body">
+            <div class="content-entry-title">
+              <span style="color:var(--text-muted);">${entry.charName}</span>
+              <span class="quality-badge quality-badge-B">Offline</span>
+              <span class="content-entry-pieces">${entry.contentPieces || 0} pieces</span>
+            </div>
+            <div class="content-entry-rewards">${rewardText}</div>
+            <div class="content-entry-time">${ago}</div>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div class="content-entry-portrait">
+            ${entry.charImage ? `<img src="${entry.charImage}" alt="" onerror="this.style.display='none';">` : ''}
+          </div>
+          <div class="content-entry-body">
+            <div class="content-entry-title">
+              <span class="content-entry-name">${entry.charName}</span>
+              <span class="content-entry-station">${entry.stationName}</span>
+              <span class="quality-badge ${qClass}">${entry.quality}${trendingIcon}</span>
+            </div>
+            <div class="content-entry-rewards">${rewardText}</div>
+            <div class="content-entry-time">${ago}</div>
+          </div>
+        `;
+      }
+
+      logContainer.appendChild(el);
+    });
+  }
+
+  // Helper: relative time
+  function getTimeAgo(timestamp) {
+    if (!timestamp) return '';
+    const diff = Date.now() - timestamp;
+    const sec = Math.floor(diff / 1000);
+    if (sec < 5) return 'just now';
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const day = Math.floor(hr / 24);
+    return `${day}d ago`;
   }
 
   // Sprint 4: Unlock Roadmap
@@ -1083,100 +1439,247 @@ const UI = (() => {
   //  CHARACTER DETAIL MODAL — Enhanced (Sprint 3)
   // ═══════════════════════════════════════════════
 
-  function showCharacterDetail(slug) {
+  // _detailMode: null = normal view, { stationId } = assign mode
+  let _detailMode = null;
+
+  function formatCooldown(ms) {
+    if (ms <= 0) return '';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    if (h > 0) return h + 'h ' + m + 'm';
+    return m + 'm';
+  }
+
+  function showCharacterDetail(slug, options) {
     const data = Characters.getCharDisplayData(slug);
     if (!data) return;
 
+    // Store mode for this detail view
+    _detailMode = options && options.mode === 'assign' ? { stationId: options.stationId } : null;
+
     const detail = document.getElementById('char-detail');
     const owned = data.owned;
-    const bestVariant = data.bestVariant;
     const pullHistory = Game.getPullHistory(slug);
     const assignedStation = Game.getCharacterStation(slug);
+    const rarity = data.rarity || 'R';
+
+    // Bond info
+    const bondInfo = owned ? Game.getCharacterBondInfo(slug) : null;
+
+    // Rarity color mapping
+    const rarityColors = {
+      R: 'var(--rarity-normal, #a8a29e)',
+      SR: 'var(--rarity-sr, #b0b8c8)',
+      SSR: 'var(--rarity-ssr, #e8c547)',
+      UR: 'var(--rarity-ur, #ff6b9d)',
+    };
+    const rarityColor = rarityColors[rarity] || 'var(--text-muted)';
+
+    // Echo badge color
+    const echoBadgeClass = data.echoCount >= 6 ? 'echo-badge-max' : data.echoCount > 0 ? 'echo-badge-active' : 'echo-badge-none';
+
+    // Stat definitions — all 6 stats with colors (for reference-style layout)
+    const allStatDefs = [
+      { key: 'ST', label: 'Stamina', color: '#ef5350', icon: '\u2764' },
+      { key: 'PS', label: 'Passion', color: '#ff9800', icon: '\u2B06' },
+      { key: 'TC', label: 'Tech',    color: '#42a5f5', icon: '\u2699' },
+      { key: 'CH', label: 'Charisma', color: '#ab47bc', icon: '\u2728' },
+      { key: 'VC', label: 'Voice',   color: '#26c6da', icon: '\uD83C\uDFB5' },
+      { key: 'MG', label: 'Music',   color: '#66bb6a', icon: '\uD83C\uDFB6' },
+    ];
+
+    // Build all 6 stat bar rows
+    let allStatsHTML = '';
+
+    // Stamina/Passion info for owned characters (needed by stat bars)
+    const stInfo = owned ? Game.getVTuberStaminaInfo(slug) : null;
+    const stCur = stInfo ? stInfo.current : (data.baseStats ? (data.baseStats.st || 0) : '?');
+    const stMax = stInfo ? stInfo.max : stCur;
+    const psCur = stInfo ? stInfo.psCurrent : (data.baseStats ? (data.baseStats.ps || 0) : '?');
+    const psMax = stInfo ? stInfo.psMax : psCur;
+
+    if (data.stats) {
+      const maxStat = 150;
+      allStatDefs.forEach(sd => {
+        const val = data.stats[sd.key.toLowerCase()] || data.stats[sd.key] || 0;
+        const baseVal = data.baseStats ? (data.baseStats[sd.key.toLowerCase()] || data.baseStats[sd.key] || 0) : val;
+        const gain = val - baseVal;
+        const pct = Math.min(100, (val / maxStat) * 100);
+        const isExpendable = (sd.key === 'ST' || sd.key === 'PS');
+        const maxVal = isExpendable ? (sd.key === 'ST' ? stMax : psMax) : maxStat;
+        const curVal = isExpendable ? (sd.key === 'ST' ? stCur : psCur) : val;
+        const displayPct = isExpendable ? Math.min(100, (curVal / maxVal) * 100) : pct;
+        const displayVal = isExpendable ? `${curVal}/${maxVal}` : `${val}${gain > 0 ? '+' + gain : ''}`;
+        allStatsHTML += `
+          <div class="cdv-stat-row">
+            <span class="cdv-stat-icon" style="color:${sd.color}">${sd.icon}</span>
+            <span class="cdv-stat-label">${sd.key}</span>
+            <span class="cdv-stat-val">${displayVal}</span>
+            <div class="cdv-stat-bar-track">
+              <div class="cdv-stat-bar-fill" style="width:${displayPct}%;background:${sd.color};"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
 
     // Format pull date
     let pullDateStr = 'Unknown';
-    if (pullHistory && pullHistory.firstPullDate) {
-      const d = new Date(pullHistory.firstPullDate);
-      pullDateStr = d.toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' });
+    let totalPulls = 0;
+    if (pullHistory) {
+      totalPulls = pullHistory.totalPulls || 0;
+      if (pullHistory.firstPullDate) {
+        const d = new Date(pullHistory.firstPullDate);
+        pullDateStr = d.toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+    }
+
+    // Debut date from rarity_data
+    let debutDate = 'Unknown';
+    if (data.rarity_data && data.rarity_data.debut) {
+      debutDate = data.rarity_data.debut;
+    }
+
+    // Level info
+    const level = owned ? (data.level || 1) : 1;
+    const levelCap = owned ? (data.levelCap || 20) : 20;
+    const lvPct = levelCap > 1 ? Math.round(((level - 1) / (levelCap - 1)) * 100) : 100;
+
+    const isOshi = owned ? Game.isOshi(slug) : false;
+    const oshiCount = Game.getOshiCount();
+    const oshiFull = oshiCount >= Game.OSHI_MAX;
+
+    // Portrait fallback SVG (light background)
+    const fallbackSVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='260' fill='%23bbb'><rect width='200' height='260' fill='%23f0eef8'/><text x='100' y='140' text-anchor='middle' fill='%23999' font-size='14'>No Image</text></svg>";
+
+    // Bond info HTML
+    let bondHTML = '';
+    if (bondInfo) {
+      bondHTML = `
+        <div class="cdv-bond-section">
+          <div class="cdv-bond-header">
+            <span class="cdv-bond-label">BOND</span>
+            <span class="cdv-bond-level ${bondInfo.isMaxBond ? 'cdv-bond-max' : ''}">Lv.${bondInfo.bondLevel} / Lv.${Game.BOND_MAX_LEVEL || 8}</span>
+          </div>
+          <div class="cdv-bond-bar-track">
+            <div class="cdv-bond-bar-fill ${bondInfo.isMaxBond ? 'cdv-bond-bar-max' : ''}" style="width:${bondInfo.bpProgressPct}%;"></div>
+          </div>
+          <div class="cdv-bond-text">${bondInfo.isMaxBond ? 'MAX' : bondInfo.bondPoints + ' / ' + bondInfo.nextLevelBpRequired + ' BP'}${bondInfo.totalBondStatBonus > 0 ? '  &middot;  +' + bondInfo.totalBondStatBonus + ' all stats' : ''}</div>
+          ${bondInfo.isOnCooldown ? `<div class="cdv-bond-hint">Date cooldown: ${formatCooldown(bondInfo.cooldownRemaining)}</div>` : ''}
+          ${!bondInfo.isOnCooldown && (data.level || 1) < Game.BOND_DATE_LEVEL_REQ ? `<div class="cdv-bond-hint">Requires LV.${Game.BOND_DATE_LEVEL_REQ} to date</div>` : ''}
+        </div>
+      `;
     }
 
     detail.innerHTML = `
-      <img class="char-detail-img" src="${DataLoader.getImageUrl(data.slug)}" alt="${data.name}" onerror="this.onerror=function(){this.src='${data.image}';this.onerror=function(){this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22260%22 fill=%22%231c1b18%22><rect width=%22200%22 height=%22260%22/><text x=%22100%22 y=%22140%22 text-anchor=%22middle%22 fill=%22%23908e87%22 font-size=%2214%22>No Image</text></svg>';};}">
-      <div class="char-detail-name">${data.name}</div>
-      <div class="char-detail-agency">${data.agency}</div>
-      <div class="char-detail-variants">
-        <span class="variant-badge badge-normal ${data.variants.includes('normal') ? 'owned' : 'not-owned'}">Normal</span>
-        <span class="variant-badge badge-sr ${data.variants.includes('sr') ? 'owned' : 'not-owned'}">SR</span>
-        <span class="variant-badge badge-ssr ${data.variants.includes('ssr') ? 'owned' : 'not-owned'}">SSR</span>
-      </div>
-      ${owned ? `
-        <div class="char-detail-stats">
-          <div class="char-detail-stat">
-            <span>Level</span>
-            <span>${data.level} / ${data.levelCap}</span>
+      <div class="cdv-card">
+        <!-- LEFT: Portrait -->
+        <div class="cdv-portrait-col">
+          <div class="cdv-portrait-frame" style="border-color:${rarityColor};${isOshi ? 'box-shadow:0 0 0 3px #ffd700,0 0 16px rgba(255,215,0,0.35);' : ''}">
+            <img class="cdv-portrait-img" src="${DataLoader.getImageUrl(data.slug)}" alt="${data.name}" onerror="this.src='${data.image}';this.onerror=function(){this.src='${fallbackSVG}';};">
           </div>
-          <div class="char-detail-stat">
-            <span>Best Variant</span>
-            <span style="color:var(--rarity-${bestVariant})">${bestVariant.toUpperCase()}</span>
+          <div class="cdv-portrait-badges">
+            <span class="cdv-badge cdv-badge-rarity" style="background:${rarityColor};color:#fff;">${rarity}</span>
+            ${owned ? `<span class="cdv-badge cdv-badge-echo" style="background:#5c6bc0;color:#fff;">${data.echoLabel}</span>` : ''}
+            ${isOshi ? '<span class="cdv-badge cdv-badge-oshi" style="background:#e91e63;color:#fff;">&#9733; OSHI</span>' : ''}
           </div>
-          <div class="char-detail-stat">
-            <span>Shards</span>
-            <span>${data.shards}</span>
+          ${owned ? `
+          <div class="cdv-portrait-meta">
+            <div class="cdv-meta-item"><span class="cdv-meta-label">First Obtained</span><span class="cdv-meta-value">${pullDateStr}</span></div>
+            <div class="cdv-meta-item"><span class="cdv-meta-label">Debut</span><span class="cdv-meta-value">${debutDate}</span></div>
+            <div class="cdv-meta-item"><span class="cdv-meta-label">Total Pulls</span><span class="cdv-meta-value">${totalPulls}</span></div>
           </div>
-          ${pullHistory ? `
-          <div class="char-detail-stat">
-            <span>Times Pulled</span>
-            <span>${pullHistory.totalPulls}</span>
+          ` : `
+          <div class="cdv-portrait-meta">
+            <div class="cdv-meta-item"><span class="cdv-meta-label">Debut</span><span class="cdv-meta-value">${debutDate}</span></div>
           </div>
-          <div class="char-detail-stat">
-            <span>First Obtained</span>
-            <span>${pullDateStr}</span>
-          </div>
-          ` : ''}
-          ${assignedStation ? `
-          <div class="char-detail-stat">
-            <span>Assigned To</span>
-            <span style="color:var(--accent2)">${Game.STATION_DEFS[assignedStation]?.name || assignedStation}</span>
-          </div>
-          ` : ''}
+          `}
         </div>
-        <div class="char-detail-actions">
-          <button class="btn btn-primary" onclick="UI.levelUpChar('${slug}')" ${data.level >= data.levelCap ? 'disabled' : ''}>
-            Level Up (${formatNum(data.nextLevelCost[0])} Dust + ${formatNum(data.nextLevelCost[1])} Stars)
-          </button>
-          ${data.canAscend ? `
-            <button class="btn btn-primary" style="background:var(--gold);color:#1a1a1a;" onclick="UI.ascendChar('${slug}')">
-              Ascend to ${data.nextAscension.toVariant.toUpperCase()}
-            </button>
-          ` : ''}
-        </div>
-        ${data.shards > 0 ? `
-          <div class="shard-convert-section">
-            <h4>Convert Shards (${data.shards} available)</h4>
-            <div class="shard-buttons">
-              <button class="btn btn-secondary btn-sm" onclick="UI.convertShards('${slug}', 'starDust')">
-                +${data.shards * 5} Star Dust
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="UI.convertShards('${slug}', 'starFragments')">
-                +${data.shards * 2} Fragments
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="UI.convertShards('${slug}', 'stars')">
-                +${data.shards} Stars
-              </button>
+
+        <!-- RIGHT: Info -->
+        <div class="cdv-info-col">
+          <!-- Name & Subtitle -->
+          <div class="cdv-name-row">
+            <h2 class="cdv-name" style="color:${owned ? '#2d2b55' : '#666'}">${data.name}</h2>
+          </div>
+          <p class="cdv-subtitle">${data.agency || 'Unknown'}</p>
+
+          <!-- Top stat cards: Level | Power | Oshi -->
+          ${owned ? `
+          <div class="cdv-top-cards">
+            <div class="cdv-top-card">
+              <div class="cdv-top-card-label">Level</div>
+              <div class="cdv-top-card-value" style="color:${rarityColor}">${level}<small style="font-size:0.7rem;color:#999;">/${levelCap}</small></div>
+              <div class="cdv-top-card-bar"><div class="cdv-top-card-fill" style="width:${lvPct}%;background:${rarityColor};"></div></div>
+            </div>
+            <div class="cdv-top-card">
+              <div class="cdv-top-card-label">Total Power</div>
+              <div class="cdv-top-card-value" style="color:#42a5f5">${formatNum(data.totalPower)}</div>
+            </div>
+            <div class="cdv-top-card">
+              <div class="cdv-top-card-label">Oshi Slot</div>
+              <div class="cdv-top-card-value" style="color:#e91e63">${oshiCount}/${Game.OSHI_MAX}</div>
+              <div class="cdv-top-card-bar"><div class="cdv-top-card-fill" style="width:${(oshiCount/Game.OSHI_MAX)*100}%;background:#e91e63;"></div></div>
             </div>
           </div>
-        ` : ''}
-      ` : `
-        <div style="color:var(--text-muted);margin-top:var(--space-md);">
-          Not yet collected. Pull on banners to get this character!
+          ` : ''}
+
+          <!-- All 6 Stats -->
+          <div class="cdv-stats-section">
+            <div class="cdv-section-title">STATUS</div>
+            <div class="cdv-stats-grid">
+              ${allStatsHTML || '<div style="color:#999;font-size:0.8rem;">No stats</div>'}
+            </div>
+          </div>
+
+          <!-- Bond -->
+          ${bondHTML}
+
+          <!-- Action Buttons -->
+          ${owned ? `
+          <div class="cdv-actions">
+            <button class="cdv-btn cdv-btn-oshi ${isOshi ? 'cdv-btn-oshi-active' : ''}" onclick="UI.toggleOshi('${slug}')" ${!isOshi && oshiFull ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>
+              ${isOshi ? '&#9733; OSHI' : '&#9734; SET OSHI'}
+            </button>
+            ${_detailMode ? `
+              <button class="cdv-btn cdv-btn-assign" onclick="UI.assignCharFromDetail('${slug}')">
+                ASSIGN <span class="cdv-btn-sub">to ${Game.STATION_DEFS[_detailMode.stationId]?.name || 'Station'}</span>
+              </button>
+            ` : `
+              <button class="cdv-btn cdv-btn-lvup" onclick="UI.levelUpChar('${slug}')" ${data.level >= data.levelCap ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+                LV UP <span class="cdv-btn-sub">${currencyIcon('vringgit', 12)}${formatNum(data.nextLevelCost[0])} ${currencyIcon('livecache', 12)}${data.nextLevelCost[1]}</span>
+              </button>
+              ${assignedStation ? `<span class="cdv-working-badge">Working: ${Game.STATION_DEFS[assignedStation]?.name || assignedStation}</span>` : ''}
+            `}
+          </div>
+          ` : `
+          <div class="cdv-actions">
+            <div class="cdv-unowned-hint">Not yet collected. Pull on banners!</div>
+          </div>
+          `}
         </div>
-      `}
+      </div>
     `;
 
     toggleModal('modal-character');
   }
 
   // Expose for onclick
+  function toggleOshi(slug) {
+    const result = Game.toggleOshi(slug);
+    if (!result.success) {
+      showToast(result.reason, 'warning');
+      return;
+    }
+    if (result.action === 'added') {
+      showToast(`Added to Oshi! (${result.count}/${Game.OSHI_MAX})`, 'success');
+    } else {
+      showToast('Removed from Oshi.', 'info');
+    }
+    showCharacterDetail(slug);
+    renderCollection();
+  }
+
   function levelUpChar(slug) {
     const result = Characters.levelUp(slug);
     if (result.success) {
@@ -1185,6 +1688,22 @@ const UI = (() => {
       updateUI();
     } else {
       showToast(result.reason, 'error');
+    }
+  }
+
+  function assignCharFromDetail(slug) {
+    if (!_detailMode || !_detailMode.stationId) return;
+    const stationId = _detailMode.stationId;
+    if (Game.assignToStation(stationId, slug)) {
+      const charInfo = DataLoader.getBySlug(slug);
+      const stName = Game.STATION_DEFS[stationId]?.name || stationId;
+      showToast(`Assigned ${charInfo ? charInfo.name : slug} to ${stName}!`, 'success');
+      toggleModal('modal-character');
+      _detailMode = null;
+      closeAssignModal();
+      renderStudio();
+    } else {
+      showToast('Assignment failed.', 'error');
     }
   }
 
@@ -1214,9 +1733,10 @@ const UI = (() => {
   // ── Pull Result Summary Toast ──
   function showPullResultToast(total, newCount, counts) {
     const parts = [];
-    if (counts.ssr > 0) parts.push(`${counts.ssr} SSR`);
-    if (counts.sr > 0) parts.push(`${counts.sr} SR`);
-    if (counts.normal > 0) parts.push(`${counts.normal} Normal`);
+    if (counts.UR > 0) parts.push(`${counts.UR} UR`);
+    if (counts.SSR > 0) parts.push(`${counts.SSR} SSR`);
+    if (counts.SR > 0) parts.push(`${counts.SR} SR`);
+    if (counts.R > 0) parts.push(`${counts.R} R`);
     const newPart = newCount > 0 ? `${newCount} NEW` : '';
     const msg = newPart
       ? `Pulled x${total}: ${newPart}, ${parts.join(', ')}`
@@ -1261,8 +1781,8 @@ const UI = (() => {
       return;
     }
 
-    // Sprint 4: Sort by variant rarity (SSR > SR > Normal), then by level
-    const rarityOrder = { ssr: 3, sr: 2, normal: 1 };
+    // Sort by rarity descending (UR > SSR > SR > R), then level descending
+    const rarityOrder = { ur: 4, ssr: 3, sr: 2, normal: 1, r: 1 };
     available.sort((a, b) => {
       const aState = state.characters[a.slug];
       const bState = state.characters[b.slug];
@@ -1292,16 +1812,30 @@ const UI = (() => {
       badge.className = `assign-char-badge badge-${bestVariant}`;
       badge.textContent = bestVariant.toUpperCase();
 
+      // ST/PS stats bar
+      const stInfo = Game.getVTuberStaminaInfo(charInfo.slug);
+      if (stInfo) {
+        const statsBar = document.createElement('div');
+        statsBar.className = 'assign-char-stats';
+        const stSpan = document.createElement('span');
+        stSpan.className = 'acs-st' + (stInfo.current < stInfo.max ? ' acs-depleted' : '');
+        stSpan.textContent = `ST ${stInfo.current}/${stInfo.max}`;
+        const psSpan = document.createElement('span');
+        psSpan.className = 'acs-ps' + (stInfo.psDepleted ? ' acs-depleted' : '');
+        psSpan.textContent = `PS ${stInfo.psCurrent}/${stInfo.psMax}`;
+        statsBar.appendChild(stSpan);
+        statsBar.appendChild(psSpan);
+        el.appendChild(statsBar);
+      }
+
       el.appendChild(img);
       el.appendChild(info);
       el.appendChild(badge);
 
       el.addEventListener('click', () => {
-        if (Game.assignToStation(stationId, charInfo.slug)) {
-          showToast(`Assigned ${charInfo.name} to ${Game.STATION_DEFS[stationId].name}!`, 'success');
-          closeAssignModal();
-          renderStudio();
-        }
+        // Close assign modal, open character detail in assign mode
+        toggleModal('modal-assign');
+        showCharacterDetail(charInfo.slug, { mode: 'assign', stationId });
       });
 
       grid.appendChild(el);
@@ -1342,12 +1876,15 @@ const UI = (() => {
 
   function getResourceName(key) {
     const names = {
-      stars: 'Stars',
-      starDust: 'Star Dust',
-      starFragments: 'Star Fragments',
-      bondPoints: 'Bond Points',
+      vgems: 'VGems', vringgit: 'VRinggit', blueTicket: 'Blue Tickets', studioExp: 'Studio EXP',
+      stars: 'Stars', starDust: 'Star Dust', starFragments: 'Star Fragments', bondPoints: 'Bond Points',
     };
     return names[key] || key;
+  }
+
+  function getResourceIconType(key) {
+    const map = { vgems: 'vgems', vringgit: 'vringgit', blueTicket: 'ticket_blue', liveCache: 'livecache' };
+    return map[key] || '';
   }
 
   function debounce(fn, ms) {
@@ -1391,6 +1928,13 @@ const UI = (() => {
   function updateMinigameCostLabel() {
     const label = document.getElementById('sc-cost-label');
     if (label) label.textContent = Minigame.getPlayCostLabel();
+    // Dynamic round duration based on lead's ST
+    const durationEl = document.getElementById('sc-round-duration');
+    if (durationEl && _scLeadSlug) {
+      durationEl.textContent = Minigame.getPreviewDuration(_scLeadSlug);
+    } else if (durationEl) {
+      durationEl.textContent = '30';
+    }
   }
 
   function updateMinigameHighScore() {
@@ -1421,11 +1965,54 @@ const UI = (() => {
         img.alt = charInfo.name;
         img.onerror = () => { img.src = charInfo.image || img.src; img.onerror = () => { img.style.display = 'none'; }; };
         name.textContent = charInfo.name;
+        updateStatPreview();
         return;
       }
     }
     img.style.display = 'none';
     name.textContent = 'Pick a Streamer';
+    updateStatPreview(); // clear preview when no lead selected
+  }
+
+  function updateStatPreview() {
+    const container = document.getElementById('sc-stat-preview');
+    const durationEl = document.getElementById('sc-round-duration');
+    if (!container) return;
+
+    if (!_scLeadSlug) {
+      container.style.display = 'none';
+      if (durationEl) durationEl.textContent = '30';
+      return;
+    }
+
+    const preview = Minigame.getStatPreview(_scLeadSlug);
+    if (!preview) {
+      container.style.display = 'none';
+      if (durationEl) durationEl.textContent = '30';
+      return;
+    }
+
+    // Update round duration display
+    if (durationEl) durationEl.textContent = preview.effects.st.display.replace('s', '');
+
+    // Build the stat preview grid: 3 columns x 2 rows
+    const statKeys = ['tc', 'ch', 'vc', 'mg', 'st', 'ps'];
+    const statLabels = { tc: 'TC', ch: 'CH', vc: 'VC', mg: 'MG', st: 'ST', ps: 'PS' };
+
+    let html = '';
+    for (const key of statKeys) {
+      const effect = preview.effects[key];
+      const statVal = preview.stats[key];
+      html += `<div class="sc-sp-item">`;
+      html += `<div class="sc-sp-stat"><span class="sc-sp-stat-name">${statLabels[key]}</span><span class="sc-sp-stat-val">${statVal}</span></div>`;
+      html += `<div class="sc-sp-arrow">&rarr;</div>`;
+      html += `<div class="sc-sp-effect" style="color:${effect.color};">${effect.label}</div>`;
+      html += `<div class="sc-sp-value" style="color:${effect.color};">${effect.display}</div>`;
+      html += `</div>`;
+    }
+
+    container.innerHTML = html;
+    container.style.display = 'grid';
   }
 
   function openMinigameLeadPicker() {
@@ -1496,7 +2083,10 @@ const UI = (() => {
 
       el.addEventListener('click', () => {
         _scLeadSlug = charInfo.slug;
+        Minigame.setLead(charInfo.slug);
         updateMinigameLeadPreview();
+        updateMinigameCostLabel();
+        updateMinigameStaminaBar();
         closeMinigameLeadPicker();
         showToast(`Lead: ${charInfo.name} (${bestVariant.toUpperCase()})`, 'success');
       });
@@ -1507,7 +2097,8 @@ const UI = (() => {
 
   function startMinigameRound() {
     if (!Minigame.canPlay()) {
-      showToast('Not enough Stamina!', 'error');
+      const stamInfo = Minigame.getLeadStaminaInfo();
+      showToast(`Not enough ST! Need ${Minigame.STAMINA_COST}, have ${stamInfo ? stamInfo.current : '?'}`, 'error');
       return;
     }
 
@@ -1531,7 +2122,8 @@ const UI = (() => {
 
   return {
     init, switchTab, updateUI,
-    showToast, levelUpChar, ascendChar, convertShards,
+    showToast, levelUpChar, ascendChar, convertShards, assignCharFromDetail,
+    toggleOshi,
   };
 })();
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MyVT Gacha Collection</title>
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=42">
 </head>
 <body>
   <!-- Top Navigation Bar -->
@@ -18,11 +18,11 @@
       <button class="nav-tab" data-tab="minigame">Minigame</button>
     </div>
     <div class="nav-resources">
-      <span class="resource" id="res-stars" title="Stars">*</span>
-      <span class="resource" id="res-stardust" title="Star Dust">+</span>
-      <span class="resource" id="res-fragments" title="Star Fragments">#</span>
-      <span class="resource" id="res-bonds" title="Bond Points">~</span>
-      <span class="resource" id="res-gems" title="Gems" style="color:var(--gem-color, #ab47bc);">0</span>
+      <span class="resource" id="res-vgems" title="VGems" style="color:#00e5ff;">0</span>
+      <span class="resource" id="res-myticket-blue" title="Blue MyTicket" style="color:#42a5f5;">0</span>
+      <span class="resource" id="res-myticket-red" title="Red MyTicket" style="color:#ef5350;">0</span>
+      <span class="resource" id="res-livecache" title="LiveCache" style="color:#66bb6a;">0</span>
+      <span class="resource" id="res-vringgit" title="VRinggit" style="color:#ffa726;">0</span>
       <span class="resource" id="res-stamina" title="Stamina">
         <span class="stamina-bar-mini"><span class="stamina-bar-mini-fill" id="stamina-bar-fill-nav"></span></span>
         <span id="res-stamina-val">200</span>
@@ -46,8 +46,8 @@
             <div class="stat-value" id="stat-collection">0 / 319</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">SSR Owned</div>
-            <div class="stat-value" id="stat-ssr">0</div>
+            <div class="stat-label">High Rarity</div>
+            <div class="stat-value" id="stat-high-rarity">0</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">Studio Level</div>
@@ -86,18 +86,19 @@
           <div class="banner-name" id="banner-name">Standard Banner</div>
           <div class="banner-desc" id="banner-desc">All 319 Malaysian VTubers</div>
           <div class="banner-rates">
-            <span class="rate rate-ssr">SSR 3%</span>
-            <span class="rate rate-sr">SR 15%</span>
-            <span class="rate rate-normal">Normal 82%</span>
+            <span class="rate rate-ur">UR 1%</span>
+            <span class="rate rate-ssr">SSR 7%</span>
+            <span class="rate rate-sr">SR 22%</span>
+            <span class="rate rate-r">R 70%</span>
           </div>
-          <div class="pity-info">Pity: <span id="pity-count">0</span>/50 pulls</div>
+          <div class="pity-info">Pity: <span id="pity-count">0</span>/90 (SSR+ guaranteed)</div>
         </div>
         <div class="pull-buttons">
           <button class="btn btn-primary btn-pull" data-count="1">
-            Pull x1<br><span class="cost">100 *</span>
+            Pull x1<br><span class="cost" id="cost-single">1 Blue Ticket</span>
           </button>
           <button class="btn btn-primary btn-pull btn-pull-10" data-count="10">
-            Pull x10<br><span class="cost">1,000 *</span>
+            Pull x10<br><span class="cost" id="cost-multi">10 Blue Tickets</span>
           </button>
         </div>
         <div class="pull-results" id="pull-results"></div>
@@ -113,12 +114,14 @@
             <option value="all">All Characters</option>
             <option value="owned">Owned Only</option>
             <option value="unowned">Not Owned</option>
+            <option value="oshi">Oshi (Favourites)</option>
           </select>
           <select id="filter-variant">
-            <option value="all">All Variants</option>
-            <option value="ssr">SSR</option>
-            <option value="sr">SR</option>
-            <option value="normal">Normal</option>
+            <option value="all">All Rarities</option>
+            <option value="UR">UR</option>
+            <option value="SSR">SSR</option>
+            <option value="SR">SR</option>
+            <option value="R">R</option>
           </select>
           <select id="filter-agency">
             <option value="all">All Agencies</option>
@@ -131,7 +134,7 @@
           <input type="text" id="filter-search" placeholder="Search VTuber name...">
           <select id="filter-sort">
             <option value="name">Sort by Name</option>
-            <option value="variant">Sort by Variant</option>
+            <option value="variant">Sort by Rarity</option>
             <option value="level">Sort by Level</option>
           </select>
         </div>
@@ -163,19 +166,24 @@
           </div>
           <span class="studio-exp-text" id="studio-exp-text">0 / 200 EXP</span>
         </div>
-        <!-- Sprint 4: Income Dashboard -->
-        <div class="studio-income-dashboard" id="studio-income-dashboard">
-          <h3>Income Overview</h3>
-          <div class="income-total" id="income-total">0.0 /min combined</div>
-          <div class="income-breakdown" id="income-breakdown"></div>
+        <!-- Trending Banner -->
+        <div class="trending-banner" id="studio-trending">
+          <span class="trending-label">Trending: loading...</span>
         </div>
-        <!-- Sprint 4: Unlock Roadmap -->
+        <!-- Studio Stats Panel -->
+        <div class="studio-stats-panel" id="studio-stats-panel"></div>
+        <!-- Unlock Roadmap -->
         <div class="studio-unlock-roadmap" id="studio-unlock-roadmap">
           <h3>Unlock Roadmap</h3>
           <div class="unlock-items" id="unlock-items"></div>
         </div>
         <div class="stations-grid" id="stations-grid">
           <!-- Stations are dynamically generated -->
+        </div>
+        <!-- Content Log Feed -->
+        <div class="content-log-section">
+          <h3 class="content-log-title">Content Feed</h3>
+          <div class="content-log" id="content-log"></div>
         </div>
       </div>
     </section>
@@ -184,7 +192,7 @@
     <section class="tab-content" id="tab-minigame">
       <div class="sc-container">
         <h2>Super Chat Toss</h2>
-        <p class="sc-desc">Tap falling super chats to earn Stars! Avoid the red landmines. Fill the boost meter for SUPER CHAT MODE!</p>
+        <p class="sc-desc">Tap falling super chats to earn LiveCache! Avoid the red landmines. Fill the boost meter for SUPER CHAT MODE!</p>
         <!-- Start Screen -->
         <div id="sc-start-screen" class="sc-start-screen">
           <div class="sc-lead-select">
@@ -195,16 +203,17 @@
             <button class="btn btn-secondary" id="sc-pick-lead">Choose Character</button>
           </div>
           <div class="sc-stamina-display">
-            <span class="sc-stamina-label">Stamina</span>
+            <span class="sc-stamina-label">ST</span>
             <div class="sc-stamina-bar-track">
               <div class="sc-stamina-bar-fill" id="sc-stamina-bar-fill"></div>
             </div>
-            <span class="sc-stamina-val" id="sc-stamina-val">200 / 200</span>
+            <span class="sc-stamina-val" id="sc-stamina-val">- / -</span>
             <span class="sc-stamina-timer" id="sc-stamina-timer"></span>
           </div>
+          <div id="sc-stat-preview" class="sc-stat-preview" style="display:none;"></div>
           <div class="sc-info-row">
-            <span class="sc-info-item">Round: 30 seconds</span>
-            <span class="sc-info-item">Cost: <span id="sc-cost-label">15 Stamina</span></span>
+            <span class="sc-info-item">Round: <span id="sc-round-duration">30</span>s</span>
+            <span class="sc-info-item">Cost: <span id="sc-cost-label">15 ST</span></span>
           </div>
           <div class="sc-high-score-display" id="sc-high-score-display" style="display:none;">
             High Score: <span id="sc-high-score-val">0</span>
@@ -242,9 +251,9 @@
         <div id="sc-results-screen" class="sc-results-screen" style="display:none;">
           <h3 class="sc-results-title">Round Complete!</h3>
           <div class="sc-results-grid">
-            <div class="sc-reward-card"><span class="sc-reward-label">Stars</span><span class="sc-reward-value" id="sc-res-coins">+0</span></div>
-            <div class="sc-reward-card"><span class="sc-reward-label">Gems</span><span class="sc-reward-value" id="sc-res-gems">--</span></div>
-            <div class="sc-reward-card"><span class="sc-reward-label">Bond</span><span class="sc-reward-value" id="sc-res-bonds">+10</span></div>
+            <div class="sc-reward-card"><span class="sc-reward-label">LiveCache</span><span class="sc-reward-value" id="sc-res-coins">+0</span></div>
+            <div class="sc-reward-card"><span class="sc-reward-label">VGems</span><span class="sc-reward-value" id="sc-res-gems">--</span></div>
+            <div class="sc-reward-card"><span class="sc-reward-label">VRinggit</span><span class="sc-reward-value" id="sc-res-bonds">+0</span></div>
           </div>
           <div class="sc-results-stats">
             <span id="sc-res-score"></span>
@@ -252,6 +261,11 @@
             <span id="sc-res-accuracy"></span>
             <span id="sc-res-highscore"></span>
           </div>
+          <div class="sc-results-extras">
+            <span id="sc-res-stat" style="display:none;"></span>
+            <span id="sc-res-stamina" style="display:none;"></span>
+          </div>
+          <div id="sc-res-challenge" class="sc-results-challenge" style="display:none;"></div>
           <button class="btn btn-primary sc-start-btn" id="sc-play-again-btn">Play Again</button>
         </div>
       </div>
@@ -339,11 +353,11 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="js/data.js?v=13"></script>
-  <script src="js/game.js?v=13"></script>
-  <script src="js/gacha.js?v=13"></script>
-  <script src="js/characters.js?v=13"></script>
-  <script src="js/minigame.js?v=13"></script>
-  <script src="js/ui.js?v=13"></script>
+  <script src="js/data.js?v=42"></script>
+  <script src="js/game.js?v=42"></script>
+  <script src="js/gacha.js?v=42"></script>
+  <script src="js/characters.js?v=42"></script>
+  <script src="js/minigame.js?v=42"></script>
+  <script src="js/ui.js?v=42"></script>
 </body>
 </html>

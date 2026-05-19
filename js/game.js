@@ -4,7 +4,8 @@
 
 const Game = (() => {
   const SAVE_KEY = 'myvt_gacha_save';
-  const SAVE_VERSION = 1;
+  const SAVE_VERSION = 7;
+  const VGEML_PER_TICKET = 150;
   const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
   const OFFLINE_EARNINGS_CAP_HOURS = 12;
 
@@ -22,80 +23,130 @@ const Game = (() => {
     { level: 10, exp: 60000, unlocks: 'Odekake (Going Out)' },
   ];
 
-  // Station definitions
+  // Station definitions — overhauled to use new economy
   const STATION_DEFS = {
-    streamRoom:    { name: 'Stream Room',    resource: 'stars',         unlockLv: 1 },
-    creativeCorner:{ name: 'Creative Corner',  resource: 'starDust',     unlockLv: 2 },
-    practiceHall:  { name: 'Practice Hall',    resource: 'starFragments', unlockLv: 4 },
-    lounge:        { name: 'Lounge',           resource: 'bondPoints',    unlockLv: 6 },
+    streamRoom:    { name: 'Stream Room',    resource: 'vgems',        unlockLv: 1 },
+    creativeCorner:{ name: 'Creative Corner',  resource: 'vringgit',     unlockLv: 2 },
+    practiceHall:  { name: 'Practice Hall',    resource: 'blueTicket',   unlockLv: 4 },
+    lounge:        { name: 'Lounge',           resource: 'studioExp',    unlockLv: 6 },
   };
 
-  // Station upgrade costs: [stars, fragments]
+  // Station upgrade costs: VRinggit only
   const STATION_UPGRADE_COSTS = [
-    [0, 0],       // Lv 1 (base)
-    [500, 50],    // Lv 2
-    [2000, 200],  // Lv 3
-    [8000, 800],  // Lv 4
-    [30000, 3000],// Lv 5
+    0,      // Lv 1 (base)
+    200,    // Lv 2
+    800,    // Lv 3
+    2500,   // Lv 4
+    8000,   // Lv 5
   ];
 
   const STATION_MULTIPLIERS = [1, 1.5, 2, 3, 5];
 
-  // Resource base rates per minute
+  // Resource base rates per minute (overhauled currencies)
   const BASE_RATES = {
-    stars: 2,
-    starDust: 1.5,
-    starFragments: 1,
-    bondPoints: 1,
+    vgems: 1.5,
+    vringgit: 1.0,
+    blueTicket: 0.01,
+    studioExp: 1.0,
   };
 
-  // Variant multipliers
+  // Content creation system
+  const CONTENT_INTERVAL = 60; // seconds between content creation ticks
+  const TRENDING_ROTATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+  const CONTENT_LOG_MAX = 20;
+
+  // Content types with primary/secondary stat mappings
+  const CONTENT_TYPES = {
+    streamRoom:    { primary: 'CH', secondary: 'VC', resource: 'vgems',      baseReward: 5 },     // VGems
+    creativeCorner:{ primary: 'TC', secondary: 'MG', resource: 'vringgit',   baseReward: 3 },     // VRinggit
+    practiceHall:  { primary: 'ST', secondary: 'PS', resource: 'blueTicket', baseReward: 0.03 },  // Blue Tickets
+    lounge:        { primary: 'PS', secondary: 'CH', resource: 'studioExp',  baseReward: 3, bonusResource: 'vgems', bonusAmount: 1 }, // Studio EXP + small VGems
+  };
+
+  // Quality tier definitions
+  const QUALITY_TIERS = [
+    { tier: 'SS', minScore: 100, multiplier: 5.0, color: '#ffd700', label: 'Masterpiece' },
+    { tier: 'S',  minScore: 75,  multiplier: 2.5, color: '#c77dff', label: 'Excellent' },
+    { tier: 'A',  minScore: 50,  multiplier: 1.5, color: '#42a5f5', label: 'Great' },
+    { tier: 'B',  minScore: 30,  multiplier: 1.0, color: '#66bb6a', label: 'Good' },
+    { tier: 'C',  minScore: 15,  multiplier: 0.5, color: '#b0bec5', label: 'Normal' },
+    { tier: 'D',  minScore: 0,   multiplier: 0.1, color: '#616161', label: 'Poor' },
+  ];
+
+  // Stamina costs per station level (index 0 = Lv1)
+  const STAMINA_COSTS = [8, 6, 4, 3, 2];
+
+  // Rarity multipliers (used by studio for income calc — backward compat)
   const VARIANT_MULTIPLIERS = {
-    normal: 1,
+    normal: 1, // R rarity maps to 'normal' for legacy studio compat
+    r: 1,
     sr: 2,
     ssr: 5,
+    ur: 10,
   };
 
-  // Studio EXP per minute per variant
+  // New Rarity multipliers for Gacha V2
+  const RarityMultipliers = { R: 1, SR: 2, SSR: 5, UR: 10 };
+
+  // Studio EXP per minute per variant (from ALL stations)
   const STUDIO_EXP_RATES = {
-    normal: 0.5,
+    normal: 0.5, r: 0.5,
     sr: 1.5,
     ssr: 4,
+    ur: 8,
   };
 
-  // Level caps per variant
+  // Level caps per rarity
   const LEVEL_CAPS = {
-    normal: 20,
+    normal: 20, r: 20,
     sr: 35,
     ssr: 50,
+    ur: 70,
   };
 
-  // Level costs per level: [starDust, stars]
+  // Level costs per level: VRinggit + LiveCache (LiveCache ~20% of VRinggit)
   function getLevelCost(variant, level) {
-    const base = variant === 'ssr' ? 80 : variant === 'sr' ? 30 : 10;
-    const baseS = variant === 'ssr' ? 100 : variant === 'sr' ? 50 : 20;
-    const mult = variant === 'ssr' ? 20 : variant === 'sr' ? 10 : 5;
-    const multS = variant === 'ssr' ? 40 : variant === 'sr' ? 20 : 10;
-    return [base + level * mult, baseS + level * multS];
+    const v = variant.toLowerCase();
+    const base = v === 'ur' ? 50 : v === 'ssr' ? 30 : v === 'sr' ? 15 : 5;
+    const mult = v === 'ur' ? 12 : v === 'ssr' ? 8 : v === 'sr' ? 5 : 3;
+    const ringgitCost = base + level * mult;
+    const liveCacheCost = Math.ceil(ringgitCost * 0.2);
+    return [ringgitCost, liveCacheCost];
   }
 
-  // Ascension costs
-  const ASCENSION_COSTS = {
-    'normal->sr': { fragments: 100, level: 20 },
-    'sr->ssr': { fragments: 500, level: 35 },
-  };
+  // Ascension removed — replaced by Echo system in Gacha V2
+  const ASCENSION_COSTS = {};
 
-  // Daily login rewards
-  const DAILY_BASE = 100;
-  const DAILY_INCREMENT = 50;
-  const DAILY_CAP = 500;
+  // Daily login rewards — overhaul currencies
+  const DAILY_BASE_VGEMS = 100;
+  const DAILY_INCREMENT_VGEMS = 50;
+  const DAILY_CAP_VGEMS = 500;
+  const DAILY_BASE_TICKETS = 1;
+  const DAILY_INCREMENT_TICKETS = 0;
+  const DAILY_CAP_TICKETS = 3;
 
   // Stamina system
   const STAMINA_MAX = 200;
   const STAMINA_RECOVERY_INTERVAL_MS = 4 * 60 * 1000; // 1 point every 4 minutes
 
+  // Bond Level thresholds and stat rewards (GDD §9.1)
+  const BOND_LEVELS = [
+    { level: 1, bpRequired: 100,  statBonus: 2 },
+    { level: 2, bpRequired: 250,  statBonus: 3 },
+    { level: 3, bpRequired: 500,  statBonus: 3 },
+    { level: 4, bpRequired: 800,  statBonus: 4 },
+    { level: 5, bpRequired: 1200, statBonus: 4 },
+    { level: 6, bpRequired: 1800, statBonus: 5 },
+    { level: 7, bpRequired: 2500, statBonus: 5 },
+    { level: 8, bpRequired: 3500, statBonus: 6 },
+  ];
+  const BOND_MAX_LEVEL = 8;
+  const BOND_DATE_COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
+  const BOND_DATE_LEVEL_REQ = 10; // VTuber must be Level 10+
+
   // Starting resources
-  const STARTING_STARS = 1000;
+  const OSHI_MAX = 6; // Maximum Oshi (favourite) slots
+  const STARTING_STARS = 1000; // legacy only
 
   let state = null;
   let _tickInterval = null;
@@ -119,13 +170,19 @@ const Game = (() => {
       version: SAVE_VERSION,
       playerId: generatePlayerId(),
       currencies: {
+        // New overhaul currencies
+        vgems: 1500,
+        vringgit: 0,
+        myTicket: { blue: 10, red: 0 },
+        liveCache: 0,
+        // Legacy currencies (kept for studio/minigame backward compat until Phase 4-5)
         stars: STARTING_STARS,
         starDust: 0,
         starFragments: 0,
         bondPoints: 0,
         gems: 0,
       },
-      characters: {}, // slug -> { owned, variants: [normal/sr/ssr], level, shards }
+      characters: {}, // slug -> { owned, rarity, echo, level, stats, baseStats, bondPoints, bondLevel, lastDateCooldown, ... }
       studio: {
         level: 1,
         exp: 0,
@@ -135,6 +192,10 @@ const Game = (() => {
           practiceHall: { level: 1, assigned: null },
           lounge: { level: 1, assigned: null },
         },
+        contentLog: [],
+        lastContentTick: Date.now(),
+        trendingStat: null,
+        trendingExpires: 0,
       },
       pity: { count: 0 },
       stats: {
@@ -151,6 +212,7 @@ const Game = (() => {
       pullHistory: {}, // slug -> { firstPullDate, totalPulls }
       stamina: { current: STAMINA_MAX, lastRecovery: Date.now() },
       minigame: { dailyPlays: 0, lastPlayDate: null, highScore: 0 },
+      oshiList: [], // Array of slugs designated as Oshi (max OSHI_MAX)
     };
   }
 
@@ -188,12 +250,117 @@ const Game = (() => {
   }
 
   function migrateState(oldState) {
-    const merged = { ...createNewState(), ...oldState, version: SAVE_VERSION };
+    const merged = { ...createNewState(), ...oldState, version: SAVE_VERSION }
     // Ensure new fields exist in migrated state
     if (!merged.milestones) merged.milestones = [];
     if (!merged.pullHistory) merged.pullHistory = {};
     if (!merged.minigame) merged.minigame = { dailyPlays: 0, lastPlayDate: null, highScore: 0 };
     if (!merged.stamina) merged.stamina = { current: STAMINA_MAX, lastRecovery: Date.now() };
+
+    // v1 → v2: Add new overhaul currencies alongside legacy ones
+    if (!merged.currencies) merged.currencies = {};
+    // Preserve existing legacy currencies, add new ones with defaults
+    const legacyCurrencies = { stars: 0, starDust: 0, starFragments: 0, bondPoints: 0, gems: 0 };
+    const newCurrencies = { vgems: 1500, vringgit: 0, myTicket: { blue: 10, red: 0 }, liveCache: 0 };
+    for (const [key, def] of Object.entries(legacyCurrencies)) {
+      if (merged.currencies[key] === undefined) merged.currencies[key] = def;
+    }
+    for (const [key, def] of Object.entries(newCurrencies)) {
+      if (merged.currencies[key] === undefined) merged.currencies[key] = def;
+    }
+    if (typeof merged.currencies.myTicket !== 'object') {
+      merged.currencies.myTicket = { blue: 10, red: 0 };
+    }
+    if (!merged.currencies.myTicket.blue) merged.currencies.myTicket.blue = 0;
+    if (!merged.currencies.myTicket.red) merged.currencies.myTicket.red = 0;
+
+    // v2 → v3: Studio overhaul — stations now produce overhaul currencies instead of legacy ones.
+    // Station structure (level, assigned) is unchanged, so no data migration needed.
+    // The STATION_DEFS, BASE_RATES, upgrade costs etc. are all in constants.
+    // Legacy currencies (stars, starDust, starFragments, bondPoints) are preserved but no longer generated.
+    // Ensure _blueTicketRemainder exists for fractional ticket tracking
+    if (merged._blueTicketRemainder === undefined) merged._blueTicketRemainder = 0;
+
+    // v3 → v4: Add content creation system fields to studio
+    if (!merged.studio) merged.studio = { level: 1, exp: 0, stations: {} };
+    if (!merged.studio.contentLog) merged.studio.contentLog = [];
+    if (!merged.studio.lastContentTick) merged.studio.lastContentTick = Date.now();
+    if (!merged.studio.trendingStat) merged.studio.trendingStat = null;
+    if (!merged.studio.trendingExpires) merged.studio.trendingExpires = 0;
+
+    // v4 → v5: Add per-character bond system fields
+    if (merged.characters) {
+      for (const [slug, charData] of Object.entries(merged.characters)) {
+        if (!charData) continue;
+        if (charData.bondPoints === undefined) charData.bondPoints = 0;
+        if (charData.bondLevel === undefined) charData.bondLevel = 0;
+        if (charData.lastDateCooldown === undefined) charData.lastDateCooldown = 0;
+      }
+    }
+
+    // v5 → v6: Add Oshi collection list
+    if (!merged.oshiList || !Array.isArray(merged.oshiList)) merged.oshiList = [];
+    merged.oshiList = merged.oshiList.filter(slug => {
+      const cd = merged.characters[slug];
+      return cd && cd.owned;
+    });
+    if (merged.oshiList.length > OSHI_MAX) merged.oshiList.length = OSHI_MAX;
+
+    // v6 → v7: Normalize stat keys to lowercase (bug: echo gains used uppercase ST/TC/etc
+    // but JSON base stats use lowercase st/tc/etc, causing display to miss echo bonuses)
+    if (merged.characters) {
+      const statKeyMap = { ST: 'st', PS: 'ps', TC: 'tc', CH: 'ch', VC: 'vc', MG: 'mg' };
+      for (const charData of Object.values(merged.characters)) {
+        if (!charData || !charData.stats) continue;
+        for (const [upper, lower] of Object.entries(statKeyMap)) {
+          if (charData.stats[upper] !== undefined) {
+            charData.stats[lower] = (charData.stats[lower] || 0) + charData.stats[upper];
+            delete charData.stats[upper];
+          }
+        }
+        if (charData.baseStats) {
+          for (const [upper, lower] of Object.entries(statKeyMap)) {
+            if (charData.baseStats[upper] !== undefined) {
+              charData.baseStats[lower] = (charData.baseStats[lower] || 0) + charData.baseStats[upper];
+              delete charData.baseStats[upper];
+            }
+          }
+        }
+      }
+    }
+
+    // Migrate existing characters: add rarity field from characters.json
+    if (merged.characters) {
+      for (const [slug, charData] of Object.entries(merged.characters)) {
+        if (charData && charData.owned && !charData.rarity) {
+          const charInfo = DataLoader.getBySlug(slug);
+          charData.rarity = charInfo ? charInfo.rarity : 'R';
+          // Add echo and stats if missing
+          if (charData.echo === undefined) charData.echo = 0;
+          if (!charData.stats) {
+            charData.stats = charInfo && charInfo.stats ? { ...charInfo.stats } : { st: 10, ps: 10, tc: 5, ch: 5, vc: 5, mg: 5 };
+          }
+          if (!charData.baseStats) {
+            charData.baseStats = charInfo && charInfo.stats ? { ...charInfo.stats } : { ...charData.stats };
+          }
+          // Map legacy variants to rarity for backward compat
+          if (!charData.variants || charData.variants.length === 0) {
+            const rarityToLower = charData.rarity ? charData.rarity.toLowerCase() : 'normal';
+            if (rarityToLower === 'r' || rarityToLower === 'normal') charData.variants = ['normal'];
+            else if (rarityToLower === 'sr') charData.variants = ['sr'];
+            else if (rarityToLower === 'ssr') charData.variants = ['ssr'];
+            else if (rarityToLower === 'ur') charData.variants = ['ur'];
+            else charData.variants = ['normal'];
+          }
+          if (charData.shards === undefined) charData.shards = 0;
+        }
+        // v4 → v5: Add VTuber stamina recovery tracking (all owned, not just unmigrated)
+        if (charData.owned && charData.lastStaminaRecovery === undefined) {
+          charData.lastStaminaRecovery = Date.now();
+        }
+      }
+    }
+
     return merged;
   }
 
@@ -207,7 +374,224 @@ const Game = (() => {
     return true;
   }
 
-  // Calculate offline earnings
+  // ═══════════════════════════════════════════════
+  //  CONTENT CREATION SYSTEM (Phase 4 — Studio Overhaul)
+  // ═══════════════════════════════════════════════
+
+  // Get current trending stat (rotates every 2 hours)
+  function getTrendingStat() {
+    const now = Date.now();
+    if (!state.studio.trendingStat || !state.studio.trendingExpires || now >= state.studio.trendingExpires) {
+      // Only growth stats can trend — ST/PS are expendable (HP/SP) and excluded
+      const trendableStats = ['TC', 'CH', 'VC', 'MG'];
+      state.studio.trendingStat = trendableStats[Math.floor(Math.random() * trendableStats.length)];
+      state.studio.trendingExpires = now + TRENDING_ROTATION_MS;
+    }
+    return state.studio.trendingStat;
+  }
+
+  // Get time remaining on current trending stat (ms)
+  function getTrendingTimeRemaining() {
+    const now = Date.now();
+    if (!state.studio.trendingExpires) return 0;
+    return Math.max(0, state.studio.trendingExpires - now);
+  }
+
+  // Calculate content quality for a station
+  function getContentQuality(stationId) {
+    const station = state.studio.stations[stationId];
+    const def = CONTENT_TYPES[stationId];
+    if (!station || !def || !station.assigned) return null;
+
+    const charData = state.characters[station.assigned];
+    if (!charData || !charData.stats) return null;
+
+    const stats = charData.stats;
+    const primaryStat = stats[def.primary] || 0;
+    const secondaryStat = stats[def.secondary] || 0;
+
+    // Average of all other stats (not primary or secondary)
+    const otherStatKeys = Object.keys(stats).filter(k => k !== def.primary && k !== def.secondary);
+    const avgOtherStats = otherStatKeys.length > 0
+      ? otherStatKeys.reduce((sum, k) => sum + (stats[k] || 0), 0) / otherStatKeys.length
+      : 0;
+
+    const levelBonus = 1 + (charData.level || 0) * 0.02;
+    const stationMult = STATION_MULTIPLIERS[(station.level || 1) - 1] || 1;
+
+    // Trending bonus
+    const trending = getTrendingStat();
+    let trendingBonus = 1;
+    if (trending === def.primary || trending === def.secondary) {
+      trendingBonus = 1.5;
+    }
+
+    const statScore = (primaryStat * 0.6 + secondaryStat * 0.3 + avgOtherStats * 0.1) * levelBonus * stationMult * trendingBonus;
+
+    // Determine quality tier
+    let quality = QUALITY_TIERS[QUALITY_TIERS.length - 1]; // default D
+    for (const qt of QUALITY_TIERS) {
+      if (statScore >= qt.minScore) {
+        quality = qt;
+        break;
+      }
+    }
+
+    return {
+      statScore: Math.round(statScore * 10) / 10,
+      quality: quality.tier,
+      qualityMultiplier: quality.multiplier,
+      qualityColor: quality.color,
+      qualityLabel: quality.label,
+      trendingMatch: trendingBonus > 1,
+      trendingStat: trending,
+    };
+  }
+
+  // Generate content for a station (one piece)
+  function generateContent(stationId) {
+    const station = state.studio.stations[stationId];
+    const def = CONTENT_TYPES[stationId];
+    const stationDef = STATION_DEFS[stationId];
+    if (!station || !def || !station.assigned) return null;
+    if (state.studio.level < stationDef.unlockLv) return null;
+
+    const charData = state.characters[station.assigned];
+    if (!charData) return null;
+
+    // Check VTuber stamina (their ST stat)
+    const staminaCost = STAMINA_COSTS[(station.level || 1) - 1] || 8;
+    recoverVTuberStamina(station.assigned);
+    const currentST = charData.stats ? (charData.stats.st || 0) : 0;
+    if (currentST < staminaCost) return null;
+
+    // Calculate quality BEFORE consuming stamina
+    const quality = getContentQuality(stationId);
+    if (!quality) return null;
+
+    // Consume VTuber stamina (deplete ST stat)
+    charData.stats.st -= staminaCost;
+    if (charData.stats.st < 0) charData.stats.st = 0;
+
+    // Auto-remove VTuber from station when ST reaches 0
+    if (charData.stats.st <= 0) {
+      station.assigned = null;
+      // Start recovery timer from this moment
+      charData.lastStaminaRecovery = Date.now();
+    }
+
+    // Rarity multiplier
+    const rarityMult = RarityMultipliers[charData.rarity] || 1;
+
+    // Calculate rewards
+    const baseReward = def.baseReward;
+    const finalReward = baseReward * quality.qualityMultiplier * rarityMult;
+
+    const rewards = {};
+    rewards[def.resource] = finalReward;
+
+    // Lounge produces bonus VGems
+    if (def.bonusResource) {
+      rewards[def.bonusResource] = (rewards[def.bonusResource] || 0) + (def.bonusAmount * quality.qualityMultiplier * rarityMult);
+    }
+
+    // Apply rewards
+    if (rewards.vgems) {
+      state.currencies.vgems += Math.floor(rewards.vgems);
+    }
+    if (rewards.vringgit) {
+      state.currencies.vringgit += Math.floor(rewards.vringgit);
+    }
+    if (rewards.blueTicket) {
+      // Blue tickets are fractional — track remainder
+      const blueWhole = Math.floor(rewards.blueTicket);
+      const blueFrac = rewards.blueTicket - blueWhole;
+      state.currencies.myTicket.blue += blueWhole;
+      if (!state._blueTicketRemainder) state._blueTicketRemainder = 0;
+      state._blueTicketRemainder += blueFrac;
+      if (state._blueTicketRemainder >= 1) {
+        const carry = Math.floor(state._blueTicketRemainder);
+        state.currencies.myTicket.blue += carry;
+        state._blueTicketRemainder -= carry;
+      }
+    }
+    if (rewards.studioExp) {
+      addStudioExp(Math.floor(rewards.studioExp));
+    }
+
+    // Create log entry
+    const charInfo = DataLoader.getBySlug(station.assigned);
+    const entry = {
+      timestamp: Date.now(),
+      stationId: stationId,
+      stationName: stationDef.name,
+      charSlug: station.assigned,
+      charName: charInfo ? charInfo.name : station.assigned,
+      charImage: charInfo ? DataLoader.getImageUrl(charInfo.slug) : '',
+      quality: quality.quality,
+      qualityColor: quality.qualityColor,
+      qualityLabel: quality.qualityLabel,
+      qualityMultiplier: quality.qualityMultiplier,
+      rewards: { ...rewards },
+      trendingMatch: quality.trendingMatch,
+      staminaCost: staminaCost,
+    };
+
+    // Add to content log (keep last 20)
+    state.studio.contentLog.unshift(entry);
+    if (state.studio.contentLog.length > CONTENT_LOG_MAX) {
+      state.studio.contentLog.length = CONTENT_LOG_MAX;
+    }
+
+    return entry;
+  }
+
+  // Process content tick — called every CONTENT_INTERVAL seconds
+  function processContentTick() {
+    const maxSlots = getMaxSlots();
+    let slotCount = 0;
+    let created = 0;
+    let removed = false;
+
+    for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
+      if (slotCount >= maxSlots) break;
+      const station = state.studio.stations[stationId];
+      if (!station || !station.assigned) continue;
+      if (state.studio.level < stationDef.unlockLv) continue;
+
+      const wasAssigned = station.assigned;
+      const entry = generateContent(stationId);
+      if (entry) created++;
+      // Track auto-removal (VTuber exhausted)
+      if (!station.assigned && wasAssigned) removed = true;
+      slotCount++;
+    }
+
+    state.studio.lastContentTick = Date.now();
+
+    if (created > 0 || removed) {
+      save();
+      if (_onStateChange) _onStateChange();
+    }
+  }
+
+  // Get content log (last N entries)
+  function getContentLog(count) {
+    const log = state.studio.contentLog || [];
+    return count ? log.slice(0, count) : log;
+  }
+
+  // Get quality distribution from content log
+  function getQualityDistribution() {
+    const log = state.studio.contentLog || [];
+    const dist = {};
+    for (const entry of log) {
+      dist[entry.quality] = (dist[entry.quality] || 0) + 1;
+    }
+    return dist;
+  }
+
+  // Calculate offline earnings based on content creation
   function getOfflineEarnings() {
     if (!state || !state.lastOnline) return null;
     const now = Date.now();
@@ -217,34 +601,66 @@ const Game = (() => {
     const minutes = cappedMs / 60000;
     if (minutes < 1) return null;
 
-    const earnings = calculatePerMinuteIncome(minutes);
+    const earnings = calculateOfflineContentEarnings(minutes);
     return { minutes: Math.round(minutes), earnings, totalMs: elapsed };
   }
 
-  // Calculate income per minute
-  function calculatePerMinuteIncome(minutes) {
-    const earnings = { stars: 0, starDust: 0, starFragments: 0, bondPoints: 0, studioExp: 0 };
+  // Calculate offline content earnings (pure — does NOT mutate state)
+  function calculateOfflineContentEarnings(minutes) {
+    const earnings = { vgems: 0, vringgit: 0, blueTicket: 0, studioExp: 0, contentPieces: 0 };
+    const contentCycles = Math.floor(minutes); // 1 per minute
+    if (contentCycles <= 0) return earnings;
 
-    for (const [stationId, def] of Object.entries(STATION_DEFS)) {
+    const recoveryPerMin = (STAMINA_RECOVERY_INTERVAL_MS > 0) ? (60000 / STAMINA_RECOVERY_INTERVAL_MS) : 0;
+
+    const maxSlots = getMaxSlots();
+    let slotCount = 0;
+
+    for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
+      if (slotCount >= maxSlots) break;
       const station = state.studio.stations[stationId];
       if (!station || !station.assigned) continue;
-      if (state.studio.level < def.unlockLv) continue;
+      if (state.studio.level < stationDef.unlockLv) continue;
 
       const charData = state.characters[station.assigned];
-      if (!charData) continue;
+      if (!charData) { slotCount++; continue; }
 
-      const bestVariant = getBestVariant(charData.variants);
-      const variantMult = VARIANT_MULTIPLIERS[bestVariant] || 1;
-      const levelBonus = 1 + (charData.level * 0.02);
-      const stationMult = STATION_MULTIPLIERS[station.level - 1] || 1;
-      const baseRate = BASE_RATES[def.resource] || 0;
+      const def = CONTENT_TYPES[stationId];
+      if (!def) { slotCount++; continue; }
 
-      const perMinute = baseRate * variantMult * levelBonus * stationMult;
-      earnings[def.resource] += perMinute * minutes;
+      const staminaCost = STAMINA_COSTS[(station.level || 1) - 1] || 8;
 
-      // Studio EXP
-      const expRate = STUDIO_EXP_RATES[bestVariant] || 0;
-      earnings.studioExp += expRate * levelBonus * stationMult * minutes;
+      // Per-VTuber stamina: current ST + offline recovery
+      const maxST = charData.baseStats ? (charData.baseStats.st || 0) : 0;
+      const currentST = charData.stats ? (charData.stats.st || 0) : 0;
+      const stAfterRecovery = Math.min(maxST, currentST + Math.floor(recoveryPerMin * minutes));
+      const maxPieces = Math.floor(stAfterRecovery / staminaCost);
+      const actualPieces = Math.min(contentCycles, maxPieces);
+
+      if (actualPieces <= 0) { slotCount++; continue; }
+
+      // Calculate rewards using base stats (offline quality = B tier)
+      const stats = charData.baseStats || {};
+      const levelBonus = 1 + (charData.level || 0) * 0.02;
+      const stationMult = STATION_MULTIPLIERS[(station.level || 1) - 1] || 1;
+      const rarityMult = RarityMultipliers[charData.rarity] || 1;
+
+      const qualityMult = 1.0; // B tier
+      const perPieceReward = def.baseReward * qualityMult * rarityMult * stationMult * levelBonus;
+      const totalReward = perPieceReward * actualPieces;
+
+      if (def.resource === 'vgems') earnings.vgems += Math.floor(totalReward);
+      else if (def.resource === 'vringgit') earnings.vringgit += Math.floor(totalReward);
+      else if (def.resource === 'blueTicket') earnings.blueTicket += totalReward;
+      else if (def.resource === 'studioExp') earnings.studioExp += Math.floor(totalReward);
+
+      // Lounge bonus VGems
+      if (def.bonusResource === 'vgems' && def.bonusAmount) {
+        earnings.vgems += Math.floor(def.bonusAmount * qualityMult * rarityMult * stationMult * levelBonus * actualPieces);
+      }
+
+      earnings.contentPieces += actualPieces;
+      slotCount++;
     }
 
     return earnings;
@@ -263,13 +679,87 @@ const Game = (() => {
   }
 
   function applyOfflineEarnings(offline) {
-    state.currencies.stars += Math.floor(offline.earnings.stars);
-    state.currencies.starDust += Math.floor(offline.earnings.starDust);
-    state.currencies.starFragments += Math.floor(offline.earnings.starFragments);
-    state.currencies.bondPoints += Math.floor(offline.earnings.bondPoints);
+    // Apply overhaul currency earnings
+    state.currencies.vgems += Math.floor(offline.earnings.vgems || 0);
+    state.currencies.vringgit += Math.floor(offline.earnings.vringgit || 0);
+    // Blue tickets are fractional — track remainder
+    const blueWhole = Math.floor(offline.earnings.blueTicket || 0);
+    const blueFrac = (offline.earnings.blueTicket || 0) - blueWhole;
+    state.currencies.myTicket.blue += blueWhole;
+    if (!state._blueTicketRemainder) state._blueTicketRemainder = 0;
+    state._blueTicketRemainder += blueFrac;
+    if (state._blueTicketRemainder >= 1) {
+      const carry = Math.floor(state._blueTicketRemainder);
+      state.currencies.myTicket.blue += carry;
+      state._blueTicketRemainder -= carry;
+    }
 
-    // Add studio EXP
-    addStudioExp(Math.floor(offline.earnings.studioExp));
+    addStudioExp(Math.floor(offline.earnings.studioExp || 0));
+
+    // Deduct VTuber stamina used offline
+    if (offline.earnings.contentPieces > 0) {
+      const maxSlots = getMaxSlots();
+      let slotCount = 0;
+      let activeSlots = 0;
+      for (const [sid, sdef] of Object.entries(STATION_DEFS)) {
+        if (slotCount >= maxSlots) break;
+        const s = state.studio.stations[sid];
+        if (s && s.assigned && state.studio.level >= sdef.unlockLv) activeSlots++;
+        slotCount++;
+      }
+      const piecesPerStation = Math.floor(offline.earnings.contentPieces / Math.max(1, activeSlots));
+      slotCount = 0;
+      for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
+        if (slotCount >= maxSlots) break;
+        const station = state.studio.stations[stationId];
+        if (!station || !station.assigned) { slotCount++; continue; }
+        if (state.studio.level < stationDef.unlockLv) { slotCount++; continue; }
+
+        const charData = state.characters[station.assigned];
+        if (!charData) { slotCount++; continue; }
+
+        const staminaCost = STAMINA_COSTS[(station.level || 1) - 1] || 8;
+        const stUsed = piecesPerStation * staminaCost;
+        if (!charData.stats) charData.stats = {};
+        charData.stats.st = Math.max(0, (charData.stats.st || 0) - stUsed);
+
+        // Auto-remove if VTuber is exhausted
+        if (charData.stats.st <= 0) {
+          station.assigned = null;
+          charData.lastStaminaRecovery = Date.now();
+        }
+        slotCount++;
+      }
+    }
+
+    // Add offline summary to content log
+    if (offline.earnings.contentPieces > 0) {
+      state.studio.contentLog.unshift({
+        timestamp: Date.now(),
+        stationId: 'offline',
+        stationName: 'Offline',
+        charSlug: null,
+        charName: 'Offline Summary',
+        charImage: '',
+        quality: 'B',
+        qualityColor: '#66bb6a',
+        qualityLabel: 'Offline',
+        qualityMultiplier: 1.0,
+        rewards: {
+          vgems: Math.floor(offline.earnings.vgems || 0),
+          vringgit: Math.floor(offline.earnings.vringgit || 0),
+          blueTicket: offline.earnings.blueTicket || 0,
+          studioExp: Math.floor(offline.earnings.studioExp || 0),
+        },
+        trendingMatch: false,
+        staminaCost: 0,
+        isOffline: true,
+        contentPieces: offline.earnings.contentPieces,
+      });
+      if (state.studio.contentLog.length > CONTENT_LOG_MAX) {
+        state.studio.contentLog.length = CONTENT_LOG_MAX;
+      }
+    }
 
     state.lastOnline = Date.now();
     save();
@@ -287,43 +777,60 @@ const Game = (() => {
     }
   }
 
-  // Get total income per minute across all active stations
+  // Get estimated income per content cycle (60s) for all active stations
   function getTotalIncome() {
-    const earnings = { stars: 0, starDust: 0, starFragments: 0, bondPoints: 0 };
-    for (const [stationId, def] of Object.entries(STATION_DEFS)) {
+    const earnings = { vgems: 0, vringgit: 0, blueTicket: 0 };
+    for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
+      if (stationDef.resource === 'studioExp') continue; // Studio EXP not a currency
       const station = state.studio.stations[stationId];
       if (!station || !station.assigned) continue;
-      if (state.studio.level < def.unlockLv) continue;
+      if (state.studio.level < stationDef.unlockLv) continue;
       const income = getStationIncome(stationId);
-      earnings[def.resource] += income;
+      earnings[stationDef.resource] += income;
     }
     return earnings;
   }
 
-  // Get total income per minute as a single number (Stars equivalent)
+  // Get total estimated income per content cycle
   function getTotalIncomePerMin() {
     const earnings = getTotalIncome();
-    return earnings.stars + earnings.starDust + earnings.starFragments + earnings.bondPoints;
+    return earnings.vgems + earnings.vringgit + earnings.blueTicket * 100;
   }
 
-  // Get breakdown of station incomes for display
+  // Get breakdown of station incomes for display (quality-based)
   function getStationIncomeBreakdown() {
     const breakdown = [];
-    for (const [stationId, def] of Object.entries(STATION_DEFS)) {
+    for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
       const station = state.studio.stations[stationId];
-      const isLocked = state.studio.level < def.unlockLv;
+      const isLocked = state.studio.level < stationDef.unlockLv;
       if (!station || isLocked) continue;
-      const income = station.assigned ? getStationIncome(stationId) : 0;
+
+      let income = 0;
+      let quality = null;
       const assignedChar = station.assigned ? DataLoader.getBySlug(station.assigned) : null;
+
+      if (station.assigned) {
+        quality = getContentQuality(stationId);
+        if (quality) {
+ const charData = state.characters[station.assigned];
+          const rarityMult = RarityMultipliers[charData.rarity] || 1;
+          const def = CONTENT_TYPES[stationId];
+          const baseReward = def ? def.baseReward : 0;
+          income = baseReward * quality.qualityMultiplier * rarityMult;
+        }
+      }
+
       breakdown.push({
         stationId,
-        name: def.name,
-        resource: def.resource,
+        name: stationDef.name,
+        resource: stationDef.resource,
         income,
         assigned: !!station.assigned,
         assignedCharName: assignedChar ? assignedChar.name : null,
         level: station.level,
         isMaxLevel: station.level >= 5,
+        quality: quality ? quality.quality : null,
+        qualityColor: quality ? quality.qualityColor : null,
       });
     }
     return breakdown;
@@ -353,8 +860,9 @@ const Game = (() => {
       projectedStreak = 1;
     }
 
-    const reward = Math.min(DAILY_BASE + (projectedStreak - 1) * DAILY_INCREMENT, DAILY_CAP);
-    return { streak: projectedStreak, reward };
+    const vgemsReward = Math.min(DAILY_BASE_VGEMS + (projectedStreak - 1) * DAILY_INCREMENT_VGEMS, DAILY_CAP_VGEMS);
+    const ticketsReward = Math.min(DAILY_BASE_TICKETS + (projectedStreak - 1) * DAILY_INCREMENT_TICKETS, DAILY_CAP_TICKETS);
+    return { streak: projectedStreak, vgems: vgemsReward, tickets: ticketsReward };
   }
 
   function claimDailyLogin() {
@@ -369,19 +877,94 @@ const Game = (() => {
       state.dailyLogin.streak = 1;
     }
 
-    state.currencies.stars += reward.reward;
+    // Award overhaul currencies
+    state.currencies.vgems += reward.vgems;
+    state.currencies.myTicket.blue += reward.tickets;
     state.dailyLogin.lastClaim = new Date().toISOString().split('T')[0];
     save();
     if (_onStateChange) _onStateChange();
     return reward;
   }
 
-  // Helper: best variant
+  // Helper: best variant (maps rarity to variant for studio compat)
   function getBestVariant(variants) {
     if (!variants || variants.length === 0) return 'normal';
+    if (variants.includes('ur')) return 'ur';
     if (variants.includes('ssr')) return 'ssr';
     if (variants.includes('sr')) return 'sr';
     return 'normal';
+  }
+
+  // Helper: get character rarity from DataLoader
+  function getCharacterRarity(slug) {
+ const charInfo = DataLoader.getBySlug(slug);
+    return charInfo ? charInfo.rarity : 'R';
+  }
+
+  // Helper: get rarity counts for owned characters
+  function getRarityCounts() {
+    const stats = getCollectionStats();
+    return { R: stats.R, SR: stats.SR, SSR: stats.SSR, UR: stats.UR, total: stats.owned };
+  }
+
+  // ── Currency Helpers (Gacha V2) ──
+  function addCurrency(currencyId, amount) {
+    if (currencyId === 'myTicket') {
+      // amount should be { blue: n, red: n } or just add to blue
+      if (typeof amount === 'object') {
+        state.currencies.myTicket.blue += amount.blue || 0;
+        state.currencies.myTicket.red += amount.red || 0;
+      } else {
+        state.currencies.myTicket.blue += amount;
+      }
+    } else {
+      state.currencies[currencyId] = (state.currencies[currencyId] || 0) + amount;
+    }
+  }
+
+  function spendCurrency(currencyId, amount) {
+    if (currencyId === 'myTicket') {
+      // amount should be { blue: n, red: n }
+      if (typeof amount === 'object') {
+        const blueAvail = state.currencies.myTicket.blue || 0;
+        const redAvail = state.currencies.myTicket.red || 0;
+        if (blueAvail < (amount.blue || 0)) return false;
+        if (redAvail < (amount.red || 0)) return false;
+        state.currencies.myTicket.blue -= amount.blue || 0;
+        state.currencies.myTicket.red -= amount.red || 0;
+        return true;
+      }
+    }
+    if ((state.currencies[currencyId] || 0) < amount) return false;
+    state.currencies[currencyId] -= amount;
+    return true;
+  }
+
+  function getTicketCount(type) {
+    return state.currencies.myTicket ? (state.currencies.myTicket[type] || 0) : 0;
+  }
+
+  function addLiveCache(amount) {
+    state.currencies.liveCache = (state.currencies.liveCache || 0) + amount;
+  }
+
+  function buyTicketsWithVGems(count, type) {
+    const cost = count * VGEML_PER_TICKET;
+    if ((state.currencies.vgems || 0) < cost) return false;
+    state.currencies.vgems -= cost;
+    if (!state.currencies.myTicket) state.currencies.myTicket = { blue: 0, red: 0 };
+    state.currencies.myTicket[type || 'blue'] = (state.currencies.myTicket[type || 'blue'] || 0) + count;
+    save();
+    if (_onStateChange) _onStateChange();
+    return true;
+  }
+
+  function spendTickets(count, type) {
+    if (!state.currencies.myTicket) return false;
+    const available = state.currencies.myTicket[type] || 0;
+    if (available < count) return false;
+    state.currencies.myTicket[type] -= count;
+    return true;
   }
 
   // Export/Import save code
@@ -443,20 +1026,177 @@ const Game = (() => {
     return Math.max(0, STAMINA_RECOVERY_INTERVAL_MS - sinceLast);
   }
 
+  // ═══════════════════════════════════════════════
+  //  VTUBER STAMINA & PASSION SYSTEM (Phase 4 — Per-Character)
+  // ═══════════════════════════════════════════════
+  // Each VTuber's ST (stamina) and PS (passion) are their resource pools.
+  // Max = baseStats values. Recovery: 1 point each per STAMINA_RECOVERY_INTERVAL_MS.
+  // Only recovers while OFF station. Tea: +20 ST. Coffee: +60 ST.
+
+  function recoverVTuberStamina(slug) {
+    const charData = state.characters[slug];
+    if (!charData || !charData.stats) return;
+
+    // Skip recovery if assigned to a station
+    if (getCharacterStation(slug)) return;
+
+    const maxST = charData.baseStats ? (charData.baseStats.st || 0) : 0;
+    const maxPS = charData.baseStats ? (charData.baseStats.ps || 0) : 0;
+
+    // Ensure current ST/PS never exceed the new max (from echo/level-up upgrades)
+    if (charData.stats.st > maxST) charData.stats.st = maxST;
+    if (charData.stats.ps > maxPS) charData.stats.ps = maxPS;
+
+    const currentST = charData.stats.st || 0;
+    const currentPS = charData.stats.ps || 0;
+
+    // Nothing to recover if both are at max
+    if (currentST >= maxST && currentPS >= maxPS) return;
+
+    const now = Date.now();
+    // Initialize lastStaminaRecovery if missing (ensures offline time is counted)
+    if (!charData.lastStaminaRecovery) {
+      charData.lastStaminaRecovery = now;
+      return;
+    }
+    const lastRecovery = charData.lastStaminaRecovery;
+    const elapsed = now - lastRecovery;
+    const pointsToAdd = Math.floor(elapsed / STAMINA_RECOVERY_INTERVAL_MS);
+
+    if (pointsToAdd > 0) {
+      if (currentST < maxST) {
+        charData.stats.st = Math.min(maxST, currentST + pointsToAdd);
+      }
+      if (currentPS < maxPS) {
+        charData.stats.ps = Math.min(maxPS, currentPS + pointsToAdd);
+      }
+      charData.lastStaminaRecovery = lastRecovery + pointsToAdd * STAMINA_RECOVERY_INTERVAL_MS;
+    }
+  }
+
+  function recoverAllVTuberStamina() {
+    for (const [slug, charData] of Object.entries(state.characters)) {
+      if (charData && charData.owned) {
+        recoverVTuberStamina(slug);
+      }
+    }
+  }
+
+  function restoreVTuberStamina(slug, amount) {
+    const charData = state.characters[slug];
+    if (!charData || !charData.stats) return false;
+    const maxST = charData.baseStats ? (charData.baseStats.st || 0) : 0;
+    charData.stats.st = Math.min(maxST, (charData.stats.st || 0) + amount);
+    save();
+    if (_onStateChange) _onStateChange();
+    return true;
+  }
+
+  function useVTuberStamina(slug, amount) {
+    const charData = state.characters[slug];
+    if (!charData || !charData.stats) return false;
+    recoverVTuberStamina(slug);
+    const currentST = charData.stats.st || 0;
+    if (currentST < amount) return false;
+    charData.stats.st = currentST - amount;
+    save();
+    if (_onStateChange) _onStateChange();
+    return true;
+  }
+
+  function getVTuberStaminaInfo(slug) {
+    const charData = state.characters[slug];
+    if (!charData || !charData.stats) return null;
+    recoverVTuberStamina(slug);
+    const maxST = charData.baseStats ? (charData.baseStats.st || 0) : 0;
+    const currentST = charData.stats.st || 0;
+    const maxPS = charData.baseStats ? (charData.baseStats.ps || 0) : 0;
+    const currentPS = charData.stats.ps || 0;
+    return {
+      current: currentST,
+      max: maxST,
+      isExhausted: currentST <= 0,
+      isFull: currentST >= maxST,
+      psCurrent: currentPS,
+      psMax: maxPS,
+      psDepleted: currentPS < maxPS,
+    };
+  }
+
+  // ═══════════════════════════════════════════════
+  //  BOND SYSTEM (Phase 6 — Odekake Foundation)
+  // ═══════════════════════════════════════════════
+  // Per-character bondPoints, bondLevel (0-8), lastDateCooldown (timestamp).
+  // Bond Level 0 = no bond yet. Levels 1-8 grant permanent stat bonuses.
+
+  function getCharacterBondInfo(slug) {
+    const charData = state.characters[slug];
+    if (!charData) return null;
+    const bp = charData.bondPoints || 0;
+    const bl = charData.bondLevel || 0;
+    const nextLevel = bl < BOND_MAX_LEVEL ? BOND_LEVELS[bl] : null; // Next level definition
+    const bpForNext = nextLevel ? nextLevel.bpRequired : 0;
+    const prevThreshold = bl > 0 ? BOND_LEVELS[bl - 1].bpRequired : 0;
+    const bpInCurrentLevel = bp - prevThreshold;
+    const bpNeededForNext = bpForNext - prevThreshold;
+    const isMaxBond = bl >= BOND_MAX_LEVEL;
+    const bpProgressPct = isMaxBond ? 100 : bpNeededForNext > 0 ? Math.min(100, Math.round((bpInCurrentLevel / bpNeededForNext) * 100)) : 0;
+    // Total cumulative stat bonus from bond levels
+    let totalBondBonus = 0;
+    for (let i = 0; i < bl; i++) {
+      totalBondBonus += BOND_LEVELS[i].statBonus;
+    }
+    // Cooldown
+    const now = Date.now();
+    const cooldownEnd = charData.lastDateCooldown || 0;
+    const isOnCooldown = cooldownEnd > now;
+    const cooldownRemaining = isOnCooldown ? cooldownEnd - now : 0;
+    return {
+      bondPoints: bp,
+      bondLevel: bl,
+      isMaxBond,
+      nextLevelBpRequired: bpForNext,
+      bpProgressPct,
+      totalBondStatBonus: totalBondBonus, // per stat (all 6 stats get this much bonus)
+      isOnCooldown,
+      cooldownRemaining,
+      isDateEligible: (charData.level || 1) >= BOND_DATE_LEVEL_REQ && !isOnCooldown,
+    };
+  }
+
+  // Get total bond stat bonus for a character (used in effective stat calculations)
+  function getBondStatBonus(slug) {
+    const charData = state.characters[slug];
+    if (!charData) return 0;
+    const bl = charData.bondLevel || 0;
+    if (bl <= 0) return 0;
+    let total = 0;
+    for (let i = 0; i < bl; i++) {
+      total += BOND_LEVELS[i].statBonus;
+    }
+    return total;
+  }
+
   // Tick loop (runs every second while game is open)
+  let _contentTickCounter = 0;
   function startTickLoop() {
     if (_tickInterval) clearInterval(_tickInterval);
+    _contentTickCounter = 0;
     _tickInterval = setInterval(() => {
-      const earnings = calculatePerMinuteIncome(1/60); // 1 second worth
-      state.currencies.stars += earnings.stars;
-      state.currencies.starDust += earnings.starDust;
-      state.currencies.starFragments += earnings.starFragments;
-      state.currencies.bondPoints += earnings.bondPoints;
-      addStudioExp(earnings.studioExp);
+      // Content creation tick every CONTENT_INTERVAL seconds
+      _contentTickCounter++;
+      if (_contentTickCounter >= CONTENT_INTERVAL) {
+        _contentTickCounter = 0;
+        processContentTick();
+      }
+
       state.lastOnline = Date.now();
 
-      // Stamina recovery tick
+      // Global stamina recovery (minigame)
       recoverStamina();
+
+      // VTuber stamina recovery (all owned characters)
+      recoverAllVTuberStamina();
 
       if (_onStateChange) _onStateChange();
     }, 1000);
@@ -480,18 +1220,21 @@ const Game = (() => {
     if (_onStateChange) _onStateChange();
   }
 
-  // Collection stats
+  // Collection stats (now uses rarity from characters.json)
   function getCollectionStats() {
     const chars = DataLoader.get();
     const total = chars.length;
-    let owned = 0, ssrCount = 0, srCount = 0;
+    let owned = 0, rCount = 0, srCount = 0, ssrCount = 0, urCount = 0;
 
     for (const char of chars) {
       const data = state.characters[char.slug];
       if (data && data.owned) {
         owned++;
-        if (data.variants.includes('ssr')) ssrCount++;
-        if (data.variants.includes('sr')) srCount++;
+        const rarity = data.rarity || 'R';
+        if (rarity === 'UR') urCount++;
+        else if (rarity === 'SSR') ssrCount++;
+        else if (rarity === 'SR') srCount++;
+        else rCount++;
       }
     }
 
@@ -499,9 +1242,15 @@ const Game = (() => {
       total,
       owned,
       notOwned: total - owned,
+      R: rCount,
+      SR: srCount,
+      SSR: ssrCount,
+      UR: urCount,
+      highRarity: urCount + ssrCount,
+      // Legacy fields kept for backward compat
       ssr: ssrCount,
       sr: srCount,
-      normal: owned - ssrCount - srCount,
+      normal: rCount,
       pct: total > 0 ? Math.round((owned / total) * 100) : 0,
     };
   }
@@ -514,23 +1263,45 @@ const Game = (() => {
     return 2;
   }
 
-  // Get station income per minute
+  // Get estimated station income per content cycle (quality-based)
   function getStationIncome(stationId) {
     const station = state.studio.stations[stationId];
-    const def = STATION_DEFS[stationId];
-    if (!station || !def || !station.assigned) return 0;
-    if (state.studio.level < def.unlockLv) return 0;
+    const stationDef = STATION_DEFS[stationId];
+    if (!station || !stationDef || !station.assigned) return 0;
+    if (state.studio.level < stationDef.unlockLv) return 0;
+    if (stationDef.resource === 'studioExp') return 0; // EXP handled separately
+
+    const quality = getContentQuality(stationId);
+    if (!quality) return 0;
 
     const charData = state.characters[station.assigned];
     if (!charData) return 0;
 
-    const bestVariant = getBestVariant(charData.variants);
-    const variantMult = VARIANT_MULTIPLIERS[bestVariant] || 1;
-    const levelBonus = 1 + (charData.level * 0.02);
-    const stationMult = STATION_MULTIPLIERS[station.level - 1] || 1;
-    const baseRate = BASE_RATES[def.resource] || 0;
+    const rarityMult = RarityMultipliers[charData.rarity] || 1;
+    const def = CONTENT_TYPES[stationId];
+    if (!def) return 0;
 
-    return baseRate * variantMult * levelBonus * stationMult;
+    return def.baseReward * quality.qualityMultiplier * rarityMult;
+  }
+
+  // Get estimated station studio EXP per content cycle
+  function getStationStudioExp(stationId) {
+    const station = state.studio.stations[stationId];
+    const stationDef = STATION_DEFS[stationId];
+    if (!station || !stationDef || !station.assigned) return 0;
+    if (state.studio.level < stationDef.unlockLv) return 0;
+
+    const quality = getContentQuality(stationId);
+    if (!quality) return 0;
+
+    const charData = state.characters[station.assigned];
+    if (!charData) return 0;
+
+    const rarityMult = RarityMultipliers[charData.rarity] || 1;
+    const def = CONTENT_TYPES[stationId];
+    if (!def) return 0;
+
+    return def.baseReward * quality.qualityMultiplier * rarityMult;
   }
 
   // Assign character to station
@@ -546,19 +1317,23 @@ const Game = (() => {
 
   function unassignStation(stationId) {
     if (!state.studio.stations[stationId]) return;
+    const slug = state.studio.stations[stationId].assigned;
     state.studio.stations[stationId].assigned = null;
+    // Start recovery timer for the unassigned VTuber
+    if (slug && state.characters[slug]) {
+      state.characters[slug].lastStaminaRecovery = Date.now();
+    }
     save();
     if (_onStateChange) _onStateChange();
   }
 
-  // Upgrade station
+  // Upgrade station — costs VRinggit
   function upgradeStation(stationId) {
     const station = state.studio.stations[stationId];
     if (!station || station.level >= 5) return false;
-    const costs = STATION_UPGRADE_COSTS[station.level];
-    if (state.currencies.stars < costs[0] || state.currencies.starFragments < costs[1]) return false;
-    state.currencies.stars -= costs[0];
-    state.currencies.starFragments -= costs[1];
+    const cost = STATION_UPGRADE_COSTS[station.level];
+    if (state.currencies.vringgit < cost) return false;
+    state.currencies.vringgit -= cost;
     station.level++;
     save();
     if (_onStateChange) _onStateChange();
@@ -570,17 +1345,17 @@ const Game = (() => {
     return state.pullHistory[slug] || null;
   }
 
-  // Collection milestones
+  // Collection milestones — overhaul currency rewards
   const MILESTONES = [
-    { count: 10,  stars: 500,   label: '10 Unique VTubers!' },
-    { count: 25,  stars: 1500,  label: '25 Unique VTubers!' },
-    { count: 50,  stars: 3000,  label: '50 Unique VTubers!' },
-    { count: 100, stars: 8000,  label: '100 Unique VTubers!' },
-    { count: 150, stars: 15000, label: '150 Unique VTubers!' },
-    { count: 200, stars: 25000, label: '200 Unique VTubers!' },
-    { count: 250, stars: 40000, label: '250 Unique VTubers!' },
-    { count: 300, stars: 60000, label: '300 Unique VTubers!' },
-    { count: 319, stars: 100000, label: 'ALL 319 VTubers!' },
+    { count: 10,  vgems: 200,    vringgit: 50,    tickets: 2,  label: '10 Unique VTubers!' },
+    { count: 25,  vgems: 500,    vringgit: 150,   tickets: 3,  label: '25 Unique VTubers!' },
+    { count: 50,  vgems: 1000,   vringgit: 300,   tickets: 5,  label: '50 Unique VTubers!' },
+    { count: 100, vgems: 2500,   vringgit: 500,   tickets: 8,  label: '100 Unique VTubers!' },
+    { count: 150, vgems: 5000,   vringgit: 1000,  tickets: 10, label: '150 Unique VTubers!' },
+    { count: 200, vgems: 8000,   vringgit: 1500,  tickets: 15, label: '200 Unique VTubers!' },
+    { count: 250, vgems: 12000,  vringgit: 2500,  tickets: 20, label: '250 Unique VTubers!' },
+    { count: 300, vgems: 20000,  vringgit: 4000,  tickets: 30, label: '300 Unique VTubers!' },
+    { count: 319, vgems: 50000,  vringgit: 10000, tickets: 50, label: 'ALL 319 VTubers!' },
   ];
 
   function checkMilestones() {
@@ -589,7 +1364,9 @@ const Game = (() => {
     for (const m of MILESTONES) {
       if (stats.owned >= m.count && !state.milestones.includes(m.count)) {
         state.milestones.push(m.count);
-        state.currencies.stars += m.stars;
+        state.currencies.vgems += m.vgems || 0;
+        state.currencies.vringgit += m.vringgit || 0;
+        state.currencies.myTicket.blue += m.tickets || 0;
         newlyReached.push(m);
       }
     }
@@ -607,6 +1384,42 @@ const Game = (() => {
     }));
   }
 
+  // ═══════════════════════════════════════════════
+  //  OSHI COLLECTION (Phase 7 — Collection Polish)
+  // ═══════════════════════════════════════════════
+
+  function isOshi(slug) {
+    return state.oshiList && state.oshiList.includes(slug);
+  }
+
+  function getOshiList() {
+    return state.oshiList || [];
+  }
+
+  function getOshiCount() {
+    return (state.oshiList || []).length;
+  }
+
+  function toggleOshi(slug) {
+    const charData = state.characters[slug];
+    if (!charData || !charData.owned) return { success: false, reason: 'Character not owned' };
+    if (!state.oshiList) state.oshiList = [];
+    if (state.oshiList.includes(slug)) {
+      state.oshiList = state.oshiList.filter(s => s !== slug);
+      save();
+      if (_onStateChange) _onStateChange();
+      return { success: true, action: 'removed', count: state.oshiList.length };
+    } else {
+      if (state.oshiList.length >= OSHI_MAX) {
+        return { success: false, reason: `Oshi list full (${OSHI_MAX}/${OSHI_MAX})` };
+      }
+      state.oshiList.push(slug);
+      save();
+      if (_onStateChange) _onStateChange();
+      return { success: true, action: 'added', count: state.oshiList.length };
+    }
+  }
+
   // Find which station a character is assigned to
   function getCharacterStation(slug) {
     for (const [stationId, station] of Object.entries(state.studio.stations)) {
@@ -619,19 +1432,29 @@ const Game = (() => {
     load, save, getState, resetState,
     startTickLoop, startAutoSave, stopLoops,
     getOfflineEarnings, claimOfflineEarnings, claimCachedOfflineEarnings,
+    getContentQuality, getContentLog, getQualityDistribution,
+    generateContent, processContentTick, getTrendingStat, getTrendingTimeRemaining,
     getDailyLoginReward, claimDailyLogin,
     exportSaveCode, importSaveCode,
     onStateChange, notifyStateChange, getCollectionStats,
-    getMaxSlots, getStationIncome,
+    getMaxSlots, getStationIncome, getStationStudioExp,
     assignToStation, unassignStation, upgradeStation,
     getStudioExpProgress, getPullHistory, checkMilestones, getMilestones,
     getCharacterStation, MILESTONES,
     STATION_DEFS, STATION_LEVELS, STATION_UPGRADE_COSTS,
     STATION_MULTIPLIERS, VARIANT_MULTIPLIERS, LEVEL_CAPS,
     BASE_RATES, getLevelCost, ASCENSION_COSTS,
-    getBestVariant, SAVE_KEY,
+    CONTENT_TYPES, QUALITY_TIERS, CONTENT_INTERVAL, STAMINA_COSTS,
+    getBestVariant, getCharacterRarity, getRarityCounts,
+    addCurrency, spendCurrency, getTicketCount, addLiveCache,
+    buyTicketsWithVGems, spendTickets,
+    VGEML_PER_TICKET, RarityMultipliers, SAVE_KEY,
     getTotalIncome, getTotalIncomePerMin, getStationIncomeBreakdown,
     getStamina, useStamina, getStaminaTimeToNext,
     STAMINA_MAX, STAMINA_RECOVERY_INTERVAL_MS,
+    recoverVTuberStamina, recoverAllVTuberStamina, restoreVTuberStamina, useVTuberStamina, getVTuberStaminaInfo,
+    getCharacterBondInfo, getBondStatBonus,
+    BOND_MAX_LEVEL, BOND_LEVELS, BOND_DATE_COOLDOWN_MS, BOND_DATE_LEVEL_REQ,
+    OSHI_MAX, isOshi, getOshiList, getOshiCount, toggleOshi,
   };
 })();

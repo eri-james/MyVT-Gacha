@@ -1,50 +1,75 @@
 /* ═══════════════════════════════════════════════
-   gacha.js — Pull Logic, Rates, Pity, Duplicates
+   gacha.js — Gacha V2: Pull Logic, Rates, Pity, Echo System
    ═══════════════════════════════════════════════ */
 
 const Gacha = (() => {
-  const PULL_COST_SINGLE = 100;
-  const PULL_COST_MULTI = 1000;
-  const PITY_THRESHOLD = 50;
+  // ── Constants ──
+  const VGEML_PER_TICKET = 150;
 
-  const RATES = {
-    normal: 0.82,
-    sr: 0.15,
-    ssr: 0.03,
+  // Base rates (sum to 1.0)
+  const BASE_RATES = { R: 0.70, SR: 0.22, SSR: 0.07, UR: 0.01 };
+
+  // Pity thresholds
+  const SOFT_PITY_SSR = 40;
+  const SOFT_PITY_UR = 80;
+  const HARD_PITY = 90;
+
+  // Featured characters
+  const FEATURED_CHARACTERS = ['liliana-vampaia', 'lunaris-urufi'];
+  const FEATURED_RATE_UP = 0.75;
+
+  // Echo system
+  const ECHO_MAX = 6;
+  const ECHO_GAINS = {
+    R:   { primary: 20, secondary: 10 },
+    SR:  { primary: 23, secondary: 15 },
+    SSR: { primary: 25, secondary: 18 },
+    UR:  { primary: 25, secondary: 18 },
   };
+  const E6_LIVECACHE = { R: 20, SR: 50, SSR: 100, UR: 200 };
 
-  let currentBanner = 'standard';
-  let featuredCharacters = []; // Populated dynamically
+  let currentBanner = 'standard'; // 'standard' or 'featured'
 
-  function setBanner(banner) {
-    currentBanner = banner;
-  }
-
-  function getBanner() {
-    return currentBanner;
-  }
-
-  function setFeatured(slugs) {
-    featuredCharacters = slugs;
-  }
-
-  // Roll variant tier
-  function rollVariant() {
-    const state = Game.getState();
-    state.pity.count++;
-
-    // Pity check
-    if (state.pity.count >= PITY_THRESHOLD) {
-      state.pity.count = 0;
-      return 'ssr';
+  // ── Pity System ──
+  function calculateRates(pityCount) {
+    if (pityCount >= HARD_PITY) {
+      return { R: 0, SR: 0, SSR: 0.50, UR: 0.50 };
     }
 
+    let ssrRate = BASE_RATES.SSR;
+    let urRate = BASE_RATES.UR;
+
+    // Soft pity: linearly increase SSR/UR rates
+    if (pityCount >= SOFT_PITY_SSR) {
+      const progress = Math.min(1, (pityCount - SOFT_PITY_SSR) / (HARD_PITY - SOFT_PITY_SSR));
+      ssrRate += progress * 0.50;  // Up to ~57% at hard pity
+    }
+    if (pityCount >= SOFT_PITY_UR) {
+      const progress = Math.min(1, (pityCount - SOFT_PITY_UR) / (HARD_PITY - SOFT_PITY_UR));
+      urRate += progress * 0.15;   // Up to ~16% at hard pity
+    }
+
+    const srRate = BASE_RATES.SR;
+    const rRate = Math.max(0, 1 - srRate - ssrRate - urRate);
+
+    return { R: rRate, SR: srRate, SSR: ssrRate, UR: urRate };
+  }
+
+  function rollRarity() {
+    const state = Game.getState();
+    if (!state.pity) state.pity = { count: 0 };
+    state.pity.count++;
+
+    const rates = calculateRates(state.pity.count);
     const rand = Math.random();
+
     let cumulative = 0;
-    for (const [variant, rate] of Object.entries(RATES)) {
-      cumulative += rate;
+    const order = ['UR', 'SSR', 'SR', 'R']; // Check rarest first
+    for (const rarity of order) {
+      cumulative += rates[rarity];
       if (rand < cumulative) {
-        if (variant === 'ssr') {
+        // Reset pity on SSR+ pulls
+        if (rarity === 'SSR' || rarity === 'UR') {
           state.pity.count = 0;
           // Track SSR streak
           state.stats.ssrStreak++;
@@ -54,93 +79,226 @@ const Gacha = (() => {
         } else {
           state.stats.ssrStreak = 0;
         }
-        return variant;
+        return rarity;
       }
     }
-    return 'normal';
+    return 'R';
   }
 
-  // Roll a character (equal chance for all)
-  function rollCharacter() {
-    const chars = DataLoader.get();
-    if (chars.length === 0) return null;
+  // ── Character Selection ──
+  function selectCharacter(rarity) {
+    const allChars = DataLoader.get();
+    const pool = allChars.filter(c => c.rarity === rarity);
+    if (pool.length === 0) return null;
 
-    // Featured banner: 50% chance to be a featured character
-    if (currentBanner === 'featured' && featuredCharacters.length > 0 && Math.random() < 0.5) {
-      const slug = featuredCharacters[Math.floor(Math.random() * featuredCharacters.length)];
-      return DataLoader.getBySlug(slug);
+    // Featured banner rate-up
+    if (currentBanner === 'featured') {
+      const featuredInRarity = FEATURED_CHARACTERS.filter(slug => {
+        const c = DataLoader.getBySlug(slug);
+        return c && c.rarity === rarity;
+      });
+
+      if (featuredInRarity.length > 0 && Math.random() < FEATURED_RATE_UP) {
+        const slug = featuredInRarity[Math.floor(Math.random() * featuredInRarity.length)];
+        return DataLoader.getBySlug(slug);
+      }
     }
 
-    return chars[Math.floor(Math.random() * chars.length)];
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // Perform a single pull
-  function pullSingle() {
+  // ── Echo & Dupe Handling ──
+  function handlePullResult(character) {
     const state = Game.getState();
-    if (state.currencies.stars < PULL_COST_SINGLE) return null;
+    const slug = character.slug;
+    const rarity = character.rarity;
 
-    state.currencies.stars -= PULL_COST_SINGLE;
+    if (!state.characters[slug]) {
+      // New character
+      state.characters[slug] = {
+        owned: true,
+        rarity: rarity,
+        echo: 0,
+        level: 1,
+        stats: { ...character.stats }, // Copy base stats from JSON
+        baseStats: { ...character.stats },
+        variants: mapRarityToVariants(rarity),
+        shards: 0,
+        // Bond system (Phase 6 — Odekake)
+        bondPoints: 0,
+        bondLevel: 0,
+        lastDateCooldown: 0,
+      };
+      return { isNew: true, echo: 0, liveCacheGained: 0 };
+    }
+
+    const charData = state.characters[slug];
+    if (!charData.owned) {
+      charData.owned = true;
+      charData.rarity = rarity;
+      charData.echo = 0;
+      charData.level = 1;
+      charData.stats = { ...character.stats };
+      charData.baseStats = { ...character.stats };
+      charData.variants = mapRarityToVariants(rarity);
+      if (!charData.shards) charData.shards = 0;
+      // Bond system defaults
+      if (charData.bondPoints === undefined) charData.bondPoints = 0;
+      if (charData.bondLevel === undefined) charData.bondLevel = 0;
+      if (charData.lastDateCooldown === undefined) charData.lastDateCooldown = 0;
+      return { isNew: true, echo: 0, liveCacheGained: 0 };
+    }
+
+    // Duplicate handling
+    if (charData.echo < ECHO_MAX) {
+      // Add Echo
+      charData.echo++;
+      const gains = ECHO_GAINS[rarity] || ECHO_GAINS.R;
+      charData.stats.st += gains.primary;
+      charData.stats.ps += gains.primary;
+      charData.stats.tc += gains.secondary;
+      charData.stats.ch += gains.secondary;
+      charData.stats.vc += gains.secondary;
+      charData.stats.mg += gains.secondary;
+
+      // Update baseStats max cap for ST/PS so stamina system tracks the new max
+      if (charData.baseStats) {
+        charData.baseStats.st = charData.stats.st;
+        charData.baseStats.ps = charData.stats.ps;
+      }
+      return { isNew: false, echo: charData.echo, liveCacheGained: 0 };
+    } else {
+      // E6 MAX — convert to LiveCache
+      const lc = E6_LIVECACHE[rarity] || 20;
+      state.currencies.liveCache += lc;
+      return { isNew: false, echo: ECHO_MAX, liveCacheGained: lc };
+    }
+  }
+
+  // Map rarity string to legacy variant array for backward compat
+  function mapRarityToVariants(rarity) {
+    if (rarity === 'UR') return ['ur'];
+    if (rarity === 'SSR') return ['ssr'];
+    if (rarity === 'SR') return ['sr'];
+    return ['normal'];
+  }
+
+  // ── Ticket/Cost Logic ──
+  function getTicketType() {
+    return currentBanner === 'featured' ? 'red' : 'blue';
+  }
+
+  function getPullCost(count) {
+    return count; // 1 ticket per pull
+  }
+
+  function canPull(count) {
+    const state = Game.getState();
+    const type = getTicketType();
+    const tickets = state.currencies.myTicket ? (state.currencies.myTicket[type] || 0) : 0;
+    const cost = getPullCost(count);
+    const deficit = Math.max(0, cost - tickets);
+    return tickets >= cost || state.currencies.vgems >= deficit * VGEML_PER_TICKET;
+  }
+
+  function deductPullCost(count) {
+    const state = Game.getState();
+    const type = getTicketType();
+    const cost = getPullCost(count);
+    const tickets = state.currencies.myTicket ? (state.currencies.myTicket[type] || 0) : 0;
+
+    // Spend available tickets first
+    if (tickets >= cost) {
+      state.currencies.myTicket[type] = tickets - cost;
+      return 0; // No VGems needed
+    }
+
+    // Not enough tickets — use all tickets, buy the rest with VGems
+    const deficit = cost - tickets;
+    const vgemsNeeded = deficit * VGEML_PER_TICKET;
+    if (state.currencies.vgems < vgemsNeeded) return -1; // Can't afford
+
+    state.currencies.myTicket[type] = 0;
+    state.currencies.vgems -= vgemsNeeded;
+    return deficit; // Return how many were bought with VGems
+  }
+
+  // ── Pull Functions ──
+  function pullSingle() {
+    if (!canPull(1)) return null;
+
+    const state = Game.getState();
     state.stats.totalPulls++;
 
-    const character = rollCharacter();
+    const vgemsBought = deductPullCost(1);
+    if (vgemsBought === -1) return null; // Can't afford
+
+    const rarity = rollRarity();
+    const character = selectCharacter(rarity);
     if (!character) return null;
 
-    const variant = rollVariant();
-
-    // Check if character is new before adding
-    const isNewChar = !state.characters[character.slug] || !state.characters[character.slug].owned;
-
-    // Add to collection
-    addPullToCollection(character, variant);
+    const result = handlePullResult(character);
     trackPullHistory(character.slug);
-
     Game.save();
-    if (Game.onStateChange) {} // Will trigger via save
 
-    return { character, variant, isNew: isNewChar };
+    return {
+      character,
+      rarity,
+      isNew: result.isNew,
+      echo: result.echo,
+      liveCacheGained: result.liveCacheGained,
+      vgemsBought,
+    };
   }
 
-  // Perform multi pull (10x)
   function pullMulti() {
+    if (!canPull(10)) return null;
+
     const state = Game.getState();
-    if (state.currencies.stars < PULL_COST_MULTI) return null;
-
     const results = [];
-    let hasSR = false;
+    let hasSRPlus = false;
 
-    state.currencies.stars -= PULL_COST_MULTI;
+    const vgemsBought = deductPullCost(10);
+    if (vgemsBought === -1) return null;
 
     for (let i = 0; i < 10; i++) {
       state.stats.totalPulls++;
-      const character = rollCharacter();
-      if (!character) continue;
 
-      // Check if character is new before adding
-      const isNewChar = !state.characters[character.slug] || !state.characters[character.slug].owned;
+      let rarity = rollRarity();
 
-      let variant = rollVariant();
-      if (variant === 'sr' || variant === 'ssr') hasSR = true;
-
-      // Guarantee at least 1 SR on last pull
-      if (i === 9 && !hasSR) {
-        variant = Math.random() < 0.85 ? 'sr' : 'ssr';
-        if (variant === 'ssr') state.pity.count = 0;
-        state.stats.ssrStreak++;
-        if (state.stats.ssrStreak > state.stats.bestSsrStreak) {
-          state.stats.bestSsrStreak = state.stats.ssrStreak;
+      // Guarantee at least 1 SR+ in 10-pull
+      if (i === 9 && !hasSRPlus) {
+        rarity = Math.random() < 0.15 ? 'SSR' : 'SR';
+        if (rarity === 'SSR' || rarity === 'UR') {
+          state.pity.count = 0;
+          state.stats.ssrStreak++;
+          if (state.stats.ssrStreak > state.stats.bestSsrStreak) {
+            state.stats.bestSsrStreak = state.stats.ssrStreak;
+          }
         }
       }
 
-      addPullToCollection(character, variant);
+      if (rarity === 'SR' || rarity === 'SSR' || rarity === 'UR') hasSRPlus = true;
+
+      const character = selectCharacter(rarity);
+      if (!character) continue;
+
+      const result = handlePullResult(character);
       trackPullHistory(character.slug);
-      results.push({ character, variant, isNew: isNewChar });
+
+      results.push({
+        character,
+        rarity,
+        isNew: result.isNew,
+        echo: result.echo,
+        liveCacheGained: result.liveCacheGained,
+      });
     }
 
     Game.save();
     return results;
   }
 
-  // Track pull history for a character
   function trackPullHistory(slug) {
     const state = Game.getState();
     if (!state.pullHistory[slug]) {
@@ -149,63 +307,41 @@ const Gacha = (() => {
     state.pullHistory[slug].totalPulls++;
   }
 
-  // Add pulled character to collection
-  function addPullToCollection(character, variant) {
-    const state = Game.getState();
-    const slug = character.slug;
+  // ── Public API ──
+  function setBanner(banner) { currentBanner = banner; }
+  function getBanner() { return currentBanner; }
+  function getPityCount() { return Game.getState().pity?.count || 0; }
 
-    if (!state.characters[slug]) {
-      state.characters[slug] = {
-        owned: true,
-        variants: [],
-        level: 1,
-        shards: 0,
-      };
-    }
-
-    const charData = state.characters[slug];
-
-    // Check if already owned at this variant
-    if (charData.variants.includes(variant)) {
-      // Duplicate! Convert to shards
-      const shardValue = variant === 'ssr' ? 10 : variant === 'sr' ? 5 : 2;
-      // If already SSR and pulling any variant, give bonus stars instead
-      if (charData.variants.includes('ssr')) {
-        const starBonus = variant === 'ssr' ? 50 : variant === 'sr' ? 30 : 10;
-        state.currencies.stars += starBonus;
-      } else {
-        charData.shards += shardValue;
-      }
-    } else {
-      charData.variants.push(variant);
-      if (!charData.owned) charData.owned = true;
-    }
+  // Return current pity-adjusted rates for display
+  function getCurrentRates() {
+    const pityCount = getPityCount();
+    return calculateRates(pityCount);
   }
 
-  function getPityCount() {
-    return Game.getState().pity.count;
+  // Return base banner rates for display (not pity-adjusted)
+  function getDisplayRates() {
+    return { ...BASE_RATES };
   }
 
-  function canPull(count) {
-    const cost = count === 1 ? PULL_COST_SINGLE : PULL_COST_MULTI;
-    return Game.getState().currencies.stars >= cost;
+  function getFeaturedCharacters() {
+    return FEATURED_CHARACTERS.map(s => DataLoader.getBySlug(s)).filter(Boolean);
   }
 
-  // Get random featured characters (Fisher-Yates shuffle)
-  function generateFeatured() {
-    const chars = DataLoader.get();
-    const shuffled = [...chars];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, 4).map(c => c.slug);
+  // Legacy compat: get ticket type for UI display
+  function getTicketCostLabel(count) {
+    const type = getTicketType();
+    const typeName = type === 'red' ? 'Red' : 'Blue';
+    return `${count} ${typeName} Ticket${count > 1 ? 's' : ''}`;
   }
 
   return {
-    pullSingle, pullMulti, setBanner, getBanner,
-    setFeatured, generateFeatured,
+    pullSingle, pullMulti,
+    setBanner, getBanner,
     getPityCount, canPull,
-    PULL_COST_SINGLE, PULL_COST_MULTI, PITY_THRESHOLD,
+    getDisplayRates, getCurrentRates,
+    getFeaturedCharacters,
+    getTicketCostLabel, getTicketType,
+    VGEML_PER_TICKET, HARD_PITY, FEATURED_RATE_UP,
+    BASE_RATES, SOFT_PITY_SSR, SOFT_PITY_UR,
   };
 })();
