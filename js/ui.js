@@ -116,14 +116,8 @@ const UI = (() => {
       btn.addEventListener('click', () => handlePull(parseInt(btn.dataset.count)));
     });
 
-    document.querySelectorAll('.banner-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.banner-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        Gacha.setBanner(btn.dataset.banner);
-        updateBannerInfo();
-      });
-    });
+    // Banner buttons are now bound dynamically by renderGachaSidebar()
+    // when the sidebar is generated on the pull tab.
 
     // Collection filters
     document.getElementById('filter-ownership').addEventListener('change', () => { _collectionPage = 0; renderCollection(); });
@@ -274,8 +268,9 @@ const UI = (() => {
     if (tab === 'collection') { _collectionPage = 0; renderCollection(); }
     if (tab === 'studio') renderStudio();
     if (tab === 'pull') {
+      renderGachaSidebar();
       updateBannerInfo();
-      document.getElementById('pity-count').textContent = Gacha.getPityCount();
+      updateGachaPityBar();
     }
     if (tab === 'minigame') renderMinigame();
     updateUI();
@@ -327,6 +322,7 @@ const UI = (() => {
 
     // Pity counter
     document.getElementById('pity-count').textContent = Gacha.getPityCount();
+    updateGachaPityBar();
 
     // Settings stats
     document.getElementById('settings-total-pulls').textContent = formatNum(state.stats.totalPulls);
@@ -708,22 +704,140 @@ const UI = (() => {
     const descEl = document.getElementById('banner-desc');
     const costSingle = document.getElementById('cost-single');
     const costMulti = document.getElementById('cost-multi');
+    const timerEl = document.getElementById('banner-timer');
 
     if (banner === 'standard') {
       nameEl.textContent = 'Standard Banner';
       descEl.textContent = 'All 319 Malaysian VTubers';
       if (costSingle) costSingle.innerHTML = CurrencyIcons.ticket_blue(12) + '1';
       if (costMulti) costMulti.innerHTML = CurrencyIcons.ticket_blue(12) + '10';
+      if (timerEl) timerEl.textContent = 'Permanent';
+      renderRateUpSection('standard');
     } else {
       nameEl.textContent = 'Featured Banner';
       const featured = _featuredDisplay.map(s => {
         const c = DataLoader.getBySlug(s);
         return c ? c.name : s;
       }).join(', ');
-      descEl.textContent = `Rate up: ${featured} (75%)`;
+      descEl.textContent = 'Rate up: ' + featured + ' (75%)';
       if (costSingle) costSingle.innerHTML = CurrencyIcons.ticket_red(12) + '1';
       if (costMulti) costMulti.innerHTML = CurrencyIcons.ticket_red(12) + '10';
+      if (timerEl) timerEl.textContent = 'Ends in 14d 23h 59m';
+      renderRateUpSection('featured');
     }
+
+    // Update sidebar active state
+    document.querySelectorAll('.gacha-banner-list-item').forEach(item => {
+      const itemBanner = item.dataset.banner;
+      item.classList.toggle('active', itemBanner === banner);
+    });
+  }
+
+  // ── Render Rate-Up Section ──
+  function renderRateUpSection(bannerType) {
+    const container = document.getElementById('gacha-rateup');
+    if (!container) return;
+
+    if (bannerType === 'standard') {
+      container.innerHTML = '<div class="gacha-rateup-placeholder">All 319 Malaysian VTubers available — no rate-up characters</div>';
+      return;
+    }
+
+    // Featured banner: show featured characters
+    let html = '';
+    const featuredChars = _featuredDisplay;
+    if (featuredChars.length > 0) {
+      const mainSlug = featuredChars[0];
+      const mainChar = DataLoader.getBySlug(mainSlug);
+      if (mainChar) {
+        const imgUrl = DataLoader.getImageUrl(mainSlug);
+        html += '<div class="gacha-rateup-featured">';
+        html += '<img class="rateup-avatar" src="' + imgUrl + '" alt="' + mainChar.name + '" onerror="this.style.display=\'none\'">';
+        html += '<div class="rateup-info">';
+        html += '<span class="rateup-up-badge">UP!</span>';
+        html += '<div class="rateup-name">' + mainChar.name + '</div>';
+        html += '<div class="rateup-subtitle">' + (mainChar.agency || '') + '</div>';
+        html += '<div class="rateup-rate">Rate: 75%</div>';
+        html += '<div class="rateup-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>';
+        html += '</div></div>';
+      }
+    }
+
+    // Sub rate-up characters
+    const subSlugs = featuredChars.slice(1);
+    if (subSlugs.length > 0) {
+      html += '<div class="gacha-rateup-subs">';
+      subSlugs.forEach(slug => {
+        const c = DataLoader.getBySlug(slug);
+        if (c) {
+          const imgUrl = DataLoader.getImageUrl(slug);
+          html += '<div class="gacha-rateup-sub">';
+          html += '<img class="rateup-sub-avatar" src="' + imgUrl + '" alt="' + c.name + '" onerror="this.style.display=\'none\'">';
+          html += '<div class="rateup-sub-name">' + c.name + '</div>';
+          html += '<div class="rateup-sub-badge">SSR Rate-Up</div>';
+          html += '</div>';
+        }
+      });
+      html += '</div>';
+    }
+
+    container.innerHTML = html || '<div class="gacha-rateup-placeholder">No rate-up characters</div>';
+  }
+
+  // ── Update Gacha Pity Bar ──
+  function updateGachaPityBar() {
+    const pityCount = Gacha.getPityCount();
+    const pityMax = Gacha.HARD_PITY || 90;
+    const fillEl = document.getElementById('pity-bar-fill');
+    if (fillEl) {
+      const pct = Math.min((pityCount / pityMax) * 100, 100);
+      fillEl.style.width = pct + '%';
+    }
+  }
+
+  // ── Render Gacha Sidebar ──
+  function renderGachaSidebar() {
+    const container = document.getElementById('gacha-banner-list');
+    if (!container) return;
+    if (container.children.length > 0) return; // Already rendered
+
+    const banners = [
+      { id: 'featured', name: 'Golden Week Special', sub: 'Featured Banner', icon: '&#9733;', iconClass: 'icon-purple', isNew: true },
+      { id: 'standard', name: 'Standard', sub: 'All VTubers', icon: '&#9733;', iconClass: 'icon-teal', isNew: false },
+      { id: 'disabled-songstress', name: 'Songstress Premiere', sub: 'Rate-Up Banner', icon: '&#9835;', iconClass: 'icon-blue', isNew: false, disabled: true },
+      { id: 'disabled-oshi', name: 'Oshi Collection', sub: 'Permanent Banner', icon: '&#9829;', iconClass: 'icon-pink', isNew: false, disabled: true },
+      { id: 'disabled-collab', name: 'Collab Festival', sub: 'Limited Banner', icon: '&#127873;', iconClass: 'icon-orange', isNew: false, disabled: true },
+      { id: 'disabled-beginner', name: 'Beginner\'s Luck', sub: 'Starter Banner', icon: '&#127915;', iconClass: 'icon-red', isNew: false, disabled: true },
+    ];
+
+    const currentBanner = Gacha.getBanner();
+
+    banners.forEach(b => {
+      const item = document.createElement('div');
+      item.className = 'gacha-banner-list-item' + (b.id === currentBanner ? ' active' : '') + (b.disabled ? ' disabled' : '');
+      item.dataset.banner = b.id;
+
+      let inner = '<div class="gacha-banner-icon ' + b.iconClass + '">' + b.icon + '</div>';
+      inner += '<div class="gacha-banner-text">';
+      inner += '<div class="gacha-banner-text-name">' + b.name + '</div>';
+      inner += '<div class="gacha-banner-text-sub">' + b.sub + '</div>';
+      inner += '</div>';
+      if (b.isNew) inner += '<span class="gacha-banner-new-badge">NEW</span>';
+
+      item.innerHTML = inner;
+
+      if (!b.disabled) {
+        item.addEventListener('click', () => {
+          Gacha.setBanner(b.id);
+          updateBannerInfo();
+          // Update active state
+          document.querySelectorAll('.gacha-banner-list-item').forEach(el => el.classList.remove('active'));
+          item.classList.add('active');
+        });
+      }
+
+      container.appendChild(item);
+    });
   }
 
   // ═══════════════════════════════════════════════
