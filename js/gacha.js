@@ -85,26 +85,35 @@ const Gacha = (() => {
     return 'R';
   }
 
+  // ── Base Stats per Rarity (generated at pull time since data has no rarity/stats) ──
+  const RARITY_BASE_STATS = {
+    R:   { st: 35, ps: 35, tc: 20, ch: 20, vc: 20, mg: 20 },
+    SR:  { st: 45, ps: 45, tc: 30, ch: 30, vc: 30, mg: 30 },
+    SSR: { st: 61, ps: 61, tc: 40, ch: 40, vc: 40, mg: 40 },
+    UR:  { st: 80, ps: 80, tc: 55, ch: 55, vc: 55, mg: 55 },
+  };
+
   // ── Character Selection ──
+  // characters.json does NOT contain rarity — rarity is determined at pull time
   function selectCharacter(rarity) {
     const allChars = DataLoader.get();
-    const pool = allChars.filter(c => c.rarity === rarity);
-    if (pool.length === 0) return null;
+    if (allChars.length === 0) return null;
 
-    // Featured banner rate-up
+    // Featured banner rate-up (featured characters can appear at any rolled rarity)
     if (currentBanner === 'featured') {
-      const featuredInRarity = FEATURED_CHARACTERS.filter(slug => {
-        const c = DataLoader.getBySlug(slug);
-        return c && c.rarity === rarity;
-      });
+      const featuredChars = FEATURED_CHARACTERS
+        .map(slug => DataLoader.getBySlug(slug))
+        .filter(Boolean);
 
-      if (featuredInRarity.length > 0 && Math.random() < FEATURED_RATE_UP) {
-        const slug = featuredInRarity[Math.floor(Math.random() * featuredInRarity.length)];
-        return DataLoader.getBySlug(slug);
+      if (featuredChars.length > 0 && Math.random() < FEATURED_RATE_UP) {
+        const c = featuredChars[Math.floor(Math.random() * featuredChars.length)];
+        return { ...c, rarity: rarity, stats: { ...RARITY_BASE_STATS[rarity] } };
       }
     }
 
-    return pool[Math.floor(Math.random() * pool.length)];
+    // Pick a random character from the full pool, assign rarity + stats
+    const c = allChars[Math.floor(Math.random() * allChars.length)];
+    return { ...c, rarity: rarity, stats: { ...RARITY_BASE_STATS[rarity] } };
   }
 
   // ── Echo & Dupe Handling ──
@@ -112,6 +121,7 @@ const Gacha = (() => {
     const state = Game.getState();
     const slug = character.slug;
     const rarity = character.rarity;
+    const stats = character.stats || RARITY_BASE_STATS[rarity] || RARITY_BASE_STATS.R;
 
     if (!state.characters[slug]) {
       // New character
@@ -120,8 +130,8 @@ const Gacha = (() => {
         rarity: rarity,
         echo: 0,
         level: 1,
-        stats: { ...character.stats }, // Copy base stats from JSON
-        baseStats: { ...character.stats },
+        stats: { ...stats },
+        baseStats: { ...stats },
         variants: mapRarityToVariants(rarity),
         shards: 0,
         // Bond system (Phase 6 — Odekake)
@@ -138,8 +148,8 @@ const Gacha = (() => {
       charData.rarity = rarity;
       charData.echo = 0;
       charData.level = 1;
-      charData.stats = { ...character.stats };
-      charData.baseStats = { ...character.stats };
+      charData.stats = { ...stats };
+      charData.baseStats = { ...stats };
       charData.variants = mapRarityToVariants(rarity);
       if (!charData.shards) charData.shards = 0;
       // Bond system defaults
@@ -230,12 +240,16 @@ const Gacha = (() => {
     const state = Game.getState();
     state.stats.totalPulls++;
 
-    const vgemsBought = deductPullCost(1);
-    if (vgemsBought === -1) return null; // Can't afford
-
     const rarity = rollRarity();
     const character = selectCharacter(rarity);
-    if (!character) return null;
+    if (!character) {
+      // Shouldn't happen, but rollback the pull count if no character selected
+      state.stats.totalPulls--;
+      return null;
+    }
+
+    const vgemsBought = deductPullCost(1);
+    if (vgemsBought === -1) return null; // Can't afford
 
     const result = handlePullResult(character);
     trackPullHistory(character.slug);
@@ -258,12 +272,9 @@ const Gacha = (() => {
     const results = [];
     let hasSRPlus = false;
 
-    const vgemsBought = deductPullCost(10);
-    if (vgemsBought === -1) return null;
-
+    // Pre-roll all rarities and select characters BEFORE deducting cost
+    const pulls = [];
     for (let i = 0; i < 10; i++) {
-      state.stats.totalPulls++;
-
       let rarity = rollRarity();
 
       // Guarantee at least 1 SR+ in 10-pull
@@ -281,14 +292,26 @@ const Gacha = (() => {
       if (rarity === 'SR' || rarity === 'SSR' || rarity === 'UR') hasSRPlus = true;
 
       const character = selectCharacter(rarity);
-      if (!character) continue;
+      if (character) {
+        pulls.push({ character, rarity });
+        state.stats.totalPulls++;
+      }
+    }
 
-      const result = handlePullResult(character);
-      trackPullHistory(character.slug);
+    // Only deduct cost if we got at least one valid pull
+    if (pulls.length === 0) return null;
+
+    const vgemsBought = deductPullCost(10);
+    if (vgemsBought === -1) return null;
+
+    // Process all selected pulls
+    for (const pull of pulls) {
+      const result = handlePullResult(pull.character);
+      trackPullHistory(pull.character.slug);
 
       results.push({
-        character,
-        rarity,
+        character: pull.character,
+        rarity: pull.rarity,
         isNew: result.isNew,
         echo: result.echo,
         liveCacheGained: result.liveCacheGained,
@@ -343,5 +366,6 @@ const Gacha = (() => {
     getTicketCostLabel, getTicketType,
     VGEML_PER_TICKET, HARD_PITY, FEATURED_RATE_UP,
     BASE_RATES, SOFT_PITY_SSR, SOFT_PITY_UR,
+    RARITY_BASE_STATS,
   };
 })();
