@@ -31,3 +31,9 @@ download/
 MyVT-Gacha/
 myvt-work/
 myvt-gacha-review/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
