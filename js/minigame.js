@@ -784,6 +784,10 @@ const Minigame = (() => {
 
     Game.save();
 
+    // Quest tracking
+    Game.incrementQuestProgress('daily', 'daily_toss', 1);
+    Game.incrementQuestProgress('weekly', 'weekly_toss25', 1);
+
     // Build stat effects summary
     const statEffects = getStatEffects();
 

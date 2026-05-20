@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MyVT Gacha Collection</title>
-  <link rel="stylesheet" href="css/style.css?v=55">
+  <link rel="stylesheet" href="css/style.css?v=60">
   <link rel="preconnect" href="https://fonts.googleapis.com">
 </head>
 <body>
@@ -208,9 +208,31 @@
         </div>
         <div class="collection-grid" id="collection-grid"></div>
         <div class="collection-pagination" id="collection-pagination"></div>
-        <div class="milestone-tracker" id="milestone-tracker">
-          <h3>Collection Milestones</h3>
-          <div class="milestone-list" id="milestone-list"></div>
+      </div>
+    </section>
+
+    <!-- QUESTS TAB -->
+    <section class="tab-content" id="tab-quests">
+      <div class="quest-page">
+        <div class="page-header">
+          <button class="page-back-btn" id="btn-back-home-quests">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </button>
+          <h2>Quests</h2>
+        </div>
+        <div class="quest-subtabs">
+          <button class="quest-subtab active" data-quest-tab="daily">Daily Quests</button>
+          <button class="quest-subtab" data-quest-tab="weekly">Weekly Quests</button>
+          <button class="quest-subtab" data-quest-tab="achievements">Achievements</button>
+        </div>
+        <div class="quest-login-streak" id="quest-login-streak"></div>
+        <div class="quest-panel" id="quest-daily"></div>
+        <div class="quest-panel" id="quest-weekly" style="display:none;"></div>
+        <div class="quest-panel" id="quest-achievements" style="display:none;">
+          <div class="milestone-tracker" id="milestone-tracker">
+            <h3>Achievements</h3>
+            <div class="milestone-list" id="milestone-list"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -506,11 +528,11 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="js/data.js?v=55"></script>
-  <script src="js/game.js?v=55"></script>
-  <script src="js/gacha.js?v=55"></script>
-  <script src="js/characters.js?v=55"></script>
-  <script src="js/minigame.js?v=55"></script>
-  <script src="js/ui.js?v=55"></script>
+  <script src="js/data.js?v=60"></script>
+  <script src="js/game.js?v=60"></script>
+  <script src="js/gacha.js?v=60"></script>
+  <script src="js/characters.js?v=60"></script>
+  <script src="js/minigame.js?v=60"></script>
+  <script src="js/ui.js?v=60"></script>
 </body>
 </html>

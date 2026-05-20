@@ -126,6 +126,20 @@ const Game = (() => {
   const DAILY_INCREMENT_TICKETS = 0;
   const DAILY_CAP_TICKETS = 3;
 
+  // Quest definitions
+  const DAILY_QUESTS = [
+    { id: 'daily_login',    label: 'Daily Login',              target: 1,  reward: { vgems: 100, streakScaled: true }, desc: 'Log in today (rewards scale with streak!)' },
+    { id: 'daily_assign',   label: 'Assign a VTuber',          target: 1,  reward: { vgems: 100 }, desc: 'Assign a VTuber to any station' },
+    { id: 'daily_toss',     label: 'Play Superchat Toss',      target: 1,  reward: { vgems: 100 }, desc: 'Complete a Superchat Toss round' },
+    { id: 'daily_all',      label: 'Clear All Daily Quests',   target: 1,  reward: { vgems: 200, tickets: 1 }, desc: 'Claim all daily quests', meta: true },
+  ];
+  const WEEKLY_QUESTS = [
+    { id: 'weekly_login3',  label: 'Login 3 Days',            target: 3,  reward: { vgems: 200, tickets: 1 }, desc: 'Log in on 3 different days this week' },
+    { id: 'weekly_assign10',label: 'Assign to Station x10',   target: 10, reward: { vgems: 200, tickets: 1 }, desc: 'Assign VTubers to stations 10 times' },
+    { id: 'weekly_toss25',  label: 'Play Toss x25',           target: 25, reward: { vgems: 200, tickets: 1 }, desc: 'Play Superchat Toss 25 times' },
+    { id: 'weekly_all',     label: 'Clear All Weekly Quests', target: 1,  reward: { vgems: 500, tickets: 2 }, desc: 'Claim all weekly quests', meta: true },
+  ];
+
   // Stamina system
   const STAMINA_MAX = 200;
   const STAMINA_RECOVERY_INTERVAL_MS = 4 * 60 * 1000; // 1 point every 4 minutes
@@ -218,6 +232,10 @@ const Game = (() => {
       lastOnline: Date.now(),
       milestones: [], // Track milestone rewards claimed
       pullHistory: {}, // slug -> { firstPullDate, totalPulls }
+      quests: {
+        daily:  { date: '', progress: {}, claimed: {} },
+        weekly: { weekId: '', progress: {}, claimed: {} },
+      },
       stamina: { current: STAMINA_MAX, lastRecovery: Date.now() },
       minigame: { dailyPlays: 0, lastPlayDate: null, highScore: 0 },
       oshiList: [], // Array of slugs designated as Oshi (max OSHI_MAX)
@@ -248,10 +266,12 @@ const Game = (() => {
           state = migrateState(state);
         }
         console.log('Game loaded.');
+        resetQuestsIfNeeded();
       } else {
         state = createNewState();
         save();
         console.log('New game created.');
+        resetQuestsIfNeeded();
       }
     } catch (err) {
       console.error('Load failed, creating new game:', err);
@@ -268,6 +288,7 @@ const Game = (() => {
     if (!merged.pullHistory) merged.pullHistory = {};
     if (!merged.minigame) merged.minigame = { dailyPlays: 0, lastPlayDate: null, highScore: 0 };
     if (!merged.stamina) merged.stamina = { current: STAMINA_MAX, lastRecovery: Date.now() };
+    if (!merged.quests) merged.quests = { daily: { date: '', progress: {}, claimed: {} }, weekly: { weekId: '', progress: {}, claimed: {} } };
 
     // v1 → v2: Add new overhaul currencies alongside legacy ones
     if (!merged.currencies) merged.currencies = {};
@@ -645,7 +666,7 @@ const Game = (() => {
 
   // Calculate offline content earnings (pure — does NOT mutate state)
   function calculateOfflineContentEarnings(minutes) {
-    const earnings = { vgems: 0, vringgit: 0, liveCache: 0, studioExp: 0, contentPieces: 0 };
+    const earnings = { vgems: 0, vringgit: 0, liveCache: 0, studioExp: 0, contentPieces: 0, stationPieces: {} };
     const contentCycles = Math.floor(minutes); // 1 per minute
     if (contentCycles <= 0) return earnings;
 
@@ -676,6 +697,9 @@ const Game = (() => {
       const actualPieces = Math.min(contentCycles, maxPieces);
 
       if (actualPieces <= 0) { slotCount++; continue; }
+
+      // Track per-station piece count for accurate ST deduction on claim
+      earnings.stationPieces[stationId] = actualPieces;
 
       // Calculate rewards using base stats (offline quality = B tier)
       const stats = charData.baseStats || {};
@@ -746,30 +770,23 @@ const Game = (() => {
 
     addStudioExp(Math.floor(offline.earnings.studioExp || 0));
 
-    // Deduct VTuber stamina used offline
-    if (offline.earnings.contentPieces > 0) {
+    // Deduct VTuber stamina used offline (per-station accurate)
+    if (offline.earnings.contentPieces > 0 && offline.earnings.stationPieces) {
       const maxSlots = getMaxSlots();
       let slotCount = 0;
-      let activeSlots = 0;
-      for (const [sid, sdef] of Object.entries(STATION_DEFS)) {
-        if (slotCount >= maxSlots) break;
-        const s = state.studio.stations[sid];
-        if (s && s.assigned && state.studio.level >= sdef.unlockLv) activeSlots++;
-        slotCount++;
-      }
-      const piecesPerStation = Math.floor(offline.earnings.contentPieces / Math.max(1, activeSlots));
-      slotCount = 0;
       for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
         if (slotCount >= maxSlots) break;
         const station = state.studio.stations[stationId];
         if (!station || !station.assigned) { slotCount++; continue; }
         if (state.studio.level < stationDef.unlockLv) { slotCount++; continue; }
+        if (!offline.earnings.stationPieces[stationId]) { slotCount++; continue; }
 
         const charData = state.characters[station.assigned];
         if (!charData) { slotCount++; continue; }
 
         const staminaCost = STAMINA_COSTS[(station.level || 1) - 1] || 8;
-        const stUsed = piecesPerStation * staminaCost;
+        const actualPieces = offline.earnings.stationPieces[stationId];
+        const stUsed = actualPieces * staminaCost;
         if (!charData.stats) charData.stats = {};
         charData.stats.st = Math.max(0, (charData.stats.st || 0) - stUsed);
 
@@ -901,6 +918,115 @@ const Game = (() => {
       current: state.studio.exp - (current ? current.exp : 0),
       required: next.exp - (current ? current.exp : 0),
       pct: ((state.studio.exp - (current ? current.exp : 0)) / (next.exp - (current ? current.exp : 0))) * 100,
+    };
+  }
+
+  // ═══════════════════════════════════════════════
+  //  QUEST SYSTEM
+  // ═══════════════════════════════════════════════
+
+  function getISOWeekId() {
+    const d = new Date();
+    const oneJan = new Date(d.getFullYear(), 0, 1);
+    const wk = Math.ceil(((d - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
+    return `${d.getFullYear()}-W${String(wk).padStart(2, '0')}`;
+  }
+
+  function resetQuestsIfNeeded() {
+    if (!state.quests) {
+      state.quests = { daily: { date: '', progress: {}, claimed: {} }, weekly: { weekId: '', progress: {}, claimed: {} } };
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const weekId = getISOWeekId();
+
+    // Daily reset
+    if (state.quests.daily.date !== today) {
+      const wasDate = state.quests.daily.date;
+      state.quests.daily = { date: today, progress: {}, claimed: {} };
+      // Auto-increment login quests on new day
+      if (wasDate !== today) {
+        state.quests.daily.progress['daily_login'] = 1;
+        state.quests.weekly.progress['weekly_login3'] = (state.quests.weekly.progress['weekly_login3'] || 0) + 1;
+      }
+    }
+
+    // Weekly reset
+    if (state.quests.weekly.weekId !== weekId) {
+      state.quests.weekly = { weekId, progress: {}, claimed: {} };
+      // Re-count today's login for the new week
+      state.quests.weekly.progress['weekly_login3'] = (state.quests.daily.progress['daily_login'] || 0);
+    }
+  }
+
+  function incrementQuestProgress(category, questId, amount) {
+    resetQuestsIfNeeded();
+    const q = state.quests[category];
+    if (!q || q.claimed[questId]) return;
+    q.progress[questId] = (q.progress[questId] || 0) + (amount || 1);
+  }
+
+  function canClaimMeta(category) {
+    const defs = category === 'daily' ? DAILY_QUESTS : WEEKLY_QUESTS;
+    const q = state.quests[category];
+    return defs.filter(d => !d.meta).every(d => q.claimed[d.id]);
+  }
+
+  function claimQuest(category, questId) {
+    resetQuestsIfNeeded();
+    const defs = category === 'daily' ? DAILY_QUESTS : WEEKLY_QUESTS;
+    const def = defs.find(q => q.id === questId);
+    const q = state.quests[category];
+    if (!def || q.claimed[questId]) return null;
+
+    // Meta quest: only claimable after all non-meta quests are claimed
+    if (def.meta && !canClaimMeta(category)) return null;
+
+    let vgems = def.reward.vgems || 0;
+    let tickets = def.reward.tickets || 0;
+
+    // Login quest: delegate to existing claimDailyLogin() for streak logic
+    if (questId === 'daily_login') {
+      const lr = claimDailyLogin();
+      if (!lr) return null;
+      vgems = lr.vgems;
+      tickets = lr.tickets;
+    } else {
+      state.currencies.vgems += vgems;
+      if (tickets > 0) state.currencies.myTicket.blue += tickets;
+    }
+
+    q.claimed[questId] = true;
+
+    // Auto-complete meta quest progress when all non-meta quests are claimed
+    if (!def.meta && canClaimMeta(category)) {
+      const metaId = category === 'daily' ? 'daily_all' : 'weekly_all';
+      q.progress[metaId] = (q.progress[metaId] || 0) + 1;
+    }
+
+    save();
+    if (_onStateChange) _onStateChange();
+    return { vgems, tickets };
+  }
+
+  function getQuestsData() {
+    resetQuestsIfNeeded();
+    return {
+      daily: DAILY_QUESTS.map(d => ({
+        ...d,
+        progress: Math.min(state.quests.daily.progress[d.id] || 0, d.target),
+        claimed: !!state.quests.daily.claimed[d.id],
+        completed: (state.quests.daily.progress[d.id] || 0) >= d.target,
+        loginReward: d.id === 'daily_login' ? getDailyLoginReward() : null,
+        metaReady: d.meta ? canClaimMeta('daily') : false,
+      })),
+      weekly: WEEKLY_QUESTS.map(d => ({
+        ...d,
+        progress: Math.min(state.quests.weekly.progress[d.id] || 0, d.target),
+        claimed: !!state.quests.weekly.claimed[d.id],
+        completed: (state.quests.weekly.progress[d.id] || 0) >= d.target,
+        metaReady: d.meta ? canClaimMeta('weekly') : false,
+      })),
+      loginStreak: state.dailyLogin.streak,
     };
   }
 
@@ -1480,6 +1606,8 @@ const Game = (() => {
     const def = STATION_DEFS[stationId];
     if (state.studio.level < def.unlockLv) return false;
     state.studio.stations[stationId].assigned = slug;
+    incrementQuestProgress('daily', 'daily_assign', 1);
+    incrementQuestProgress('weekly', 'weekly_assign10', 1);
     save();
     if (_onStateChange) _onStateChange();
     return true;
@@ -1639,6 +1767,8 @@ const Game = (() => {
     getContentQuality, getContentLog, getQualityDistribution,
     generateContent, processContentTick, getTrendingStat, getTrendingTimeRemaining,
     getDailyLoginReward, claimDailyLogin,
+    getQuestsData, claimQuest, incrementQuestProgress,
+    DAILY_QUESTS, WEEKLY_QUESTS,
     exportSaveCode, importSaveCode,
     onStateChange, notifyStateChange, getCollectionStats,
     getMaxSlots, getStationIncome, getStationStudioExp,

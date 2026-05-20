@@ -66,7 +66,7 @@ const UI = (() => {
     document.querySelectorAll('.bnav-btn[data-page]').forEach(btn => {
       btn.addEventListener('click', () => {
         const page = btn.dataset.page;
-        const deadPages = ['shop', 'quests', 'friends'];
+        const deadPages = ['shop', 'friends'];
         if (deadPages.includes(page)) {
           showToast(`${page.charAt(0).toUpperCase() + page.slice(1)} — Coming Soon!`, 'info');
           return;
@@ -117,6 +117,7 @@ const UI = (() => {
     document.getElementById('btn-back-home-2').addEventListener('click', () => switchTab('home'));
     document.getElementById('btn-back-home-3').addEventListener('click', () => switchTab('home'));
     document.getElementById('btn-back-home-4').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-back-home-quests').addEventListener('click', () => switchTab('home'));
 
     // Featured VTuber select
     document.getElementById('btn-select-featured').addEventListener('click', () => {
@@ -163,6 +164,16 @@ const UI = (() => {
       const stationId = document.getElementById('assign-grid').dataset.station;
       if (stationId) populateAssignGrid(stationId);
     }, 200));
+
+    // Quest sub-tabs
+    document.querySelectorAll('.quest-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabName = btn.dataset.questTab;
+        document.querySelectorAll('.quest-subtab').forEach(b => b.classList.toggle('active', b.dataset.questTab === tabName));
+        document.querySelectorAll('.quest-panel').forEach(p => p.style.display = p.id === `quest-${tabName}` ? '' : 'none');
+        if (tabName === 'achievements') renderMilestones();
+      });
+    });
 
     // Settings buttons
     document.getElementById('btn-save-manual').addEventListener('click', () => {
@@ -263,6 +274,7 @@ const UI = (() => {
 
     if (tab === 'collection') { _collectionPage = 0; renderCollection(); }
     if (tab === 'studio') renderStudio();
+    if (tab === 'quests') renderQuests();
     if (tab === 'pull') {
       renderGachaSidebar();
       updateBannerInfo();
@@ -921,7 +933,6 @@ const UI = (() => {
     renderPagination(filtered.length, totalPages);
     updateCollectionProgress();
     updateCollectionVariantStats();
-    renderMilestones();
   }
 
   function renderPagination(totalItems, totalPages) {
@@ -1115,7 +1126,106 @@ const UI = (() => {
     }
   }
 
-  // ── Milestones ──
+  // ═══════════════════════════════════════════════
+  //  QUESTS
+  // ═══════════════════════════════════════════════
+  let _currentQuestTab = 'daily';
+
+  function renderQuests() {
+    const data = Game.getQuestsData();
+
+    // Login streak banner
+    const streakEl = document.getElementById('quest-login-streak');
+    if (streakEl) {
+      streakEl.innerHTML = `<span class="quest-streak-label">Login Streak</span> <span class="quest-streak-value">${data.loginStreak} days</span>`;
+    }
+
+    renderQuestList('daily', data.daily);
+    renderQuestList('weekly', data.weekly);
+  }
+
+  function renderQuestList(category, quests) {
+    const container = document.getElementById(`quest-${category}`);
+    if (!container) return;
+    container.innerHTML = '';
+
+    quests.forEach(q => {
+      const el = document.createElement('div');
+      const isMeta = !!q.meta;
+      const isLocked = isMeta && !q.metaReady;
+      const canClaim = q.completed && !q.claimed && !isLocked;
+
+      el.className = `quest-item${q.claimed ? ' claimed' : ''}${canClaim ? ' completable' : ''}${isLocked ? ' locked' : ''}`;
+
+      // Progress bar HTML
+      const pct = Math.min(100, (q.progress / q.target) * 100);
+      const progressHTML = `<div class="quest-progress-bar"><div class="quest-progress-fill" style="width:${pct}%"></div></div>`;
+
+      // Reward display
+      let rewardHTML = '';
+      if (q.id === 'daily_login' && q.loginReward) {
+        rewardHTML = `${currencyIcon('vgems', 12)}+${q.loginReward.vgems} ${currencyIcon('ticket_blue', 12)}+${q.loginReward.tickets}`;
+      } else if (q.reward.streakScaled) {
+        const lr = Game.getDailyLoginReward();
+        if (lr) {
+          rewardHTML = `${currencyIcon('vgems', 12)}+${lr.vgems} ${currencyIcon('ticket_blue', 12)}+${lr.tickets}`;
+        } else {
+          rewardHTML = `<span style="color:var(--text-dim);">Already claimed today</span>`;
+        }
+      } else {
+        const parts = [];
+        if (q.reward.vgems) parts.push(`${currencyIcon('vgems', 12)}+${q.reward.vgems}`);
+        if (q.reward.tickets) parts.push(`${currencyIcon('ticket_blue', 12)}+${q.reward.tickets}`);
+        rewardHTML = parts.join(' ');
+      }
+
+      // Status text
+      let statusText = '';
+      if (q.claimed) {
+        statusText = '<span class="quest-status-claimed">Claimed</span>';
+      } else if (isLocked) {
+        statusText = '<span class="quest-status-locked">Complete all other quests</span>';
+      } else if (canClaim) {
+        statusText = '<button class="quest-claim-btn">Claim</button>';
+      } else {
+        statusText = `<span class="quest-status-progress">${q.progress} / ${q.target}</span>`;
+      }
+
+      el.innerHTML = `
+        <div class="quest-info">
+          <span class="quest-label">${q.label}</span>
+          <span class="quest-desc">${q.desc}</span>
+          ${progressHTML}
+        </div>
+        <div class="quest-right">
+          <span class="quest-reward">${rewardHTML}</span>
+          ${statusText}
+        </div>
+      `;
+
+      // Wire claim button
+      if (canClaim) {
+        const claimBtn = el.querySelector('.quest-claim-btn');
+        if (claimBtn) {
+          claimBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const result = Game.claimQuest(category, q.id);
+            if (result) {
+              let msg = 'Claimed!';
+              if (result.vgems) msg += ` VGems +${result.vgems}`;
+              if (result.tickets) msg += ` Blue Tickets +${result.tickets}`;
+              showToast(msg, 'success');
+              renderQuests();
+              updateUI();
+            }
+          });
+        }
+      }
+
+      container.appendChild(el);
+    });
+  }
+
   function renderMilestones() {
     const milestones = Game.getMilestones();
     const stats = Game.getCollectionStats();
