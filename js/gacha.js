@@ -182,7 +182,7 @@ const Gacha = (() => {
     if (rarity === 'UR') return ['ur'];
     if (rarity === 'SSR') return ['ssr'];
     if (rarity === 'SR') return ['sr'];
-    return ['normal'];
+    return ['r'];
   }
 
   // ── Ticket/Cost Logic ──

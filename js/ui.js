@@ -49,6 +49,7 @@ const UI = (() => {
       checkOfflineEarnings();
       checkMilestoneCelebration();
       _lastStudioLevel = Game.getState().studio.level; // Sprint 4: init studio level tracker
+      _initSortBars();
       showToast('Welcome back to MyVT Gacha!', 'info');
     } catch (err) {
       console.error('Init failed:', err);
@@ -1163,6 +1164,55 @@ const UI = (() => {
   let _roadmapOpen = false;
   let _feedOpen = false;
 
+  // Sort state for character selection modals
+  let _assignSort = 'rarity';
+  let _featuredSort = 'rarity';
+  let _scLeadSort = 'rarity';
+
+  const RARITY_ORDER = { UR: 4, SSR: 3, SR: 2, R: 1 };
+  const STAT_KEYS = ['st', 'ps', 'tc', 'ch', 'vc', 'mg'];
+
+  // Shared sort helper — sorts character list, always desc, level as tiebreaker
+  function _sortCharList(list, sortBy, state) {
+    return list.sort((a, b) => {
+      const aState = state.characters[a.slug];
+      const bState = state.characters[b.slug];
+      if (!aState || !bState) return 0;
+
+      if (sortBy === 'rarity') {
+        const aR = RARITY_ORDER[a.rarity] || 0;
+        const bR = RARITY_ORDER[b.rarity] || 0;
+        if (bR !== aR) return bR - aR;
+      } else if (STAT_KEYS.includes(sortBy)) {
+        const aStat = aState.stats ? (aState.stats[sortBy] || 0) : 0;
+        const bStat = bState.stats ? (bState.stats[sortBy] || 0) : 0;
+        if (bStat !== aStat) return bStat - aStat;
+      }
+      return bState.level - aState.level;
+    });
+  }
+
+  // Wire sort bar buttons — call once during init
+  function _initSortBars() {
+    const bars = [
+      { id: 'sort-bar-assign', getSort: () => _assignSort, setSort: v => { _assignSort = v; populateAssignGrid(_assignStationId); } },
+      { id: 'sort-bar-featured', getSort: () => _featuredSort, setSort: v => { _featuredSort = v; populateFeaturedGrid(); } },
+      { id: 'sort-bar-sc-lead', getSort: () => _scLeadSort, setSort: v => { _scLeadSort = v; populateMinigameLeadGrid(); } },
+    ];
+    bars.forEach(bar => {
+      const el = document.getElementById(bar.id);
+      if (!el || el._bound) return;
+      el._bound = true;
+      el.addEventListener('click', (e) => {
+        const pill = e.target.closest('.sort-pill');
+        if (!pill) return;
+        const sortVal = pill.dataset.sort;
+        bar.setSort(sortVal);
+        el.querySelectorAll('.sort-pill').forEach(p => p.classList.toggle('active', p.dataset.sort === sortVal));
+      });
+    });
+  }
+
   function _initCollapsibleToggles() {
     const toggleRoadmap = document.getElementById('toggle-roadmap');
     const bodyRoadmap = document.getElementById('body-roadmap');
@@ -1917,20 +1967,12 @@ const UI = (() => {
       return;
     }
 
-    // Sort by rarity descending (UR > SSR > SR > R), then level descending
-    const rarityOrder = { ur: 4, ssr: 3, sr: 2, normal: 1, r: 1 };
-    available.sort((a, b) => {
-      const aState = state.characters[a.slug];
-      const bState = state.characters[b.slug];
-      const aBest = rarityOrder[Game.getBestVariant(aState.variants)] || 0;
-      const bBest = rarityOrder[Game.getBestVariant(bState.variants)] || 0;
-      if (bBest !== aBest) return bBest - aBest;
-      return bState.level - aState.level;
-    });
+    // Sort by active sort (default: rarity desc), level as tiebreaker
+    _sortCharList(available, _assignSort, state);
 
     available.forEach(charInfo => {
       const charState = state.characters[charInfo.slug];
-      const bestVariant = Game.getBestVariant(charState.variants);
+      const rarity = charInfo.rarity || 'R';
 
       const el = document.createElement('div');
       el.className = 'assign-char';
@@ -1945,8 +1987,8 @@ const UI = (() => {
       info.textContent = `${charInfo.name} Lv${charState.level}`;
 
       const badge = document.createElement('div');
-      badge.className = `assign-char-badge badge-${bestVariant}`;
-      badge.textContent = bestVariant.toUpperCase();
+      badge.className = `assign-char-badge badge-${rarity.toLowerCase()}`;
+      badge.textContent = rarity;
 
       // ST/PS stats bar
       const stInfo = Game.getVTuberStaminaInfo(charInfo.slug);
@@ -2177,16 +2219,8 @@ const UI = (() => {
       ? owned.filter(c => c.name.toLowerCase().includes(search))
       : owned;
 
-    // Sort by variant rarity, then level
-    const rarityOrder = { ur: 4, ssr: 3, sr: 2, normal: 1 };
-    filtered.sort((a, b) => {
-      const aState = state.characters[a.slug];
-      const bState = state.characters[b.slug];
-      const aBest = rarityOrder[Game.getBestVariant(aState.variants)] || 0;
-      const bBest = rarityOrder[Game.getBestVariant(bState.variants)] || 0;
-      if (bBest !== aBest) return bBest - aBest;
-      return bState.level - aState.level;
-    });
+    // Sort by active sort (default: rarity desc), level as tiebreaker
+    _sortCharList(filtered, _scLeadSort, state);
 
     grid.innerHTML = '';
     if (filtered.length === 0) {
@@ -2196,7 +2230,7 @@ const UI = (() => {
 
     filtered.forEach(charInfo => {
       const charState = state.characters[charInfo.slug];
-      const bestVariant = Game.getBestVariant(charState.variants);
+      const rarity = charInfo.rarity || 'R';
 
       const el = document.createElement('div');
       el.className = 'assign-char';
@@ -2211,8 +2245,8 @@ const UI = (() => {
       info.textContent = `${charInfo.name} Lv${charState.level}`;
 
       const badge = document.createElement('div');
-      badge.className = `assign-char-badge badge-${bestVariant}`;
-      badge.textContent = bestVariant.toUpperCase();
+      badge.className = `assign-char-badge badge-${rarity.toLowerCase()}`;
+      badge.textContent = rarity;
 
       el.appendChild(img);
       el.appendChild(info);
@@ -2225,7 +2259,7 @@ const UI = (() => {
         updateMinigameCostLabel();
         updateMinigameStaminaBar();
         closeMinigameLeadPicker();
-        showToast(`Lead: ${charInfo.name} (${bestVariant.toUpperCase()})`, 'success');
+        showToast(`Lead: ${charInfo.name} (${rarity})`, 'success');
       });
 
       grid.appendChild(el);
@@ -2354,6 +2388,9 @@ const UI = (() => {
 
     const owned = chars.filter(c => state.characters[c.slug] && state.characters[c.slug].owned);
     const filtered = search ? owned.filter(c => c.name.toLowerCase().includes(search)) : owned;
+
+    // Sort by active sort (default: rarity desc), level as tiebreaker
+    _sortCharList(filtered, _featuredSort, state);
 
     container.innerHTML = '';
     if (filtered.length === 0) {

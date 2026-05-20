@@ -86,7 +86,6 @@ const Game = (() => {
 
   // Rarity multipliers (used by studio for income calc — backward compat)
   const VARIANT_MULTIPLIERS = {
-    normal: 1, // R rarity maps to 'normal' for legacy studio compat
     r: 1,
     sr: 2,
     ssr: 5,
@@ -100,7 +99,7 @@ const Game = (() => {
 
   // Level caps per rarity
   const LEVEL_CAPS = {
-    normal: 20, r: 20,
+    r: 20,
     sr: 35,
     ssr: 50,
     ur: 70,
@@ -364,17 +363,21 @@ const Game = (() => {
           // Map legacy variants to rarity for backward compat
           if (!charData.variants || charData.variants.length === 0) {
             const rarityToLower = charData.rarity ? charData.rarity.toLowerCase() : 'normal';
-            if (rarityToLower === 'r' || rarityToLower === 'normal') charData.variants = ['normal'];
+            if (rarityToLower === 'r' || rarityToLower === 'normal') charData.variants = ['r'];
             else if (rarityToLower === 'sr') charData.variants = ['sr'];
             else if (rarityToLower === 'ssr') charData.variants = ['ssr'];
             else if (rarityToLower === 'ur') charData.variants = ['ur'];
-            else charData.variants = ['normal'];
+            else charData.variants = ['r'];
           }
           if (charData.shards === undefined) charData.shards = 0;
         }
         // v4 → v5: Add VTuber stamina recovery tracking (all owned, not just unmigrated)
         if (charData.owned && charData.lastStaminaRecovery === undefined) {
           charData.lastStaminaRecovery = Date.now();
+        }
+        // Migrate 'normal' variant → 'r' for all existing saves
+        if (charData.variants && charData.variants.includes('normal')) {
+          charData.variants = charData.variants.map(v => v === 'normal' ? 'r' : v);
         }
       }
     }
@@ -942,11 +945,11 @@ const Game = (() => {
 
   // Helper: best variant (maps rarity to variant for studio compat)
   function getBestVariant(variants) {
-    if (!variants || variants.length === 0) return 'normal';
+    if (!variants || variants.length === 0) return 'r';
     if (variants.includes('ur')) return 'ur';
     if (variants.includes('ssr')) return 'ssr';
     if (variants.includes('sr')) return 'sr';
-    return 'normal';
+    return 'r';
   }
 
   // Helper: get character rarity from DataLoader
@@ -1417,7 +1420,7 @@ const Game = (() => {
       // Legacy fields kept for backward compat
       ssr: ssrCount,
       sr: srCount,
-      normal: rCount,
+      r: rCount,
       pct: total > 0 ? Math.round((owned / total) * 100) : 0,
     };
   }
