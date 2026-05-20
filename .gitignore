@@ -30,3 +30,4 @@ download/
 # Prevent nested repo clones (submodule accidents)
 MyVT-Gacha/
 myvt-work/
+myvt-gacha-review/
