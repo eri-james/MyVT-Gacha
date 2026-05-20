@@ -2486,6 +2486,7 @@ const UI = (() => {
   let _liveonCurrentScreen = 'scenario';
   let _liveonTeamState = { lead: null, coaches: { streamer: null, performance: null, stage: null } };
   let _liveonCoachModalSlot = null; // which coach slot is being picked
+  let _liveonCurrentEventData = null; // cached event object to avoid JSON-in-HTML issues
 
   function showLiveONScreen(screen) {
     _liveonCurrentScreen = screen;
@@ -2874,6 +2875,9 @@ const UI = (() => {
       return;
     }
 
+    // Cache event data in JS variable to avoid JSON-in-HTML attribute parsing issues
+    _liveonCurrentEventData = event;
+
     html += '<div class="run-event">';
     html += `<div class="event-title">${event.title}</div>`;
     html += `<div class="event-desc">${event.description}</div>`;
@@ -2894,7 +2898,7 @@ const UI = (() => {
 
       if (isSafe) {
         // Safe zone: all choices give 100%, 0 PS cost
-        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" data-event='${JSON.stringify(event)}'>
+        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}">
           <div class="choice-label">${choice.label}</div>
           <div class="choice-meta">
             <span class="choice-tier safe-tier">${tierLabel}</span>
@@ -2908,7 +2912,7 @@ const UI = (() => {
         const psCosts = { best: 0, neutral: 4, fumble: 8 };
         const subPct = Math.round(mults[tier] * 100 * (1 + coachBonus));
         const psCost = psCosts[tier];
-        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" data-event='${JSON.stringify(event)}' ${run.ps <= psCost ? 'disabled title="Not enough PS!"' : ''}>
+        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" ${run.ps <= psCost ? 'disabled title="Not enough PS!"' : ''}>
           <div class="choice-label">${choice.label}</div>
           <div class="choice-meta">
             <span class="choice-tier ${tierClass}">${tierLabel}</span>
@@ -2922,7 +2926,7 @@ const UI = (() => {
 
     // Skip button (only in normal zone)
     if (!isSafe) {
-      html += `<button class="btn btn-danger skip-btn" data-skip="true" data-event='${JSON.stringify(event)}'>
+      html += `<button class="btn btn-danger skip-btn" data-skip="true">
         <div class="choice-label">Skip Event</div>
         <div class="choice-outcome">-5% subs, -12 PS</div>
       </button>`;
@@ -2952,16 +2956,28 @@ const UI = (() => {
     html += '</div>'; // .liveon-run-layout
     container.innerHTML = html;
 
-    // Bind choice buttons
+    // Bind choice buttons — use cached _liveonCurrentEventData instead of parsing JSON from HTML
     container.querySelectorAll('.choice-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.disabled) return;
-        const choiceIdx = parseInt(btn.dataset.choice);
-        const eventData = JSON.parse(btn.dataset.event);
-        const result = LiveON.processChoice(turnNum, eventData, choiceIdx);
-        if (result.runEnded) {
-          showLiveONScreen('results');
-        } else {
+        try {
+          const choiceIdx = parseInt(btn.dataset.choice);
+          const eventData = _liveonCurrentEventData;
+          if (!eventData) return;
+          const result = LiveON.processChoice(turnNum, eventData, choiceIdx);
+          if (result.error) {
+            showToast('Error: ' + result.error, 'warning');
+            renderLiveONRun();
+            return;
+          }
+          if (result.runEnded) {
+            showLiveONScreen('results');
+          } else {
+            renderLiveONRun();
+          }
+        } catch (e) {
+          console.error('Live!ON choice error:', e);
+          showToast('Something went wrong. Try again.', 'warning');
           renderLiveONRun();
         }
       });
@@ -2969,11 +2985,23 @@ const UI = (() => {
 
     container.querySelectorAll('.skip-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const eventData = JSON.parse(btn.dataset.event);
-        const result = LiveON.processSkip(turnNum, eventData);
-        if (result.runEnded) {
-          showLiveONScreen('results');
-        } else {
+        try {
+          const eventData = _liveonCurrentEventData;
+          if (!eventData) return;
+          const result = LiveON.processSkip(turnNum, eventData);
+          if (result.error) {
+            showToast('Error: ' + result.error, 'warning');
+            renderLiveONRun();
+            return;
+          }
+          if (result.runEnded) {
+            showLiveONScreen('results');
+          } else {
+            renderLiveONRun();
+          }
+        } catch (e) {
+          console.error('Live!ON skip error:', e);
+          showToast('Something went wrong. Try again.', 'warning');
           renderLiveONRun();
         }
       });
