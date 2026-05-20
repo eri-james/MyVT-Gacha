@@ -388,6 +388,7 @@ const LiveON = (() => {
       upgrades: [],
       chaosUpgrades: [],
       targetSubs: 0,
+      currentEvent: null,
       ending: null,
       rewards: null,
     };
@@ -476,10 +477,12 @@ const LiveON = (() => {
       owned.push({
         slug,
         name: info.name,
+        agency: info.agency || '',
         rarity: charData.rarity || 'R',
         level: charData.level || 1,
         currentPS: charData.stats ? (charData.stats.ps || 0) : 0,
         maxPS: charData.baseStats ? (charData.baseStats.ps || 0) : 0,
+        stats: charData.stats || {},
         imageUrl: DataLoader.getImageUrl(slug),
       });
     }
@@ -503,9 +506,11 @@ const LiveON = (() => {
       owned.push({
         slug,
         name: info.name,
+        agency: info.agency || '',
         rarity,
         level: charData.level || 1,
         echo: charData.echo || 0,
+        stats: charData.stats || {},
         imageUrl: DataLoader.getImageUrl(slug),
         coachBonusPct: Math.round(COACH_BASE_BONUS * rarityMult),
         // Per-slot effectiveness for display
@@ -572,6 +577,7 @@ const LiveON = (() => {
     _runState.ps = runPS;
     _runState.maxPS = leadData.baseStats ? (leadData.baseStats.ps || 0) : runPS;
     _runState.targetSubs = targetSubs;
+    _runState.currentEvent = getRandomEvent();
 
     return {
       success: true,
@@ -691,6 +697,11 @@ const LiveON = (() => {
     // Advance turn
     _runState.turn++;
 
+    // Generate next event (if not finale)
+    if (!isFinaleTurn(turn)) {
+      _runState.currentEvent = getRandomEvent();
+    }
+
     // Check if this was the finale turn (turn 20)
     if (isFinaleTurn(turn)) {
       if (_runState.subscribers >= _runState.targetSubs) {
@@ -742,6 +753,7 @@ const LiveON = (() => {
     }
 
     _runState.turn++;
+    _runState.currentEvent = getRandomEvent();
 
     return { result: logEntry, runEnded: false };
   }

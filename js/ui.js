@@ -2529,7 +2529,8 @@ const UI = (() => {
     let html = '<div class="liveon-scenario-list">';
     html += '<h3 class="liveon-section-title">Select Scenario</h3>';
 
-    if (!eligibility.can && !eligibility.ownedVTubers) {
+    const noVTubers = !eligibility.can && eligibility.reason.includes('VTuber');
+    if (noVTubers) {
       html += '<div class="liveon-locked-msg">Pull some VTubers first to start Live!ON!</div>';
     } else {
       scenarios.forEach(sc => {
@@ -2539,10 +2540,10 @@ const UI = (() => {
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </div>
           <div class="scenario-info">
-            <div class="scenario-name">${sc.name}</div>
+            <div class="scenario-name">${sc.title}</div>
             <div class="scenario-desc">${sc.description}</div>
             <div class="scenario-meta">
-              <span>Turns: ${sc.turns || 20}</span>
+              <span>Turns: 20</span>
               <span>Cost: ${Game.LIVEON_STAMINA_COST} Stamina</span>
             </div>
           </div>
@@ -2812,7 +2813,7 @@ const UI = (() => {
       <img class="run-lead-avatar" src="${DataLoader.getImageUrl(run.lead)}" alt="" onerror="this.style.display='none'">
       <div class="run-lead-info">
         <div class="run-lead-name">${DataLoader.getBySlug(run.lead)?.name || run.lead}</div>
-        <div class="run-scenario-name">${run.scenarioName || 'Debut Stream'}</div>
+        <div class="run-scenario-name">${run.scenario ? run.scenario.title : 'Debut Stream'}</div>
       </div>
     </div>`;
     html += `<div class="run-header-right">
@@ -2853,8 +2854,8 @@ const UI = (() => {
       return;
     }
 
-    // Normal event turn
-    const event = LiveON.getRandomEvent(turnNum);
+    // Normal event turn — use the stored currentEvent from run state
+    const event = run.currentEvent;
     if (!event) {
       html += '<p>Error: No event available.</p>';
       container.innerHTML = html + '</div>';
@@ -3070,7 +3071,7 @@ const UI = (() => {
     </div>`;
 
     html += '<div class="results-stats">';
-    html += `<div class="results-stat"><span>Turns Survived</span><strong>${run.turnsSurvived || run.turn}</strong></div>`;
+    html += `<div class="results-stat"><span>Turns Survived</span><strong>${(run.subscriberLog && run.subscriberLog.length) || run.turn}</strong></div>`;
     html += `<div class="results-stat"><span>Total Subscribers</span><strong>${formatNum(run.subscribers)}</strong></div>`;
     html += `<div class="results-stat"><span>Ending Multiplier</span><strong>${run.ending === 'good' ? '120%' : run.ending === 'neutral' ? '100%' : '60%'}</strong></div>`;
     html += '</div>';
