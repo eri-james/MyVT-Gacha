@@ -140,9 +140,10 @@ const Game = (() => {
     { id: 'weekly_all',     label: 'Clear All Weekly Quests', target: 1,  reward: { vgems: 500, tickets: 2 }, desc: 'Claim all weekly quests', meta: true },
   ];
 
-  // Stamina system
-  const STAMINA_MAX = 200;
+  // Account Stamina system (used for Live!ON runs)
+  const STAMINA_MAX = 180;
   const STAMINA_RECOVERY_INTERVAL_MS = 4 * 60 * 1000; // 1 point every 4 minutes
+  const LIVEON_STAMINA_COST = 30; // Cost per Live!ON run (6 runs/day at max)
 
   // Bond Level thresholds and stat rewards (GDD §9.1)
   const BOND_LEVELS = [
@@ -288,6 +289,8 @@ const Game = (() => {
     if (!merged.pullHistory) merged.pullHistory = {};
     if (!merged.minigame) merged.minigame = { dailyPlays: 0, lastPlayDate: null, highScore: 0 };
     if (!merged.stamina) merged.stamina = { current: STAMINA_MAX, lastRecovery: Date.now() };
+    // Cap stamina to new max (was 200, now 180)
+    if (merged.stamina.current > STAMINA_MAX) merged.stamina.current = STAMINA_MAX;
     if (!merged.quests) merged.quests = { daily: { date: '', progress: {}, claimed: {} }, weekly: { weekId: '', progress: {}, claimed: {} } };
 
     // v1 → v2: Add new overhaul currencies alongside legacy ones
@@ -1142,6 +1145,53 @@ const Game = (() => {
     return true;
   }
 
+  // ── Shop Purchases ──
+  const SHOP_ITEMS = {
+    blue_ticket_x1:  { name: 'Blue MyTicket x1',     cost: 150,  currency: 'vgems', action: 'blue_ticket', amount: 1 },
+    blue_ticket_x10: { name: 'Blue MyTicket x10',    cost: 1400, currency: 'vgems', action: 'blue_ticket', amount: 10 },
+    red_ticket_x1:   { name: 'Red MyTicket x1',      cost: 150,  currency: 'vgems', action: 'red_ticket', amount: 1 },
+    red_ticket_x10:  { name: 'Red MyTicket x10',     cost: 1400, currency: 'vgems', action: 'red_ticket', amount: 10 },
+    stamina_refill:  { name: 'Stamina Refill (Full)', cost: 100,  currency: 'vgems', action: 'stamina_refill', amount: 0 },
+  };
+
+  function purchaseShopItem(itemId) {
+    const item = SHOP_ITEMS[itemId];
+    if (!item) return { success: false, reason: 'Invalid item' };
+
+    // Check currency
+    if ((state.currencies[item.currency] || 0) < item.cost) {
+      return { success: false, reason: 'Not enough VGems' };
+    }
+
+    // Deduct cost
+    state.currencies[item.currency] -= item.cost;
+
+    // Apply action
+    switch (item.action) {
+      case 'blue_ticket':
+        if (!state.currencies.myTicket) state.currencies.myTicket = { blue: 0, red: 0 };
+        state.currencies.myTicket.blue += item.amount;
+        break;
+      case 'red_ticket':
+        if (!state.currencies.myTicket) state.currencies.myTicket = { blue: 0, red: 0 };
+        state.currencies.myTicket.red += item.amount;
+        break;
+      case 'stamina_refill':
+        if (!state.stamina) state.stamina = { current: STAMINA_MAX, lastRecovery: Date.now() };
+        state.stamina.current = STAMINA_MAX;
+        state.stamina.lastRecovery = Date.now();
+        break;
+    }
+
+    save();
+    if (_onStateChange) _onStateChange();
+    return { success: true, item: item.name };
+  }
+
+  function getShopItems() {
+    return SHOP_ITEMS;
+  }
+
   function spendTickets(count, type) {
     if (!state.currencies.myTicket) return false;
     const available = state.currencies.myTicket[type] || 0;
@@ -1786,7 +1836,8 @@ const Game = (() => {
     VGEML_PER_TICKET, RarityMultipliers, SAVE_KEY,
     getTotalIncome, getTotalIncomePerMin, getStationIncomeBreakdown,
     getStamina, useStamina, getStaminaTimeToNext,
-    STAMINA_MAX, STAMINA_RECOVERY_INTERVAL_MS,
+    STAMINA_MAX, STAMINA_RECOVERY_INTERVAL_MS, LIVEON_STAMINA_COST,
+    purchaseShopItem, getShopItems, SHOP_ITEMS,
     recoverVTuberStamina, recoverAllVTuberStamina, restoreVTuberStamina, useVTuberStamina, getVTuberStaminaInfo,
     getCharacterBondInfo, getBondStatBonus,
     BOND_MAX_LEVEL, BOND_LEVELS, BOND_DATE_COOLDOWN_MS, BOND_DATE_LEVEL_REQ,

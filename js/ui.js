@@ -66,7 +66,7 @@ const UI = (() => {
     document.querySelectorAll('.bnav-btn[data-page]').forEach(btn => {
       btn.addEventListener('click', () => {
         const page = btn.dataset.page;
-        const deadPages = ['shop', 'friends'];
+        const deadPages = ['friends'];
         if (deadPages.includes(page)) {
           showToast(`${page.charAt(0).toUpperCase() + page.slice(1)} — Coming Soon!`, 'info');
           return;
@@ -106,9 +106,7 @@ const UI = (() => {
     });
 
     // Landing page panel buttons
-    document.getElementById('btn-go-liveon').addEventListener('click', () => {
-      showToast('Live!ON — Coming Soon!', 'info');
-    });
+    document.getElementById('btn-go-liveon').addEventListener('click', () => switchTab('liveon'));
     document.getElementById('btn-go-studio').addEventListener('click', () => switchTab('studio'));
     document.getElementById('btn-go-gacha').addEventListener('click', () => switchTab('pull'));
 
@@ -118,6 +116,17 @@ const UI = (() => {
     document.getElementById('btn-back-home-3').addEventListener('click', () => switchTab('home'));
     document.getElementById('btn-back-home-4').addEventListener('click', () => switchTab('home'));
     document.getElementById('btn-back-home-quests').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-back-home-shop').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-back-home-liveon').addEventListener('click', () => {
+      if (LiveON.isRunActive()) {
+        if (!confirm('A run is in progress! Abandon it? Your stamina will NOT be refunded.')) return;
+        LiveON.abandonRun();
+      }
+      switchTab('home');
+    });
+    document.getElementById('btn-liveon-back-scenario').addEventListener('click', () => {
+      showLiveONScreen('scenario');
+    });
 
     // Featured VTuber select
     document.getElementById('btn-select-featured').addEventListener('click', () => {
@@ -281,6 +290,8 @@ const UI = (() => {
       updateGachaPityBar();
     }
     if (tab === 'minigame') renderMinigame();
+    if (tab === 'shop') renderShop();
+    if (tab === 'liveon') renderLiveON();
     updateUI();
   }
 
@@ -2399,6 +2410,690 @@ const UI = (() => {
     area.querySelectorAll('.sc-bubble, .sc-float, .sc-super-splash').forEach(el => el.remove());
 
     Minigame.startRound(lead);
+  }
+
+  // ═══════════════════════════════════════════════
+  //  SHOP TAB
+  // ═══════════════════════════════════════════════
+
+  function renderShop() {
+    // Update stamina bar
+    const stam = Game.getStamina();
+    const pct = (stam.current / stam.max) * 100;
+    const fillEl = document.getElementById('shop-stamina-fill');
+    const valEl = document.getElementById('shop-stamina-val');
+    if (fillEl) fillEl.style.width = pct + '%';
+    if (valEl) valEl.textContent = `${stam.current} / ${stam.max}`;
+
+    // Render ticket shop items
+    const ticketsGrid = document.getElementById('shop-tickets');
+    if (ticketsGrid) {
+      const items = Game.getShopItems();
+      const ticketItems = ['blue_ticket_x1', 'blue_ticket_x10', 'red_ticket_x1', 'red_ticket_x10'];
+      ticketsGrid.innerHTML = ticketItems.map(id => {
+        const item = items[id];
+        const iconFn = id.includes('red') ? 'ticket_red' : 'ticket_blue';
+        const icon = CurrencyIcons[iconFn] ? CurrencyIcons[iconFn](20) : '';
+        return `<div class="shop-item" data-item-id="${id}">
+          <div class="shop-item-icon">${icon}</div>
+          <div class="shop-item-info">
+            <div class="shop-item-name">${item.name}</div>
+            <div class="shop-item-cost">${CurrencyIcons.vgems(12)} ${formatNum(item.cost)}</div>
+          </div>
+          <button class="btn btn-primary shop-buy-btn" data-buy="${id}">Buy</button>
+        </div>`;
+      }).join('');
+    }
+
+    // Render stamina shop items
+    const staminaGrid = document.getElementById('shop-stamina');
+    if (staminaGrid) {
+      const items = Game.getShopItems();
+      staminaGrid.innerHTML = `<div class="shop-item" data-item-id="stamina_refill">
+        <div class="shop-item-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--stamina)" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">Full Stamina Refill</div>
+          <div class="shop-item-cost">${CurrencyIcons.vgems(12)} 100</div>
+        </div>
+        <button class="btn btn-primary shop-buy-btn" data-buy="stamina_refill">Buy</button>
+      </div>`;
+    }
+
+    // Bind buy buttons (remove old listeners first)
+    document.querySelectorAll('.shop-buy-btn').forEach(btn => {
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      newBtn.addEventListener('click', () => {
+        const itemId = newBtn.dataset.buy;
+        const result = Game.purchaseShopItem(itemId);
+        if (result.success) {
+          showToast(`Purchased ${result.item}!`, 'success');
+          renderShop();
+          updateUI();
+        } else {
+          showToast(result.reason, 'error');
+        }
+      });
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  LIVE!ON TAB
+  // ═══════════════════════════════════════════════
+
+  let _liveonCurrentScreen = 'scenario';
+  let _liveonTeamState = { lead: null, coaches: { streamer: null, performance: null, stage: null } };
+  let _liveonCoachModalSlot = null; // which coach slot is being picked
+
+  function showLiveONScreen(screen) {
+    _liveonCurrentScreen = screen;
+    ['scenario', 'team', 'run', 'results'].forEach(s => {
+      const el = document.getElementById(`liveon-${s}`);
+      if (el) el.style.display = s === screen ? '' : 'none';
+    });
+    if (screen === 'scenario') renderLiveONScenario();
+    else if (screen === 'team') renderLiveONTeam();
+    else if (screen === 'run') renderLiveONRun();
+    else if (screen === 'results') renderLiveONResults();
+  }
+
+  function renderLiveON() {
+    // If a run is active, show the run screen
+    if (LiveON.isRunActive()) {
+      showLiveONScreen('run');
+    } else {
+      showLiveONScreen(_liveonCurrentScreen === 'results' ? 'scenario' : _liveonCurrentScreen);
+    }
+  }
+
+  function renderLiveONStamina() {
+    const stam = Game.getStamina();
+    const pct = (stam.current / stam.max) * 100;
+    const fillEl = document.getElementById('liveon-stamina-fill');
+    const valEl = document.getElementById('liveon-stamina-val');
+    if (fillEl) fillEl.style.width = pct + '%';
+    if (valEl) valEl.textContent = `${stam.current} / ${stam.max}`;
+  }
+
+  // ── Scenario Select ──
+  function renderLiveONScenario() {
+    renderLiveONStamina();
+    const container = document.getElementById('liveon-scenario-content');
+    if (!container) return;
+
+    const scenarios = LiveON.getScenarios();
+    const eligibility = LiveON.canStartRun();
+
+    let html = '<div class="liveon-scenario-list">';
+    html += '<h3 class="liveon-section-title">Select Scenario</h3>';
+
+    if (!eligibility.can && !eligibility.ownedVTubers) {
+      html += '<div class="liveon-locked-msg">Pull some VTubers first to start Live!ON!</div>';
+    } else {
+      scenarios.forEach(sc => {
+        const locked = !eligibility.can && eligibility.reason.includes('stamina');
+        html += `<div class="liveon-scenario-card ${locked ? 'locked' : ''}">
+          <div class="scenario-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </div>
+          <div class="scenario-info">
+            <div class="scenario-name">${sc.name}</div>
+            <div class="scenario-desc">${sc.description}</div>
+            <div class="scenario-meta">
+              <span>Turns: ${sc.turns || 20}</span>
+              <span>Cost: ${Game.LIVEON_STAMINA_COST} Stamina</span>
+            </div>
+          </div>
+          <button class="btn ${locked ? 'btn-secondary' : 'btn-primary'} liveon-start-btn" data-scenario="${sc.id}" ${locked ? 'disabled' : ''}>
+            ${locked ? 'No Stamina' : 'Start'}
+          </button>
+        </div>`;
+      });
+    }
+
+    html += '</div>';
+    html += '<div class="liveon-info-box">';
+    html += '<h4>How It Works</h4>';
+    html += '<p>Pick a Lead VTuber and 3 Coach supports, then guide them through 20 turns of streaming events.</p>';
+    html += '<p><strong>PS (Passion)</strong> is your run HP — if it hits 0, the run ends early!</p>';
+    html += '<p>Each turn, pick from 3 choices tagged with different stats. Coaches boost gains for their associated stats.</p>';
+    html += '<p>Agency visits at turns 5, 10, 15 let you pick upgrades!</p>';
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    // Bind start buttons
+    container.querySelectorAll('.liveon-start-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        const scenarioId = btn.dataset.scenario;
+        showLiveONScreen('team');
+      });
+    });
+  }
+
+  // ── Team Composition ──
+  function renderLiveONTeam() {
+    renderLiveONStamina();
+    const container = document.getElementById('liveon-team-content');
+    if (!container) return;
+
+    const leadList = LiveON.getOwnedVTubersForLead();
+    const leadInfo = _liveonTeamState.lead ? DataLoader.getBySlug(_liveonTeamState.lead) : null;
+    const coachSlots = ['streamer', 'performance', 'stage'];
+    const coachLabels = { streamer: 'Streamer Coach (TC/CH)', performance: 'Performance Coach (CH/VC)', stage: 'Stage Coach (VC/MG)' };
+
+    let html = '<div class="liveon-team-layout">';
+
+    // Lead selection
+    html += '<div class="team-section">';
+    html += '<h3 class="liveon-section-title">Lead VTuber</h3>';
+    html += '<p class="team-hint">Their PS becomes your run HP. Higher PS = longer runs!</p>';
+    if (leadInfo) {
+      const charData = Game.getState().characters[_liveonTeamState.lead];
+      const ps = charData && charData.stats ? charData.stats.ps : 0;
+      html += `<div class="team-lead-selected">
+        <img class="team-lead-img" src="${DataLoader.getImageUrl(_liveonTeamState.lead)}" alt="${leadInfo.name}" onerror="this.style.display='none'">
+        <div class="team-lead-info">
+          <div class="team-lead-name">${leadInfo.name}</div>
+          <div class="team-lead-ps">PS: ${ps}</div>
+          <div class="team-lead-rarity">${(charData ? charData.rarity : 'R').toUpperCase()}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-change-lead">Change</button>
+      </div>`;
+    } else {
+      html += '<div class="team-slot-empty" id="btn-pick-lead-liveon"><span>Pick a Lead VTuber</span></div>';
+    }
+    html += '</div>';
+
+    // Coach slots
+    html += '<div class="team-section">';
+    html += '<h3 class="liveon-section-title">Support Coaches</h3>';
+    html += '<p class="team-hint">Each coach boosts 2 stats. Higher rarity = bigger bonus!</p>';
+    coachSlots.forEach(slot => {
+      const coachSlug = _liveonTeamState.coaches[slot];
+      const coachInfo = coachSlug ? DataLoader.getBySlug(coachSlug) : null;
+      html += `<div class="team-coach-slot">`;
+      html += `<div class="coach-label">${coachLabels[slot]}</div>`;
+      if (coachInfo) {
+        const charData = Game.getState().characters[coachSlug];
+        const rarity = charData ? charData.rarity : 'R';
+        const bonusPct = LiveON.getConstants().COACH_BASE_BONUS * (LiveON.getConstants().COACH_RARITY_MULT[rarity] || 1);
+        html += `<div class="coach-selected">
+          <img class="coach-img" src="${DataLoader.getImageUrl(coachSlug)}" alt="${coachInfo.name}" onerror="this.style.display='none'">
+          <div class="coach-info">
+            <div class="coach-name">${coachInfo.name}</div>
+            <div class="coach-bonus">+${bonusPct}% base</div>
+          </div>
+          <button class="btn btn-secondary btn-sm coach-change-btn" data-slot="${slot}">Change</button>
+        </div>`;
+      } else {
+        html += `<div class="team-slot-empty coach-pick-btn" data-slot="${slot}"><span>Pick ${slot.charAt(0).toUpperCase() + slot.slice(1)} Coach</span></div>`;
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // Start run button
+    const canStart = _liveonTeamState.lead !== null;
+    html += `<button class="btn btn-primary liveon-go-btn" id="btn-start-liveon-run" ${canStart ? '' : 'disabled'} style="width:100%;margin-top:var(--space-md);padding:14px;">
+      ${canStart ? 'Begin Run! (-' + Game.LIVEON_STAMINA_COST + ' Stamina)' : 'Select a Lead VTuber first'}
+    </button>`;
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Bind events
+    const pickLead = container.querySelector('#btn-change-lead');
+    const pickLeadEmpty = container.querySelector('#btn-pick-lead-liveon');
+    const startBtn = container.querySelector('#btn-start-liveon-run');
+
+    const openLeadPicker = () => openLiveONPicker('lead');
+    if (pickLead) pickLead.addEventListener('click', openLeadPicker);
+    if (pickLeadEmpty) pickLeadEmpty.addEventListener('click', openLeadPicker);
+
+    container.querySelectorAll('.coach-pick-btn').forEach(btn => {
+      btn.addEventListener('click', () => openLiveONPicker(btn.dataset.slot));
+    });
+    container.querySelectorAll('.coach-change-btn').forEach(btn => {
+      btn.addEventListener('click', () => openLiveONPicker(btn.dataset.slot));
+    });
+
+    if (startBtn) {
+      startBtn.addEventListener('click', () => {
+        if (!_liveonTeamState.lead) return;
+        const result = LiveON.startRun(
+          LiveON.getScenarios()[0].id,
+          _liveonTeamState.lead,
+          _liveonTeamState.coaches
+        );
+        if (result.success) {
+          showToast('Run started! Good luck!', 'success');
+          showLiveONScreen('run');
+        } else {
+          showToast(result.reason, 'error');
+        }
+      });
+    }
+  }
+
+  // ── Live!ON Character Picker (modal-less, inline) ──
+  function openLiveONPicker(slot) {
+    _liveonCoachModalSlot = slot;
+    const isLead = slot === 'lead';
+    const list = isLead ? LiveON.getOwnedVTubersForLead() : LiveON.getOwnedVTubersForCoach(_liveonTeamState.lead);
+
+    if (list.length === 0) {
+      showToast(isLead ? 'No owned VTubers!' : 'No available VTubers for this slot!', 'warning');
+      return;
+    }
+
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'modal-liveon-picker';
+    overlay.style.display = 'flex';
+
+    const slotLabel = isLead ? 'Lead VTuber' : slot.charAt(0).toUpperCase() + slot.slice(1) + ' Coach';
+    let html = `<div class="modal">
+      <h3>Pick ${slotLabel}</h3>
+      <input type="text" class="assign-search" id="liveon-picker-search" placeholder="Search by name...">
+      <div class="sort-bar">
+        <button class="sort-pill active" data-sort="rarity">&#9733; Rarity</button>
+        <button class="sort-pill" data-sort="ps">PS</button>
+        <button class="sort-pill" data-sort="tc">TC</button>
+        <button class="sort-pill" data-sort="ch">CH</button>
+        <button class="sort-pill" data-sort="vc">VC</button>
+        <button class="sort-pill" data-sort="mg">MG</button>
+      </div>
+      <div class="assign-grid" id="liveon-picker-grid"></div>
+      <button class="btn btn-secondary" id="btn-close-liveon-picker" style="margin-top:var(--space-sm);width:100%;">Cancel</button>
+      <button class="modal-close" id="btn-close-liveon-picker-x">&times;</button>
+    </div>`;
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    // Populate grid
+    let sortBy = 'rarity';
+    const populateGrid = () => {
+      const search = (document.getElementById('liveon-picker-search')?.value || '').toLowerCase().trim();
+      let filtered = search ? list.filter(c => c.name.toLowerCase().includes(search)) : list;
+
+      // Sort
+      const rarityOrder = { UR: 4, SSR: 3, SR: 2, R: 1 };
+      if (sortBy === 'rarity') {
+        filtered.sort((a, b) => (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0));
+      } else if (['ps', 'tc', 'ch', 'vc', 'mg'].includes(sortBy)) {
+        filtered.sort((a, b) => (b.stats[sortBy] || 0) - (a.stats[sortBy] || 0));
+      }
+
+      const grid = document.getElementById('liveon-picker-grid');
+      if (!grid) return;
+      grid.innerHTML = filtered.map(c => {
+        const img = DataLoader.getImageUrl(c.slug);
+        const statLabel = sortBy !== 'rarity' ? `<span class="coach-bonus">${sortBy.toUpperCase()}: ${c.stats[sortBy] || 0}</span>` : '';
+        return `<div class="char-card variant-${c.rarity.toLowerCase()} liveon-pick-card" data-slug="${c.slug}" style="cursor:pointer;">
+          <img class="char-card-img" src="${img}" alt="${c.name}" onerror="this.style.display='none'">
+          <div class="char-card-overlay">
+            <div class="char-card-name">${c.name}</div>
+            <div class="char-card-agency">${c.agency || ''}</div>
+          </div>
+          <div class="char-card-badge badge-${c.rarity.toLowerCase()}">${c.rarity}</div>
+          ${statLabel}
+        </div>`;
+      }).join('');
+
+      grid.querySelectorAll('.liveon-pick-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const slug = card.dataset.slug;
+          if (isLead) {
+            // If this was a coach, remove from coach slot
+            for (const cs of Object.keys(_liveonTeamState.coaches)) {
+              if (_liveonTeamState.coaches[cs] === slug) _liveonTeamState.coaches[cs] = null;
+            }
+            _liveonTeamState.lead = slug;
+          } else {
+            _liveonTeamState.coaches[slot] = slug;
+          }
+          overlay.remove();
+          renderLiveONTeam();
+        });
+      });
+    };
+
+    populateGrid();
+
+    // Bind events
+    const searchInput = document.getElementById('liveon-picker-search');
+    if (searchInput) searchInput.addEventListener('input', debounce(populateGrid, 200));
+
+    overlay.querySelectorAll('.sort-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        overlay.querySelectorAll('.sort-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        sortBy = pill.dataset.sort;
+        populateGrid();
+      });
+    });
+
+    const close = () => overlay.remove();
+    document.getElementById('btn-close-liveon-picker')?.addEventListener('click', close);
+    document.getElementById('btn-close-liveon-picker-x')?.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+  }
+
+  // ── Main Run Screen ──
+  function renderLiveONRun() {
+    renderLiveONStamina();
+    const container = document.getElementById('liveon-run-content');
+    if (!container) return;
+
+    const run = LiveON.getRunState();
+    if (!run || !run.active) {
+      showLiveONScreen('scenario');
+      return;
+    }
+
+    const progress = LiveON.getRunProgress();
+    const isAgencyVisit = LiveON.isAgencyVisitTurn(run.turn);
+    const isFinale = LiveON.isFinaleTurn(run.turn);
+    const isSafe = LiveON.isSafeZone(run.turn);
+    const turnNum = run.turn; // next turn to play
+
+    let html = '<div class="liveon-run-layout">';
+
+    // Header with stats
+    html += '<div class="run-header">';
+    html += `<div class="run-header-left">
+      <img class="run-lead-avatar" src="${DataLoader.getImageUrl(run.lead)}" alt="" onerror="this.style.display='none'">
+      <div class="run-lead-info">
+        <div class="run-lead-name">${DataLoader.getBySlug(run.lead)?.name || run.lead}</div>
+        <div class="run-scenario-name">${run.scenarioName || 'Debut Stream'}</div>
+      </div>
+    </div>`;
+    html += `<div class="run-header-right">
+      <div class="run-stat run-ps-stat">
+        <span class="run-stat-label">PS</span>
+        <div class="run-stat-bar"><div class="run-ps-fill" style="width:${run.maxPS > 0 ? (run.ps / run.maxPS * 100) : 0}%"></div></div>
+        <span class="run-stat-val">${run.ps}/${run.maxPS}</span>
+      </div>
+      <div class="run-stat run-sub-stat">
+        <span class="run-stat-label">Subs</span>
+        <span class="run-stat-val run-sub-val">${formatNum(run.subscribers)}</span>
+      </div>
+    </div>`;
+    html += '</div>';
+
+    // Turn indicator
+    html += `<div class="run-turn-indicator">
+      <span class="turn-num">Turn ${turnNum}</span>
+      <span class="turn-progress">of ${run.maxTurns}</span>
+      <div class="turn-progress-bar"><div class="turn-progress-fill" style="width:${(turnNum / run.maxTurns) * 100}%"></div></div>
+      ${isSafe ? '<span class="safe-zone-badge">Safe Zone</span>' : ''}
+      ${isAgencyVisit ? '<span class="agency-badge">Agency Visit!</span>' : ''}
+      ${isFinale ? '<span class="finale-badge">Finale!</span>' : ''}
+    </div>`;
+
+    // Event or Agency Visit
+    if (isAgencyVisit) {
+      renderAgencyVisit(container, run);
+      container.innerHTML = html + '</div>';
+      bindAgencyVisitEvents(container);
+      return;
+    }
+
+    if (isFinale) {
+      renderFinale(container, run);
+      container.innerHTML = html + '</div>';
+      bindFinaleEvents(container);
+      return;
+    }
+
+    // Normal event turn
+    const event = LiveON.getRandomEvent(turnNum);
+    if (!event) {
+      html += '<p>Error: No event available.</p>';
+      container.innerHTML = html + '</div>';
+      return;
+    }
+
+    html += '<div class="run-event">';
+    html += `<div class="event-title">${event.title}</div>`;
+    html += `<div class="event-desc">${event.description}</div>`;
+
+    // Show subscriber gain preview
+    const baseSubs = 30 + turnNum * 5;
+    html += `<div class="event-preview">Base subs: ~${baseSubs} (before bonuses)</div>`;
+
+    // Choices
+    html += '<div class="event-choices">';
+    event.choices.forEach((choice, i) => {
+      const tier = choice.tier;
+      const tierLabel = tier === 'best' ? 'Best' : tier === 'neutral' ? 'Neutral' : 'Fumble';
+      const tierClass = `choice-${tier}`;
+      const statLabel = LiveON.STAT_LABELS[choice.stat] || choice.stat.toUpperCase();
+      const coachBonus = LiveON.calculateCoachBonus(choice.stat);
+      const bonusPct = Math.round(coachBonus * 100);
+
+      if (isSafe) {
+        // Safe zone: all choices give 100%, 0 PS cost
+        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" data-event='${JSON.stringify(event)}'>
+          <div class="choice-label">${choice.label}</div>
+          <div class="choice-meta">
+            <span class="choice-tier safe-tier">${tierLabel}</span>
+            <span class="choice-stat">${statLabel}</span>
+            ${bonusPct > 0 ? `<span class="choice-bonus">+${bonusPct}% coach</span>` : ''}
+          </div>
+          <div class="choice-outcome">+100% subs, 0 PS</div>
+        </button>`;
+      } else {
+        const mults = { best: 1.0, neutral: 0.7, fumble: 0.5 };
+        const psCosts = { best: 0, neutral: 4, fumble: 8 };
+        const subPct = Math.round(mults[tier] * 100 * (1 + coachBonus));
+        const psCost = psCosts[tier];
+        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" data-event='${JSON.stringify(event)}' ${run.ps <= psCost ? 'disabled title="Not enough PS!"' : ''}>
+          <div class="choice-label">${choice.label}</div>
+          <div class="choice-meta">
+            <span class="choice-tier ${tierClass}">${tierLabel}</span>
+            <span class="choice-stat">${statLabel}</span>
+            ${bonusPct > 0 ? `<span class="choice-bonus">+${bonusPct}% coach</span>` : ''}
+          </div>
+          <div class="choice-outcome">${subPct}% subs${psCost > 0 ? `, -${psCost} PS` : ', 0 PS'}</div>
+        </button>`;
+      }
+    });
+
+    // Skip button (only in normal zone)
+    if (!isSafe) {
+      html += `<button class="btn btn-danger skip-btn" data-skip="true" data-event='${JSON.stringify(event)}'>
+        <div class="choice-label">Skip Event</div>
+        <div class="choice-outcome">-5% subs, -12 PS</div>
+      </button>`;
+    }
+
+    html += '</div>'; // .event-choices
+    html += '</div>'; // .run-event
+
+    // Subscriber log
+    if (run.subscriberLog.length > 0) {
+      html += '<div class="run-log">';
+      html += '<h4 class="run-log-title">Event Log</h4>';
+      const recent = run.subscriberLog.slice(-5).reverse();
+      recent.forEach(log => {
+        const icon = log.subGain > 0 ? '+' : '';
+        html += `<div class="run-log-entry ${log.subGain > 0 ? 'log-gain' : 'log-loss'}">
+          <span class="log-turn">T${log.turn}</span>
+          <span class="log-event">${log.eventTitle || 'Event'}</span>
+          <span class="log-result">${icon}${Math.round(log.subGain)} subs</span>
+          ${log.psCost > 0 ? `<span class="log-ps">-${log.psCost} PS</span>` : ''}
+          ${log.safe ? '<span class="log-safe">Safe</span>' : ''}
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    html += '</div>'; // .liveon-run-layout
+    container.innerHTML = html;
+
+    // Bind choice buttons
+    container.querySelectorAll('.choice-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        const choiceIdx = parseInt(btn.dataset.choice);
+        const eventData = JSON.parse(btn.dataset.event);
+        const result = LiveON.processChoice(turnNum, eventData, choiceIdx);
+        if (result.runEnded) {
+          showLiveONScreen('results');
+        } else {
+          renderLiveONRun();
+        }
+      });
+    });
+
+    container.querySelectorAll('.skip-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const eventData = JSON.parse(btn.dataset.event);
+        const result = LiveON.processSkip(turnNum, eventData);
+        if (result.runEnded) {
+          showLiveONScreen('results');
+        } else {
+          renderLiveONRun();
+        }
+      });
+    });
+  }
+
+  function renderAgencyVisit(container, run) {
+    // This is a placeholder — actual HTML is built inline in renderLiveONRun
+  }
+
+  function bindAgencyVisitEvents(container) {
+    const run = LiveON.getRunState();
+    const upgrades = LiveON.getUpgradePool();
+
+    let upgradeHtml = '<div class="run-event agency-visit">';
+    upgradeHtml += '<div class="event-title">Agency Visit</div>';
+    upgradeHtml += '<div class="event-desc">Time to visit the agency! Pick ONE upgrade:</div>';
+    upgradeHtml += '<div class="event-choices">';
+
+    upgrades.forEach((upg, i) => {
+      const isChaos = upg.effect.type === 'chaos';
+      upgradeHtml += `<button class="btn choice-btn ${isChaos ? 'choice-fumble' : 'choice-best'} agency-upgrade-btn" data-upgrade="${i}">
+        <div class="choice-label">${upg.label}</div>
+        <div class="choice-meta">
+          <span class="choice-tier ${isChaos ? 'choice-fumble' : 'choice-best'}">${isChaos ? 'Chaos' : 'Standard'}</span>
+        </div>
+        <div class="choice-outcome">${upg.description}</div>
+      </button>`;
+    });
+
+    upgradeHtml += '</div></div>';
+
+    container.querySelector('.liveon-run-layout').insertAdjacentHTML('beforeend', upgradeHtml);
+
+    container.querySelectorAll('.agency-upgrade-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.upgrade);
+        const result = LiveON.processAgencyVisit(idx);
+        if (result.runEnded) {
+          showLiveONScreen('results');
+        } else {
+          renderLiveONRun();
+        }
+      });
+    });
+  }
+
+  function renderFinale(container, run) {
+    // Placeholder — built inline in renderLiveONRun
+  }
+
+  function bindFinaleEvents(container) {
+    const run = LiveON.getRunState();
+    const progress = LiveON.getRunProgress();
+    const target = progress.targetSubs;
+
+    let finaleHtml = '<div class="run-event finale-event">';
+    finaleHtml += '<div class="event-title">Finale Stream!</div>';
+    finaleHtml += `<div class="event-desc">Your final stream! You need <strong>${target} subscribers</strong> for the perfect ending!</div>`;
+    finaleHtml += `<div class="finale-stats">
+      <div class="finale-stat"><span>Current Subs</span><strong>${formatNum(run.subscribers)}</strong></div>
+      <div class="finale-stat"><span>Target</span><strong>${formatNum(target)}</strong></div>
+      <div class="finale-stat"><span>PS Remaining</span><strong>${run.ps}</strong></div>
+    </div>`;
+
+    const willSucceed = run.subscribers >= target;
+    finaleHtml += `<button class="btn ${willSucceed ? 'btn-primary' : 'btn-secondary'} finale-go-btn" style="width:100%;padding:14px;">
+      ${willSucceed ? 'Go for the Perfect Ending!' : 'Finish Run (Target not met)'}
+    </button>`;
+    finaleHtml += '</div>';
+
+    container.querySelector('.liveon-run-layout').insertAdjacentHTML('beforeend', finaleHtml);
+
+    container.querySelector('.finale-go-btn').addEventListener('click', () => {
+      const ending = willSucceed ? 'good' : 'neutral';
+      LiveON.endRun(ending);
+      showLiveONScreen('results');
+    });
+  }
+
+  // ── Results Screen ──
+  function renderLiveONResults() {
+    const container = document.getElementById('liveon-results-content');
+    if (!container) return;
+
+    const run = LiveON.getRunState();
+    if (!run || !run.rewards) {
+      showLiveONScreen('scenario');
+      return;
+    }
+
+    const endingClass = run.ending === 'good' ? 'ending-good' : run.ending === 'neutral' ? 'ending-neutral' : 'ending-bad';
+    const endingLabel = run.ending === 'good' ? 'Perfect Ending!' : run.ending === 'neutral' ? 'Normal Ending' : 'Stream Ended Early';
+    const endingDesc = run.ending === 'good'
+      ? 'An incredible stream! Your lead VTuber delivered beyond expectations!'
+      : run.ending === 'neutral'
+        ? 'A decent stream. Not perfect, but the fans still enjoyed it.'
+        : 'Your lead ran out of passion mid-stream... Better luck next time.';
+
+    let html = `<div class="liveon-results-layout ${endingClass}">`;
+    html += `<div class="results-header">
+      <div class="results-lead-img-wrap">
+        <img class="results-lead-img" src="${DataLoader.getImageUrl(run.lead)}" alt="" onerror="this.style.display='none'">
+      </div>
+      <div class="results-ending-label">${endingLabel}</div>
+      <div class="results-ending-desc">${endingDesc}</div>
+    </div>`;
+
+    html += '<div class="results-stats">';
+    html += `<div class="results-stat"><span>Turns Survived</span><strong>${run.turnsSurvived || run.turn}</strong></div>`;
+    html += `<div class="results-stat"><span>Total Subscribers</span><strong>${formatNum(run.subscribers)}</strong></div>`;
+    html += `<div class="results-stat"><span>Ending Multiplier</span><strong>${run.ending === 'good' ? '120%' : run.ending === 'neutral' ? '100%' : '60%'}</strong></div>`;
+    html += '</div>';
+
+    html += '<div class="results-rewards">';
+    html += '<h3>Rewards</h3>';
+    if (run.rewards) {
+      html += `<div class="reward-row">${CurrencyIcons.vringgit(14)} <span>VRinggit +${formatNum(run.rewards.vringgit)}</span></div>`;
+      html += `<div class="reward-row">${CurrencyIcons.livecache(14)} <span>LiveCache +${formatNum(run.rewards.liveCache)}</span></div>`;
+      html += `<div class="reward-row">${CurrencyIcons.vgems(14)} <span>Producer EXP +${formatNum(run.rewards.bondExp)}</span></div>`;
+    }
+    html += '</div>';
+
+    html += `<button class="btn btn-primary" id="btn-liveon-back-home" style="width:100%;padding:14px;margin-top:var(--space-md);">Back to Home</button>`;
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    container.querySelector('#btn-liveon-back-home')?.addEventListener('click', () => {
+      _liveonTeamState = { lead: null, coaches: { streamer: null, performance: null, stage: null } };
+      showLiveONScreen('scenario');
+      switchTab('home');
+    });
   }
 
   // ═══════════════════════════════════════════════

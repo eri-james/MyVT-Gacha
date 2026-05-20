@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MyVT Gacha Collection</title>
-  <link rel="stylesheet" href="css/style.css?v=60">
+  <link rel="stylesheet" href="css/style.css?v=61">
   <link rel="preconnect" href="https://fonts.googleapis.com">
 </head>
 <body>
@@ -66,7 +66,7 @@
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><path d="M12 19c-1 0-2.5.4-3.2 1"/></svg>
             </div>
             <div class="panel-label">Live!ON</div>
-            <div class="panel-sub">Coming Soon</div>
+            <div class="panel-sub">Roguelite Mode</div>
           </button>
           <button class="game-panel-btn panel-studio" id="btn-go-studio">
             <div class="panel-icon-wrap panel-icon-purple">
@@ -274,6 +274,78 @@
           <div class="collapsible-body" id="body-feed">
             <div class="content-log" id="content-log"></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHOP TAB -->
+    <section class="tab-content" id="tab-shop">
+      <div class="shop-container">
+        <div class="page-header">
+          <button class="page-back-btn" id="btn-back-home-shop">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </button>
+          <h2>Shop</h2>
+        </div>
+        <div class="shop-stamina-bar">
+          <div class="shop-stamina-label">
+            <span class="shop-stamina-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </span>
+            Account Stamina
+          </div>
+          <div class="shop-stamina-track"><div class="shop-stamina-fill" id="shop-stamina-fill"></div></div>
+          <span class="shop-stamina-val" id="shop-stamina-val">0 / 180</span>
+        </div>
+        <div class="shop-section">
+          <h3 class="shop-section-title">Tickets</h3>
+          <div class="shop-grid" id="shop-tickets"></div>
+        </div>
+        <div class="shop-section">
+          <h3 class="shop-section-title">Stamina</h3>
+          <div class="shop-grid" id="shop-stamina"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVEON TAB -->
+    <section class="tab-content" id="tab-liveon">
+      <div class="liveon-container">
+        <!-- Screen: Scenario Select -->
+        <div class="liveon-screen" id="liveon-scenario">
+          <div class="page-header">
+            <button class="page-back-btn" id="btn-back-home-liveon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </button>
+            <h2>Live!ON</h2>
+          </div>
+          <div class="liveon-stamina-bar">
+            <div class="liveon-stamina-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              <span>Stamina</span>
+            </div>
+            <div class="liveon-stamina-track"><div class="liveon-stamina-fill" id="liveon-stamina-fill"></div></div>
+            <span class="liveon-stamina-val" id="liveon-stamina-val">0 / 180</span>
+          </div>
+          <div id="liveon-scenario-content"></div>
+        </div>
+        <!-- Screen: Team Composition -->
+        <div class="liveon-screen" id="liveon-team" style="display:none;">
+          <div class="page-header">
+            <button class="page-back-btn" id="btn-liveon-back-scenario">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </button>
+            <h2>Team Composition</h2>
+          </div>
+          <div id="liveon-team-content"></div>
+        </div>
+        <!-- Screen: Main Run -->
+        <div class="liveon-screen" id="liveon-run" style="display:none;">
+          <div id="liveon-run-content"></div>
+        </div>
+        <!-- Screen: Results -->
+        <div class="liveon-screen" id="liveon-results" style="display:none;">
+          <div id="liveon-results-content"></div>
         </div>
       </div>
     </section>
@@ -528,11 +600,12 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="js/data.js?v=60"></script>
-  <script src="js/game.js?v=60"></script>
-  <script src="js/gacha.js?v=60"></script>
-  <script src="js/characters.js?v=60"></script>
-  <script src="js/minigame.js?v=60"></script>
-  <script src="js/ui.js?v=60"></script>
+  <script src="js/data.js?v=61"></script>
+  <script src="js/game.js?v=61"></script>
+  <script src="js/gacha.js?v=61"></script>
+  <script src="js/characters.js?v=61"></script>
+  <script src="js/minigame.js?v=61"></script>
+  <script src="js/liveon.js?v=61"></script>
+  <script src="js/ui.js?v=61"></script>
 </body>
 </html>
