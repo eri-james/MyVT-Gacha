@@ -23,7 +23,7 @@ A browser-based gacha collection idle game featuring **319 Malaysian VTubers** f
 - **Duplicate Handling** — Extra copies beyond E6 are converted into bonus LiveCache
 
 ### Character Progression
-- **6 Stats** — Stream Power (ST), Performance Skills (PS), Tech Competence (TC), Charisma (CH), Vocal Capability (VC), Mental Fortitude (MG)
+- **6 Stats** — Stamina (ST), Passion (PS), Technical (TC), Charisma (CH), Vocal (VC), Management (MG)
 - **Leveling** — Spend resources to level up characters (max Lv 50)
 - **Bond System** — Increase bond levels with your VTubers; higher bond = stat bonuses applied to that VTuber's own stats
 - **E6 Limit Break** — 6 duplicate copies to fully limit break a character
@@ -51,11 +51,11 @@ A browser-based gacha collection idle game featuring **319 Malaysian VTubers** f
 ### Economy — 5 Currencies
 | Currency | Use |
 |----------|-----|
-| **LiveCache** | Pull currency (1 per single pull, 10 per 10-pull) |
-| **VRinggit** | Leveling and station upgrades |
-| **VGems** | Minigame rewards and milestone bonuses |
-| **Blue Ticket** | Gacha pulls (alternative to LiveCache) |
-| **Red Ticket** | Special/featured banner pulls |
+| **VGems** | Premium pull currency (150 per single pull, 1500 per 10-pull) |
+| **Blue MyTicket** | Standard banner pulls (1 ticket = 1 pull, 10 = 10-pull) |
+| **Red MyTicket** | Featured banner pulls (1 ticket = 1 pull, 10 = 10-pull) |
+| **LiveCache** | Secondary currency for upgrades |
+| **VRinggit** | Upgrades and Shop purchases |
 
 ### UI / UX
 - **Pastel Theme** — Soft, clean design with rounded cards and smooth animations
