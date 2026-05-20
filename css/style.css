@@ -1892,6 +1892,202 @@ body {
 .milestone-item.reached:not(.claimed) .milestone-status { color: var(--gold); }
 
 /* ═══════════════════════════════════════════════
+   QUESTS
+   ═══════════════════════════════════════════════ */
+
+.quest-page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.quest-subtabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.08);
+}
+
+.quest-subtab {
+  flex: 1;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 150ms ease;
+  text-align: center;
+}
+
+.quest-subtab:hover {
+  background: #f3f0ff;
+  color: #374151;
+}
+
+.quest-subtab.active {
+  background: #ede9fe;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.quest-login-streak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.quest-streak-label {
+  font-weight: 600;
+  color: #92400e;
+}
+
+.quest-streak-value {
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+.quest-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 150ms ease;
+}
+
+.quest-item.claimed {
+  opacity: 0.6;
+  border-color: #d1fae5;
+  background: #f0fdf4;
+}
+
+.quest-item.completable {
+  border-color: var(--gold);
+  background: #fffbeb;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.quest-item.locked {
+  opacity: 0.5;
+  border-color: #e5e7eb;
+}
+
+.quest-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.quest-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.quest-desc {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.quest-progress-bar {
+  height: 6px;
+  background: #f3f4f6;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.quest-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  border-radius: 3px;
+  transition: width 300ms ease;
+}
+
+.quest-item.claimed .quest-progress-fill {
+  background: #34d399;
+}
+
+.quest-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.quest-reward {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #92400e;
+  white-space: nowrap;
+}
+
+.quest-claim-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+}
+
+.quest-claim-btn:hover {
+  background: linear-gradient(135deg, #6d28d9, #7c3aed);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+  transform: translateY(-1px);
+}
+
+.quest-claim-btn:active {
+  transform: translateY(0);
+}
+
+.quest-status-claimed {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.quest-status-locked {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.quest-status-progress {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+/* ═══════════════════════════════════════════════
    CHARACTER DETAIL — PANEL LAYOUT
    ═══════════════════════════════════════════════ */
 
