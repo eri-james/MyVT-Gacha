@@ -82,7 +82,7 @@ const Game = (() => {
   ];
 
   // Stamina costs per station level (index 0 = Lv1)
-  const STAMINA_COSTS = [8, 6, 4, 3, 2];
+  const STAMINA_COSTS = [2, 2, 1, 1, 1];
 
   // Rarity multipliers (used by studio for income calc — backward compat)
   const VARIANT_MULTIPLIERS = {
