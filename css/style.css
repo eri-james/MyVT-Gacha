@@ -863,6 +863,36 @@ body {
 }
 .badge-normal { background: rgba(136, 136, 128, 0.7); color: #fff; }
 .badge-r { background: rgba(136, 136, 128, 0.7); color: #fff; }
+
+/* ── Sort Bar ── */
+.sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: var(--space-sm) 0;
+}
+.sort-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-section);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+.sort-pill:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-secondary);
+  border-color: var(--accent);
+}
+.sort-pill.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
 .badge-sr { background: rgba(176, 184, 200, 0.85); color: #1a1a1a; }
 .badge-ssr { background: rgba(232, 197, 71, 0.9); color: #1a1a1a; }
 .badge-ur {
