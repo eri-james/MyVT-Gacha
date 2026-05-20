@@ -2684,7 +2684,13 @@ const UI = (() => {
   function openLiveONPicker(slot) {
     _liveonCoachModalSlot = slot;
     const isLead = slot === 'lead';
-    const list = isLead ? LiveON.getOwnedVTubersForLead() : LiveON.getOwnedVTubersForCoach(_liveonTeamState.lead);
+    // Build exclude list: all occupied slots except the one being picked
+    const excludeSlugs = [];
+    if (!isLead) excludeSlugs.push(_liveonTeamState.lead); // exclude lead when picking coach
+    for (const [cs, slug] of Object.entries(_liveonTeamState.coaches)) {
+      if (slug && cs !== slot) excludeSlugs.push(slug); // exclude other coaches
+    }
+    const list = isLead ? LiveON.getOwnedVTubersForLead(excludeSlugs) : LiveON.getOwnedVTubersForCoach(excludeSlugs);
 
     if (list.length === 0) {
       showToast(isLead ? 'No owned VTubers!' : 'No available VTubers for this slot!', 'warning');
@@ -2756,6 +2762,12 @@ const UI = (() => {
             }
             _liveonTeamState.lead = slug;
           } else {
+            // Safety: clear lead if somehow the same slug was picked as lead
+            if (_liveonTeamState.lead === slug) _liveonTeamState.lead = null;
+            // Clear any other coach slot that has this slug
+            for (const cs of Object.keys(_liveonTeamState.coaches)) {
+              if (cs !== slot && _liveonTeamState.coaches[cs] === slug) _liveonTeamState.coaches[cs] = null;
+            }
             _liveonTeamState.coaches[slot] = slug;
           }
           overlay.remove();

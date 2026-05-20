@@ -467,11 +467,13 @@ const LiveON = (() => {
 
   // ── VTuber Selection Helpers ───────────────────────────
 
-  function getOwnedVTubersForLead() {
+  function getOwnedVTubersForLead(excludeSlugs) {
     const state = Game.getState();
+    const exclude = new Set(excludeSlugs || []);
     const owned = [];
     for (const [slug, charData] of Object.entries(state.characters)) {
       if (!charData || !charData.owned) continue;
+      if (exclude.has(slug)) continue;
       const info = DataLoader.getBySlug(slug);
       if (!info) continue;
       owned.push({
