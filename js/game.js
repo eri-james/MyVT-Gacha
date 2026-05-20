@@ -4,7 +4,7 @@
 
 const Game = (() => {
   const SAVE_KEY = 'myvt_gacha_save';
-  const SAVE_VERSION = 7;
+  const SAVE_VERSION = 8;
   const VGEML_PER_TICKET = 150;
   const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
   const OFFLINE_EARNINGS_CAP_HOURS = 12;
@@ -148,6 +148,13 @@ const Game = (() => {
   const OSHI_MAX = 6; // Maximum Oshi (favourite) slots
   const STARTING_STARS = 1000; // legacy only
 
+  // Producer Level system (separate from Studio Level)
+  const PRODUCER_MAX_LEVEL = 30;
+  const PRODUCER_INITIAL_EXP_CAP = 10;
+  const PRODUCER_EXP_CAP_GROWTH = 1.2; // +20% per level
+  const PRODUCER_REWARD_LEVELS = [10, 15, 20, 25, 30]; // Each grants 10 blue tickets
+  const PRODUCER_REWARD_TICKETS = 10;
+
   let state = null;
   let _tickInterval = null;
   let _autoSaveInterval = null;
@@ -213,6 +220,10 @@ const Game = (() => {
       stamina: { current: STAMINA_MAX, lastRecovery: Date.now() },
       minigame: { dailyPlays: 0, lastPlayDate: null, highScore: 0 },
       oshiList: [], // Array of slugs designated as Oshi (max OSHI_MAX)
+      // Landing page / Producer system
+      username: 'Producer',
+      featuredVtuber: null, // slug of featured VTuber on landing page
+      producerLevel: { level: 1, exp: 0 },
     };
   }
 
@@ -305,6 +316,11 @@ const Game = (() => {
       return cd && cd.owned;
     });
     if (merged.oshiList.length > OSHI_MAX) merged.oshiList.length = OSHI_MAX;
+
+    // v7 → v8: Add producer system fields + featured VTuber
+    if (!merged.producerLevel) merged.producerLevel = { level: 1, exp: 0 };
+    if (merged.username === undefined) merged.username = 'Producer';
+    if (merged.featuredVtuber === undefined) merged.featuredVtuber = null;
 
     // v6 → v7: Normalize stat keys to lowercase (bug: echo gains used uppercase ST/TC/etc
     // but JSON base stats use lowercase st/tc/etc, causing display to miss echo bonuses)
@@ -1168,17 +1184,104 @@ const Game = (() => {
     };
   }
 
-  // Get total bond stat bonus for a character (used in effective stat calculations)
+  // Get total bond stat bonus for a character (returns per-stat object for flexibility)
   function getBondStatBonus(slug) {
     const charData = state.characters[slug];
-    if (!charData) return 0;
+    if (!charData) return { st: 0, ps: 0, tc: 0, ch: 0, vc: 0, mg: 0 };
     const bl = charData.bondLevel || 0;
-    if (bl <= 0) return 0;
+    if (bl <= 0) return { st: 0, ps: 0, tc: 0, ch: 0, vc: 0, mg: 0 };
     let total = 0;
     for (let i = 0; i < bl; i++) {
       total += BOND_LEVELS[i].statBonus;
     }
-    return total;
+    return { st: total, ps: total, tc: total, ch: total, vc: total, mg: total };
+  }
+
+  // ═══════════════════════════════════════════════
+  //  PRODUCER LEVEL SYSTEM
+  // ═══════════════════════════════════════════════
+  // Separate from Studio Level. EXP resets on level up.
+  // EXP cap starts at 10, +20% per level. Max level 30.
+  // Milestone rewards: levels 10/15/20/25/30 grant 10 blue tickets each.
+
+  function getProducerInfo() {
+    if (!state.producerLevel) state.producerLevel = { level: 1, exp: 0 };
+    const pl = state.producerLevel;
+    const expCap = Math.floor(PRODUCER_INITIAL_EXP_CAP * Math.pow(PRODUCER_EXP_CAP_GROWTH, pl.level - 1));
+    return { level: pl.level, exp: pl.exp, expCap };
+  }
+
+  function addProducerExp(amount) {
+    if (!state.producerLevel) state.producerLevel = { level: 1, exp: 0 };
+    const pl = state.producerLevel;
+    if (pl.level >= PRODUCER_MAX_LEVEL) return null;
+    pl.exp += amount;
+    let leveled = false;
+    const rewards = [];
+    while (pl.level < PRODUCER_MAX_LEVEL) {
+      const expCap = Math.floor(PRODUCER_INITIAL_EXP_CAP * Math.pow(PRODUCER_EXP_CAP_GROWTH, pl.level - 1));
+      if (pl.exp >= expCap) {
+        pl.exp -= expCap;
+        pl.level++;
+        leveled = true;
+        // Check milestone reward
+        if (PRODUCER_REWARD_LEVELS.includes(pl.level)) {
+          state.currencies.myTicket.blue += PRODUCER_REWARD_TICKETS;
+          rewards.push({ level: pl.level, tickets: PRODUCER_REWARD_TICKETS });
+        }
+      } else {
+        break;
+      }
+    }
+    // Cap at max level
+    if (pl.level >= PRODUCER_MAX_LEVEL) {
+      pl.exp = 0;
+    }
+    if (leveled) {
+      save();
+      if (_onStateChange) _onStateChange();
+    }
+    return leveled ? { rewards } : null;
+  }
+
+  // ═══════════════════════════════════════════════
+  //  USERNAME & FEATURED VTUBER
+  // ═══════════════════════════════════════════════
+
+  function getUsername() {
+    return state.username || 'Producer';
+  }
+
+  function setUsername(name) {
+    state.username = (name || '').trim() || 'Producer';
+    save();
+    if (_onStateChange) _onStateChange();
+  }
+
+  function getFeaturedVtuber() {
+    // Validate: only return if the slug exists and is owned
+    if (!state.featuredVtuber) return null;
+    const charData = state.characters[state.featuredVtuber];
+    if (!charData || !charData.owned) {
+      // Featured VTuber no longer owned (shouldn't happen) — clear it
+      state.featuredVtuber = null;
+      save();
+      return null;
+    }
+    return state.featuredVtuber;
+  }
+
+  function setFeaturedVtuber(slug) {
+    if (!slug) {
+      state.featuredVtuber = null;
+    } else {
+      const charData = state.characters[slug];
+      if (!charData || !charData.owned) return false;
+      state.featuredVtuber = slug;
+    }
+    save();
+    if (_onStateChange) _onStateChange();
+    return true;
   }
 
   // Tick loop (runs every second while game is open)
@@ -1495,5 +1598,8 @@ const Game = (() => {
     BOND_MAX_LEVEL, BOND_LEVELS, BOND_DATE_COOLDOWN_MS, BOND_DATE_LEVEL_REQ,
     OSHI_MAX, isOshi, getOshiList, getOshiCount, toggleOshi,
     repairBaseStats,
+    getProducerInfo, addProducerExp, PRODUCER_MAX_LEVEL,
+    getUsername, setUsername,
+    getFeaturedVtuber, setFeaturedVtuber,
   };
 })();

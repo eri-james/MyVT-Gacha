@@ -229,16 +229,31 @@ const Gacha = (() => {
   function pullSingle() {
     if (!canPull(1)) return null;
 
+    const state = Game.getState();
+
+    // Snapshot pity before rolling so we can revert on failure
+    const pityBefore = state.pity ? state.pity.count : 0;
+    const ssrStreakBefore = state.stats.ssrStreak;
+
     // Roll and select BEFORE deducting — prevents resource loss on failure
     const rarity = rollRarity();
     const character = selectCharacter(rarity);
-    if (!character) return null; // Data not loaded or pool empty — don't deduct
+    if (!character) {
+      // Data not loaded or pool empty — revert pity mutations and don't deduct
+      state.pity.count = pityBefore;
+      state.stats.ssrStreak = ssrStreakBefore;
+      return null;
+    }
 
-    const state = Game.getState();
     state.stats.totalPulls++;
 
     const vgemsBought = deductPullCost(1);
-    if (vgemsBought === -1) return null; // Can't afford
+    if (vgemsBought === -1) {
+      // Can't afford (shouldn't happen after canPull check) — revert pity
+      state.pity.count = pityBefore;
+      state.stats.ssrStreak = ssrStreakBefore;
+      return null;
+    }
 
     const result = handlePullResult(character);
     trackPullHistory(character.slug);
