@@ -43,7 +43,6 @@ const UI = (() => {
       Game.startTickLoop();
       Game.startAutoSave();
       bindEvents();
-      setupResponsiveResources();
       setupFeaturedBanner();
       populateAgencyFilter();
       updateUI();
@@ -55,19 +54,31 @@ const UI = (() => {
       console.error('Init failed:', err);
       // Ensure events are bound even if init partially fails
       try { bindEvents(); } catch (_) {}
-      document.getElementById('player-id').textContent = 'Error — check console';
+      const pidEl = document.getElementById('settings-player-id');
+      if (pidEl) pidEl.textContent = 'Error — check console';
     }
   }
 
   // ── Event Binding ──
   function bindEvents() {
-    // Navigation
-    document.querySelectorAll('.nav-tab').forEach(btn => {
-      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    // Bottom navbar navigation
+    document.querySelectorAll('.bnav-btn[data-page]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const page = btn.dataset.page;
+        const deadPages = ['shop', 'quests', 'friends'];
+        if (deadPages.includes(page)) {
+          showToast(`${page.charAt(0).toUpperCase() + page.slice(1)} — Coming Soon!`, 'info');
+          return;
+        }
+        if (page === 'settings') {
+          toggleModal('modal-settings');
+          return;
+        }
+        switchTab(page);
+      });
     });
 
-    // Settings
-    document.getElementById('btn-settings').addEventListener('click', () => toggleModal('modal-settings'));
+    // Settings modal close
     document.getElementById('btn-close-settings').addEventListener('click', () => toggleModal('modal-settings'));
 
     // Home actions
@@ -93,23 +104,39 @@ const UI = (() => {
       }
     });
 
-    document.getElementById('btn-daily-login').addEventListener('click', () => {
-      const reward = Game.claimDailyLogin();
-      if (reward) {
-        showToast(`Day ${reward.streak} login! VGems +${reward.vgems}, Blue Tickets +${reward.tickets}`, 'success');
-        updateUI();
-      } else {
-        showToast('Already claimed today!', 'warning');
-      }
+    // Landing page panel buttons
+    document.getElementById('btn-go-liveon').addEventListener('click', () => {
+      showToast('Live!ON — Coming Soon!', 'info');
     });
+    document.getElementById('btn-go-studio').addEventListener('click', () => switchTab('studio'));
+    document.getElementById('btn-go-gacha').addEventListener('click', () => switchTab('pull'));
 
-    document.getElementById('btn-copy-id').addEventListener('click', () => {
-      const id = document.getElementById('player-id').textContent;
-      navigator.clipboard.writeText(id).then(() => {
-        showToast('Player ID copied!', 'success');
-      }).catch(() => {
-        showToast('Failed to copy', 'error');
-      });
+    // Back buttons
+    document.getElementById('btn-back-home').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-back-home-2').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-back-home-3').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-back-home-4').addEventListener('click', () => switchTab('home'));
+
+    // Featured VTuber select
+    document.getElementById('btn-select-featured').addEventListener('click', () => {
+      toggleModal('modal-featured-select');
+      populateFeaturedGrid();
+    });
+    document.getElementById('btn-close-featured').addEventListener('click', () => toggleModal('modal-featured-select'));
+    document.getElementById('btn-close-featured-x').addEventListener('click', () => toggleModal('modal-featured-select'));
+    document.getElementById('featured-search').addEventListener('input', debounce(() => {
+      populateFeaturedGrid();
+    }, 200));
+
+    // Settings: save username
+    document.getElementById('btn-save-username').addEventListener('click', () => {
+      const input = document.getElementById('input-username');
+      const name = (input.value || '').trim();
+      if (!name) { showToast('Username cannot be empty!', 'warning'); return; }
+      Game.setUsername(name);
+      updateProducerLevel();
+      renderTopBarResources();
+      showToast('Username saved!', 'success');
     });
 
     // Pull
@@ -208,39 +235,6 @@ const UI = (() => {
 
   let _featuredDisplay = [];
 
-  // ── Responsive: Move resources to footer on mobile ──
-  let _resourcesInFooter = false;
-  function setupResponsiveResources() {
-    const resources = document.querySelector('.nav-resources');
-    const topNav = document.getElementById('top-nav');
-    const mobileFooter = document.getElementById('mobile-footer');
-    if (!resources || !topNav || !mobileFooter) return;
-
-    function moveResources() {
-      const isMobile = window.innerWidth <= 768;
-      if (isMobile && !_resourcesInFooter) {
-        mobileFooter.appendChild(resources);
-        _resourcesInFooter = true;
-      } else if (!isMobile && _resourcesInFooter) {
-        // Re-insert before the settings button
-        const settingsBtn = document.getElementById('btn-settings');
-        topNav.insertBefore(resources, settingsBtn);
-        _resourcesInFooter = false;
-      }
-    }
-
-    moveResources();
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(moveResources, 100);
-    });
-    // Also handle orientation change for mobile
-    window.addEventListener('orientationchange', () => {
-      setTimeout(moveResources, 150);
-    });
-  }
-
   function setupFeaturedBanner() {
     _featuredDisplay = ['liliana-vampaia', 'lunaris-urufi'];
   }
@@ -263,7 +257,7 @@ const UI = (() => {
     }
 
     currentTab = tab;
-    document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.bnav-btn[data-page]').forEach(b => b.classList.toggle('active', b.dataset.page === tab));
     document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${tab}`));
 
     if (tab === 'collection') { _collectionPage = 0; renderCollection(); }
@@ -283,37 +277,30 @@ const UI = (() => {
     const state = Game.getState();
     const stats = Game.getCollectionStats();
 
-    // New overhaul currency resources
-    const vgemsEl = document.getElementById('res-vgems');
-    if (vgemsEl) vgemsEl.innerHTML = CurrencyIcons.vgems(12) + formatNum(Math.floor(state.currencies.vgems || 0));
-    const blueEl = document.getElementById('res-myticket-blue');
-    if (blueEl) blueEl.innerHTML = CurrencyIcons.ticket_blue(12) + formatNum(state.currencies.myTicket ? (state.currencies.myTicket.blue || 0) : 0);
-    const redEl = document.getElementById('res-myticket-red');
-    if (redEl) redEl.innerHTML = CurrencyIcons.ticket_red(12) + formatNum(state.currencies.myTicket ? (state.currencies.myTicket.red || 0) : 0);
-    const lcEl = document.getElementById('res-livecache');
-    if (lcEl) lcEl.innerHTML = CurrencyIcons.livecache(12) + formatNum(Math.floor(state.currencies.liveCache || 0));
-    const vrEl = document.getElementById('res-vringgit');
-    if (vrEl) vrEl.innerHTML = CurrencyIcons.vringgit(12) + formatNum(Math.floor(state.currencies.vringgit || 0));
+    // Top bar resources
+    renderTopBarResources();
 
     // Stamina
     updateStaminaDisplay();
 
-    // Home stats
-    document.getElementById('stat-collection').textContent = `${stats.owned} / ${stats.total}`;
-    const highRarityEl = document.getElementById('stat-high-rarity');
-    if (highRarityEl) highRarityEl.textContent = stats.highRarity || 0;
-    document.getElementById('stat-studio-lv').textContent = state.studio.level;
-    document.getElementById('stat-pulls').textContent = formatNum(state.stats.totalPulls);
+    // Producer info
+    const producerInfo = Game.getProducerInfo ? Game.getProducerInfo() : { level: 1, exp: 0, expCap: 10 };
 
-    // Player ID
-    document.getElementById('player-id').textContent = state.playerId;
+    // Producer level (top bar)
+    updateProducerLevel();
 
-    // Daily login button
-    const dailyReward = Game.getDailyLoginReward();
-    document.getElementById('btn-daily-login').innerHTML = dailyReward
-      ? `Daily Login (Day ${dailyReward.streak}) ${currencyIcon('vgems', 12)}+${dailyReward.vgems} ${currencyIcon('ticket_blue', 12)}+${dailyReward.tickets}`
-      : 'Login Claimed Today';
-    document.getElementById('btn-daily-login').disabled = !dailyReward;
+    // Featured VTuber (landing page)
+    renderFeaturedVtuber();
+
+    // Player ID in settings
+    const pidEl = document.getElementById('settings-player-id');
+    if (pidEl) pidEl.textContent = state.playerId;
+
+    // Producer level in settings
+    const splEl = document.getElementById('settings-producer-level');
+    if (splEl) splEl.textContent = producerInfo.level;
+    const speEl = document.getElementById('settings-producer-exp');
+    if (speEl) speEl.textContent = `${producerInfo.exp} / ${producerInfo.expCap}`;
 
     // Pull button states
     document.querySelectorAll('.btn-pull').forEach(btn => {
@@ -2233,6 +2220,152 @@ const UI = (() => {
     area.querySelectorAll('.sc-bubble, .sc-float, .sc-super-splash').forEach(el => el.remove());
 
     Minigame.startRound(lead);
+  }
+
+  // ═══════════════════════════════════════════════
+  //  NEW LAYOUT HELPERS — Top Bar, Featured, Landing
+  // ═══════════════════════════════════════════════
+
+  function renderTopBarResources() {
+    const container = document.getElementById('top-bar-resources');
+    if (!container) return;
+    const state = Game.getState();
+    const c = state.currencies || {};
+    const mt = c.myTicket || {};
+    const items = [
+      { icon: CurrencyIcons.vgems(12), val: formatNum(Math.floor(c.vgems || 0)) },
+      { icon: CurrencyIcons.ticket_blue(12), val: formatNum(mt.blue || 0) },
+      { icon: CurrencyIcons.ticket_red(12), val: formatNum(mt.red || 0) },
+      { icon: CurrencyIcons.livecache(12), val: formatNum(Math.floor(c.liveCache || 0)) },
+      { icon: CurrencyIcons.vringgit(12), val: formatNum(Math.floor(c.vringgit || 0)) },
+    ];
+    container.innerHTML = items.map(i =>
+      `<div class="resource-pill">${i.icon}<span>${i.val}</span></div>`
+    ).join('');
+  }
+
+  function updateProducerLevel() {
+    const info = Game.getProducerInfo ? Game.getProducerInfo() : { level: 1, exp: 0, expCap: 10 };
+    const nameEl = document.getElementById('producer-name');
+    const lvEl = document.getElementById('producer-level');
+    const fillEl = document.getElementById('producer-exp-fill');
+    const username = Game.getUsername ? Game.getUsername() : null;
+
+    if (nameEl) nameEl.textContent = username || 'Producer';
+    if (lvEl) lvEl.textContent = info.level;
+    if (fillEl) fillEl.style.width = (info.expCap > 0 ? (info.exp / info.expCap) * 100 : 0) + '%';
+
+    // Settings producer level
+    const splEl = document.getElementById('settings-producer-level');
+    if (splEl) splEl.textContent = info.level;
+    const speEl = document.getElementById('settings-producer-exp');
+    if (speEl) speEl.textContent = `${info.exp} / ${info.expCap}`;
+  }
+
+  function renderFeaturedVtuber() {
+    const slug = Game.getFeaturedVtuber ? Game.getFeaturedVtuber() : null;
+    const placeholder = document.getElementById('featured-placeholder');
+    const img = document.getElementById('featured-img');
+    const info = document.getElementById('featured-info');
+    const nameEl = document.getElementById('featured-name');
+    const agencyEl = document.getElementById('featured-agency');
+    const rarityEl = document.getElementById('featured-rarity');
+
+    if (!slug || !DataLoader) {
+      if (placeholder) placeholder.style.display = 'flex';
+      if (img) img.style.display = 'none';
+      if (info) info.style.display = 'none';
+      return;
+    }
+
+    const char = DataLoader.getBySlug(slug);
+    if (!char) {
+      if (placeholder) placeholder.style.display = 'flex';
+      if (img) img.style.display = 'none';
+      if (info) info.style.display = 'none';
+      return;
+    }
+
+    const state = Game.getState();
+    const charData = state.characters[slug];
+    const rarity = charData && charData.owned ? charData.rarity : 'R';
+
+    if (img) {
+      img.src = DataLoader.getImageUrl(slug);
+      img.alt = char.name;
+      img.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
+    if (info) info.style.display = 'flex';
+    if (nameEl) nameEl.textContent = char.name;
+    if (agencyEl) agencyEl.textContent = char.agency || '';
+    if (rarityEl) rarityEl.textContent = rarity;
+
+    // Also update banner name on landing page
+    const bannerName = document.getElementById('landing-banner-name');
+    if (bannerName && _featuredDisplay.length > 0) {
+      const mainChar = DataLoader.getBySlug(_featuredDisplay[0]);
+      if (mainChar) bannerName.textContent = mainChar.name + ' Rate-Up';
+    }
+  }
+
+  function populateFeaturedGrid() {
+    const container = document.getElementById('featured-grid');
+    if (!container) return;
+    const searchEl = document.getElementById('featured-search');
+    const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+    const state = Game.getState();
+    const chars = DataLoader.get();
+
+    const owned = chars.filter(c => state.characters[c.slug] && state.characters[c.slug].owned);
+    const filtered = search ? owned.filter(c => c.name.toLowerCase().includes(search)) : owned;
+
+    container.innerHTML = '';
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">No owned characters found.</div>';
+      return;
+    }
+
+    const currentFeatured = Game.getFeaturedVtuber ? Game.getFeaturedVtuber() : null;
+
+    filtered.forEach(c => {
+      const data = state.characters[c.slug];
+      const rarity = data && data.rarity ? data.rarity : 'R';
+      const isSelected = c.slug === currentFeatured;
+
+      const item = document.createElement('div');
+      item.className = 'assign-char' + (isSelected ? ' selected' : '');
+      item.style.borderColor = isSelected ? 'var(--accent)' : '';
+
+      const imgEl = document.createElement('img');
+      imgEl.src = DataLoader.getImageUrl(c.slug);
+      imgEl.alt = c.name;
+      imgEl.onerror = function() { this.style.display = 'none'; };
+
+      const badge = document.createElement('div');
+      badge.className = 'assign-char-badge';
+      badge.style.background = rarity === 'UR' ? 'linear-gradient(135deg,#e040fb,#ffd700)' :
+        rarity === 'SSR' ? '#e8c547' :
+        rarity === 'SR' ? '#b0b8c8' : 'rgba(136,136,128,0.7)';
+      badge.textContent = rarity;
+
+      const nameInfo = document.createElement('div');
+      nameInfo.className = 'assign-char-info';
+      nameInfo.textContent = c.name;
+
+      item.appendChild(imgEl);
+      item.appendChild(badge);
+      item.appendChild(nameInfo);
+
+      item.addEventListener('click', () => {
+        Game.setFeaturedVtuber(c.slug);
+        renderFeaturedVtuber();
+        toggleModal('modal-featured-select');
+        showToast(`Featured VTuber set to ${c.name}!`, 'success');
+      });
+
+      container.appendChild(item);
+    });
   }
 
   return {
