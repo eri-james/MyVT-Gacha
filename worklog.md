@@ -65,3 +65,26 @@ Stage Summary:
 - Back buttons on all sub-pages return to home
 - Cache buster updated to v=50
 
+---
+Task ID: 1
+Agent: Main
+Task: Studio UI improvements - collapsible roadmap/feed, pastel feed box, 150px portraits
+
+Work Log:
+- Read current ui.js, index.html, style.css for Studio section structure
+- Confirmed no existing collapsible pattern in codebase
+- Confirmed content feed CSS was entirely missing (all classes unstyled)
+- Added collapsible toggle headers to Unlock Roadmap and Content Feed in index.html
+- Built collapsible CSS pattern: .collapsible-header, .collapsible-chevron, .collapsible-body with smooth transition
+- Both sections default to collapsed, state tracked in JS variables across 1s re-renders
+- Added full CSS for content feed: pastel box (#f5f0ff), scrollable at 400px max-height
+- Content entry cards with white background, hover effect
+- VTuber portrait fixed at 150x150px with object-fit cover
+- Quality badge CSS for all tiers (D through SS)
+- Click handler bound once via ._bound flag, syncs DOM on each renderStudio() call
+
+Stage Summary:
+- Commit 3245162 pushed to overhaul branch
+- Cache buster bumped to v=54
+- Both roadmap and content feed default collapsed, expandable with chevron toggle
+- Content feed in scrollable pastel box with proper card styling
