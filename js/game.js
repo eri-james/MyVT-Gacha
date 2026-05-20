@@ -645,7 +645,7 @@ const Game = (() => {
 
   // Calculate offline content earnings (pure — does NOT mutate state)
   function calculateOfflineContentEarnings(minutes) {
-    const earnings = { vgems: 0, vringgit: 0, liveCache: 0, studioExp: 0, contentPieces: 0 };
+    const earnings = { vgems: 0, vringgit: 0, liveCache: 0, studioExp: 0, contentPieces: 0, stationPieces: {} };
     const contentCycles = Math.floor(minutes); // 1 per minute
     if (contentCycles <= 0) return earnings;
 
@@ -676,6 +676,9 @@ const Game = (() => {
       const actualPieces = Math.min(contentCycles, maxPieces);
 
       if (actualPieces <= 0) { slotCount++; continue; }
+
+      // Track per-station piece count for accurate ST deduction on claim
+      earnings.stationPieces[stationId] = actualPieces;
 
       // Calculate rewards using base stats (offline quality = B tier)
       const stats = charData.baseStats || {};
@@ -746,30 +749,23 @@ const Game = (() => {
 
     addStudioExp(Math.floor(offline.earnings.studioExp || 0));
 
-    // Deduct VTuber stamina used offline
-    if (offline.earnings.contentPieces > 0) {
+    // Deduct VTuber stamina used offline (per-station accurate)
+    if (offline.earnings.contentPieces > 0 && offline.earnings.stationPieces) {
       const maxSlots = getMaxSlots();
       let slotCount = 0;
-      let activeSlots = 0;
-      for (const [sid, sdef] of Object.entries(STATION_DEFS)) {
-        if (slotCount >= maxSlots) break;
-        const s = state.studio.stations[sid];
-        if (s && s.assigned && state.studio.level >= sdef.unlockLv) activeSlots++;
-        slotCount++;
-      }
-      const piecesPerStation = Math.floor(offline.earnings.contentPieces / Math.max(1, activeSlots));
-      slotCount = 0;
       for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
         if (slotCount >= maxSlots) break;
         const station = state.studio.stations[stationId];
         if (!station || !station.assigned) { slotCount++; continue; }
         if (state.studio.level < stationDef.unlockLv) { slotCount++; continue; }
+        if (!offline.earnings.stationPieces[stationId]) { slotCount++; continue; }
 
         const charData = state.characters[station.assigned];
         if (!charData) { slotCount++; continue; }
 
         const staminaCost = STAMINA_COSTS[(station.level || 1) - 1] || 8;
-        const stUsed = piecesPerStation * staminaCost;
+        const actualPieces = offline.earnings.stationPieces[stationId];
+        const stUsed = actualPieces * staminaCost;
         if (!charData.stats) charData.stats = {};
         charData.stats.st = Math.max(0, (charData.stats.st || 0) - stUsed);
 
