@@ -3038,11 +3038,22 @@ const UI = (() => {
 
     container.querySelectorAll('.agency-upgrade-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.upgrade);
-        const result = LiveON.processAgencyVisit(idx);
-        if (result.runEnded) {
-          showLiveONScreen('results');
-        } else {
+        try {
+          const idx = parseInt(btn.dataset.upgrade);
+          const result = LiveON.processAgencyVisit(idx);
+          if (result.error) {
+            showToast('Error: ' + result.error, 'warning');
+            renderLiveONRun();
+            return;
+          }
+          if (result.runEnded) {
+            showLiveONScreen('results');
+          } else {
+            renderLiveONRun();
+          }
+        } catch (e) {
+          console.error('Live!ON agency visit error:', e);
+          showToast('Something went wrong. Try again.', 'warning');
           renderLiveONRun();
         }
       });
@@ -3076,9 +3087,15 @@ const UI = (() => {
     container.querySelector('.liveon-run-layout').insertAdjacentHTML('beforeend', finaleHtml);
 
     container.querySelector('.finale-go-btn').addEventListener('click', () => {
-      const ending = willSucceed ? 'good' : 'neutral';
-      LiveON.endRun(ending);
-      showLiveONScreen('results');
+      try {
+        const ending = willSucceed ? 'good' : 'neutral';
+        LiveON.endRun(ending);
+        showLiveONScreen('results');
+      } catch (e) {
+        console.error('Live!ON finale error:', e);
+        showToast('Something went wrong. Try again.', 'warning');
+        renderLiveONRun();
+      }
     });
   }
 

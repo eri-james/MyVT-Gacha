@@ -1043,6 +1043,7 @@ const LiveON = (() => {
     // Run lifecycle
     canStartRun,
     startRun,
+    endRun,
     getRunState,
     isRunActive,
     abandonRun,
