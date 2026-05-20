@@ -2027,12 +2027,55 @@ body {
   margin-bottom: var(--space-lg);
 }
 
-.studio-unlock-roadmap h3 {
+.studio-unlock-roadmap h3,
+.collapsible-header h3,
+.content-log-title {
   font-size: 1rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin: 0;
+}
+
+/* ── Collapsible Toggle ── */
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-light);
   margin-bottom: var(--space-sm);
+  transition: color var(--transition-fast);
+}
+.collapsible-header:hover h3,
+.collapsible-header:hover .content-log-title {
+  color: var(--text-secondary);
+}
+
+.collapsible-chevron {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  transition: transform var(--transition-normal);
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+}
+.collapsible-header.open .collapsible-chevron {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+.collapsible-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-normal), padding var(--transition-normal);
+  padding: 0;
+}
+.collapsible-body.open {
+  max-height: 600px;
+  overflow-y: auto;
+  padding-top: var(--space-sm);
 }
 
 .unlock-items {
@@ -2087,6 +2130,132 @@ body {
 .unlock-unlocked { color: var(--success); }
 .unlock-next { color: var(--gold); }
 .unlock-locked { color: var(--text-dim); }
+
+/* ── Content Feed Section ── */
+.content-log-section {
+  background: #f5f0ff;
+  border: 1px solid #e8e0f8;
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.content-log-section .collapsible-body.open {
+  max-height: 400px;
+}
+
+.content-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.content-log-empty {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  padding: var(--space-lg) 0;
+}
+
+.content-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  transition: background var(--transition-fast);
+}
+.content-entry:hover {
+  background: var(--bg-card-hover);
+}
+
+.content-entry-offline {
+  background: var(--bg-section);
+  border-color: var(--border-light);
+}
+
+.content-entry-portrait {
+  flex-shrink: 0;
+}
+.content-entry-portrait img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  display: block;
+}
+
+.content-entry-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: var(--bg-section);
+  border-radius: var(--radius-md);
+}
+
+.content-entry-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.content-entry-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.content-entry-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.content-entry-station {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.content-entry-pieces {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.quality-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.quality-badge-D { background: var(--text-dim); color: #fff; }
+.quality-badge-C { background: #6b7280; color: #fff; }
+.quality-badge-B { background: var(--stamina); color: #fff; }
+.quality-badge-A { background: var(--accent); color: #fff; }
+.quality-badge-S { background: var(--gold); color: #1a1a2e; }
+.quality-badge-SS { background: var(--rarity-ur); color: #fff; }
+
+.content-entry-rewards {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.content-entry-time {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
 
 /* ═══════════════════════════════════════════════
    MINIGAME — SUPER CHAT TOSS

@@ -1159,6 +1159,40 @@ const UI = (() => {
     st: '#f472b6', ps: '#fb923c', tc: '#60a5fa', ch: '#a78bfa', vc: '#34d399', mg: '#fbbf24',
   };
 
+  // Collapsible toggle state (persists across re-renders but not saves)
+  let _roadmapOpen = false;
+  let _feedOpen = false;
+
+  function _initCollapsibleToggles() {
+    const toggleRoadmap = document.getElementById('toggle-roadmap');
+    const bodyRoadmap = document.getElementById('body-roadmap');
+    const toggleFeed = document.getElementById('toggle-feed');
+    const bodyFeed = document.getElementById('body-feed');
+
+    if (toggleRoadmap && !toggleRoadmap._bound) {
+      toggleRoadmap._bound = true;
+      toggleRoadmap.addEventListener('click', () => {
+        _roadmapOpen = !_roadmapOpen;
+        toggleRoadmap.classList.toggle('open', _roadmapOpen);
+        bodyRoadmap.classList.toggle('open', _roadmapOpen);
+      });
+    }
+    if (toggleFeed && !toggleFeed._bound) {
+      toggleFeed._bound = true;
+      toggleFeed.addEventListener('click', () => {
+        _feedOpen = !_feedOpen;
+        toggleFeed.classList.toggle('open', _feedOpen);
+        bodyFeed.classList.toggle('open', _feedOpen);
+      });
+    }
+
+    // Sync DOM to current state (after renderStudio rebuilds inner content)
+    toggleRoadmap.classList.toggle('open', _roadmapOpen);
+    bodyRoadmap.classList.toggle('open', _roadmapOpen);
+    toggleFeed.classList.toggle('open', _feedOpen);
+    bodyFeed.classList.toggle('open', _feedOpen);
+  }
+
   function renderStudio() {
     try {
     const state = Game.getState();
@@ -1216,12 +1250,12 @@ const UI = (() => {
 
           const income = Game.getStationIncome(stationId);
           const expIncome = Game.getStationStudioExp(stationId);
-          const resName = def.resource === 'studioExp' ? 'EXP' : getResourceName(def.resource);
+          const resName = getResourceName(def.resource);
           let rewardParts = [];
-          if (def.resource === 'studioExp') {
-            rewardParts.push(`+${formatNum(expIncome, 1)} EXP`);
-          } else {
-            rewardParts.push(`+${def.resource === 'blueTicket' ? income.toFixed(2) : formatNum(income, 1)} ${resName}`);
+          rewardParts.push(`+${def.resource === 'blueTicket' ? income.toFixed(2) : formatNum(income, 1)} ${resName}`);
+          // Show passive EXP rate
+          if (expIncome > 0) {
+            rewardParts.push(`${formatNum(expIncome, 1)} EXP/min`);
           }
           // Lounge bonus VGems
           if (contentType && contentType.bonusResource) {
@@ -1320,6 +1354,9 @@ const UI = (() => {
 
     // Content log feed
     renderContentLog();
+
+    // Restore collapsible toggle states after DOM rebuild
+    _initCollapsibleToggles();
 
     } catch (err) { console.error('renderStudio failed:', err); }
   }
@@ -1445,7 +1482,9 @@ const UI = (() => {
         if (entry.rewards.vgems) rewardParts.push(`${currencyIcon('vgems', 12)}+${formatNum(Math.floor(entry.rewards.vgems))}`);
         if (entry.rewards.vringgit) rewardParts.push(`${currencyIcon('vringgit', 12)}+${formatNum(Math.floor(entry.rewards.vringgit))}`);
         if (entry.rewards.blueTicket) rewardParts.push(`${currencyIcon('ticket_blue', 12)}+${entry.rewards.blueTicket.toFixed(2)}`);
-        if (entry.rewards.studioExp) rewardParts.push(`+${Math.floor(entry.rewards.studioExp)} EXP`);
+      }
+      if (entry.flatBonus && entry.flatBonus > 0) {
+        rewardParts.push(`<span style="color:var(--accent);font-size:0.8em">+${entry.flatBonus % 1 === 0 ? formatNum(entry.flatBonus) : entry.flatBonus.toFixed(1)} Lv bonus</span>`);
       }
       const rewardText = rewardParts.join(' ') || '--';
 
@@ -1973,7 +2012,7 @@ const UI = (() => {
 
   function getResourceName(key) {
     const names = {
-      vgems: 'VGems', vringgit: 'VRinggit', blueTicket: 'Blue Tickets', studioExp: 'Studio EXP',
+      vgems: 'VGems', vringgit: 'VRinggit', blueTicket: 'Blue Tickets',
       stars: 'Stars', starDust: 'Star Dust', starFragments: 'Star Fragments', bondPoints: 'Bond Points',
     };
     return names[key] || key;
