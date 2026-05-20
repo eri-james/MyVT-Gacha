@@ -2912,6 +2912,17 @@ const UI = (() => {
         const psCosts = { best: 0, neutral: 4, fumble: 8 };
         const subPct = Math.round(mults[tier] * 100 * (1 + coachBonus));
         const psCost = psCosts[tier];
+
+        // Stat check preview for Best choice
+        let statCheckHtml = '';
+        if (tier === 'best') {
+          const preview = LiveON.getStatCheckPreview(choice.stat, turnNum);
+          if (preview && preview.enabled) {
+            const checkClass = preview.willPass ? 'stat-pass' : 'stat-fail';
+            statCheckHtml = `<div class="choice-stat-check ${checkClass}">Needs ${statLabel} ${preview.threshold} (you: ${preview.playerStat}) ${preview.willPass ? '' : '— risk downgrade!'}</div>`;
+          }
+        }
+
         html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" ${run.ps <= psCost ? 'disabled title="Not enough PS!"' : ''}>
           <div class="choice-label">${choice.label}</div>
           <div class="choice-meta">
@@ -2919,6 +2930,7 @@ const UI = (() => {
             <span class="choice-stat">${statLabel}</span>
             ${bonusPct > 0 ? `<span class="choice-bonus">+${bonusPct}% coach</span>` : ''}
           </div>
+          ${statCheckHtml}
           <div class="choice-outcome">${subPct}% subs${psCost > 0 ? `, -${psCost} PS` : ', 0 PS'}</div>
         </button>`;
       }
@@ -2969,6 +2981,11 @@ const UI = (() => {
             showToast('Error: ' + result.error, 'warning');
             renderLiveONRun();
             return;
+          }
+          // Show toast when Best choice was downgraded by stat check
+          if (result.statCheck && !result.statCheck.passed) {
+            const sc = result.statCheck;
+            showToast(`Stat check failed! ${sc.playerStat} < ${sc.threshold} needed — downgraded to Neutral`, 'warning');
           }
           if (result.runEnded) {
             showLiveONScreen('results');

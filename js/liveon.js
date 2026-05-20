@@ -610,6 +610,44 @@ const LiveON = (() => {
   }
 
 
+  // ── Stat Check for Choices ────────────────────────────
+  // Best choice requires meeting a stat threshold; fail = downgraded to Neutral.
+  // Threshold scales with turn number so later turns demand stronger teams.
+
+  const STAT_CHECK_ENABLED = true;
+  // Base threshold at turn 6, scales up by +3 per turn
+  // Turn 6: 30, Turn 10: 42, Turn 15: 57, Turn 20: 72
+  function getStatThreshold(turn) {
+    return 24 + (turn - 5) * 3;
+  }
+
+  // Returns stat check preview for UI display
+  function getStatCheckPreview(stat, turn) {
+    if (!STAT_CHECK_ENABLED) return { enabled: false };
+    const effective = getEffectiveStats();
+    if (!effective) return { enabled: false };
+    const statData = effective.boosted[stat];
+    const playerStat = statData ? statData.total : 0;
+    const threshold = getStatThreshold(turn);
+    return {
+      enabled: true,
+      playerStat,
+      threshold,
+      willPass: playerStat >= threshold,
+    };
+  }
+
+  function checkStatForChoice(stat, turn) {
+    if (!STAT_CHECK_ENABLED) return { passed: true };
+    const effective = getEffectiveStats();
+    if (!effective) return { passed: true }; // fallback: no check if no stats
+    const statData = effective.boosted[stat];
+    const playerStat = statData ? statData.total : 0;
+    const threshold = getStatThreshold(turn);
+    return { passed: playerStat >= threshold, playerStat, threshold };
+  }
+
+
   // ── Event Selection ────────────────────────────────────
 
   function getEventPool() {
@@ -645,15 +683,24 @@ const LiveON = (() => {
     const coachBonus = calculateCoachBonus(stat);
 
     let subGain, psCost;
+    let effectiveTier = tier; // may be downgraded by stat check
+    let statCheck = { passed: true };
     const safe = isSafeZone(turn);
 
     if (safe) {
-      // Safe zone: all choices are 100% with 0 PS cost
+      // Safe zone: all choices are 100% with 0 PS cost, no stat check
       subGain = calculateBaseSubs(turn) * 1.0 * (1 + coachBonus);
       psCost = 0;
     } else {
-      // Normal rules for turns 6-20
-      const tierData = CHOICE_TIERS[tier] || CHOICE_TIERS.neutral;
+      // Stat check: Best choice can be downgraded to Neutral if stat is too low
+      if (tier === 'best') {
+        statCheck = checkStatForChoice(stat, turn);
+        if (!statCheck.passed) {
+          effectiveTier = 'neutral';
+        }
+      }
+
+      const tierData = CHOICE_TIERS[effectiveTier] || CHOICE_TIERS.neutral;
       let choiceMult = tierData.mult;
       psCost = tierData.psCost;
 
@@ -681,6 +728,8 @@ const LiveON = (() => {
       choiceLabel: choice.label,
       choiceStat: stat,
       choiceTier: tier,
+      effectiveTier,
+      statCheck: statCheck.passed ? null : { playerStat: statCheck.playerStat, threshold: statCheck.threshold },
       subGain,
       psCost,
       psRemaining: _runState.ps,
@@ -716,7 +765,7 @@ const LiveON = (() => {
       return { result: logEntry, runEnded: true, ending: _runState.ending };
     }
 
-    return { result: logEntry, runEnded: false };
+    return { result: logEntry, runEnded: false, statCheck: statCheck.passed ? null : statCheck };
   }
 
   function processSkip(turn, event) {
@@ -855,14 +904,15 @@ const LiveON = (() => {
     const turnsSurvived = _runState.subscriberLog.length;
 
     // Calculate rewards
+    const bondBase = Math.min(turnsSurvived * 3, 60); // max 60 from turns
     const rewards = {
       vringgit: Math.floor(_runState.subscribers / 10 * mult),
       liveCache: Math.floor(_runState.subscribers / 20 * mult),
-      bondExp: 50 * turnsSurvived,
+      bondExp: bondBase,
     };
 
-    if (ending === 'good') rewards.bondExp += 100;
-    if (ending === 'neutral') rewards.bondExp += 50;
+    if (ending === 'good') rewards.bondExp += 40;
+    if (ending === 'neutral') rewards.bondExp += 15;
 
     _runState.rewards = rewards;
 
@@ -1064,6 +1114,10 @@ const LiveON = (() => {
     calculateCoachBonus,
     getEffectiveStats,
     getCoachSummary,
+
+    // Stat check
+    getStatThreshold,
+    getStatCheckPreview,
 
     // VTuber selection
     getOwnedVTubersForLead,

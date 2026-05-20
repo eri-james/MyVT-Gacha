@@ -5726,6 +5726,23 @@ body {
   margin-top: var(--space-xs);
 }
 
+/* Stat check display on Best choice buttons */
+.choice-stat-check {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+.choice-stat-check.stat-pass {
+  color: var(--accent2);
+  background: var(--accent2-dim);
+}
+.choice-stat-check.stat-fail {
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.1);
+}
+
 /* ── Agency Visit ── */
 .agency-visit .event-title {
   color: var(--gold);
