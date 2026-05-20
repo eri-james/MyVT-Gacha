@@ -27,7 +27,7 @@ const Game = (() => {
   const STATION_DEFS = {
     streamRoom:    { name: 'Stream Room',    resource: 'vgems',        unlockLv: 1 },
     creativeCorner:{ name: 'Creative Corner',  resource: 'vringgit',     unlockLv: 3 },
-    practiceHall:  { name: 'Practice Hall',    resource: 'blueTicket',   unlockLv: 5 },
+    practiceHall:  { name: 'Practice Hall',    resource: 'liveCache',    unlockLv: 5 },
     lounge:        { name: 'Lounge',           resource: 'vringgit',     unlockLv: 7 },
   };
 
@@ -53,9 +53,10 @@ const Game = (() => {
   // Studio EXP rarity multiplier
   const STUDIO_EXP_RARITY_MULT = { R: 1.0, SR: 1.2, SSR: 1.5, UR: 1.5 };
 
-  // Studio flat bonus per level (+5 for most stations, +0.3 for Practice Hall)
+  // Studio flat bonus per level (+5 for most stations, +1 for Practice Hall)
+  // Premium currency stations (VGems) do NOT receive flat bonus
   const STUDIO_FLAT_BONUS_PER_LEVEL = 5;
-  const STUDIO_FLAT_BONUS_PRACTICE_HALL = 0.3;
+  const STUDIO_FLAT_BONUS_PRACTICE_HALL = 1;
 
   // Content creation system
   const CONTENT_INTERVAL = 60; // seconds between content creation ticks
@@ -64,10 +65,10 @@ const Game = (() => {
 
   // Content types with primary/secondary stat mappings (keys must match lowercase stat keys in characters.json)
   const CONTENT_TYPES = {
-    streamRoom:    { primary: 'ch', secondary: 'vc', resource: 'vgems',      baseReward: 5 },     // VGems
-    creativeCorner:{ primary: 'tc', secondary: 'mg', resource: 'vringgit',   baseReward: 3 },     // VRinggit
-    practiceHall:  { primary: 'st', secondary: 'ps', resource: 'blueTicket', baseReward: 0.03 },  // Blue Tickets
-    lounge:        { primary: 'ps', secondary: 'ch', resource: 'vringgit',   baseReward: 2, bonusResource: 'vgems', bonusAmount: 1 }, // VRinggit + small VGems
+    streamRoom:    { primary: 'ch', secondary: 'vc', resource: 'vgems',      baseReward: 2 },                            // VGems (reduced)
+    creativeCorner:{ primary: 'tc', secondary: 'mg', resource: 'vringgit',   baseReward: 3 },                            // VRinggit
+    practiceHall:  { primary: 'st', secondary: 'ps', resource: 'liveCache',  baseReward: 0.5 },                           // LiveCache
+    lounge:        { primary: 'ps', secondary: 'ch', resource: 'vringgit',   baseReward: 2, bonusResource: 'liveCache', bonusAmount: 0.2 }, // VRinggit + small LiveCache
   };
 
   // Quality tier definitions
@@ -81,7 +82,7 @@ const Game = (() => {
   ];
 
   // Stamina costs per station level (index 0 = Lv1)
-  const STAMINA_COSTS = [8, 6, 4, 3, 2];
+  const STAMINA_COSTS = [2, 2, 1, 1, 1];
 
   // Rarity multipliers (used by studio for income calc — backward compat)
   const VARIANT_MULTIPLIERS = {
@@ -486,11 +487,13 @@ const Game = (() => {
     const currentST = charData.stats ? (charData.stats.st || 0) : 0;
     if (currentST < staminaCost) return null;
 
-    // Studio flat bonus (after multipliers)
+    // Studio flat bonus (after multipliers) — NOT applied to premium currency (VGems)
     const studioLv = state.studio.level;
-    const flatBonus = stationId === 'practiceHall'
-      ? (studioLv - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
-      : (studioLv - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
+    const flatBonus = stationId === 'streamRoom'
+      ? 0
+      : stationId === 'practiceHall'
+        ? (studioLv - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
+        : (studioLv - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
 
     // Calculate quality BEFORE consuming stamina
     const quality = getContentQuality(stationId);
@@ -510,16 +513,20 @@ const Game = (() => {
     // Rarity multiplier
     const rarityMult = RarityMultipliers[charData.rarity] || 1;
 
-    // Calculate rewards
+    // Station level multiplier & VTuber level bonus (synced with offline formula)
+    const stationMult = STATION_MULTIPLIERS[(station.level || 1) - 1] || 1;
+    const levelBonus = 1 + (charData.level || 0) * 0.02;
+
+    // Calculate rewards (synced with offline: baseReward × quality × rarity × stationMult × levelBonus + flatBonus)
     const baseReward = def.baseReward;
-    const finalReward = baseReward * quality.qualityMultiplier * rarityMult + flatBonus;
+    const finalReward = baseReward * quality.qualityMultiplier * rarityMult * stationMult * levelBonus + flatBonus;
 
     const rewards = {};
     rewards[def.resource] = finalReward;
 
-    // Lounge produces bonus VGems
+    // Lounge produces bonus LiveCache
     if (def.bonusResource) {
-      rewards[def.bonusResource] = (rewards[def.bonusResource] || 0) + (def.bonusAmount * quality.qualityMultiplier * rarityMult);
+      rewards[def.bonusResource] = (rewards[def.bonusResource] || 0) + (def.bonusAmount * quality.qualityMultiplier * rarityMult * stationMult * levelBonus);
     }
 
     // Apply rewards
@@ -528,6 +535,9 @@ const Game = (() => {
     }
     if (rewards.vringgit) {
       state.currencies.vringgit += Math.floor(rewards.vringgit);
+    }
+    if (rewards.liveCache) {
+      state.currencies.liveCache += Math.floor(rewards.liveCache);
     }
     if (rewards.blueTicket) {
       // Blue tickets are fractional — track remainder
@@ -632,7 +642,7 @@ const Game = (() => {
 
   // Calculate offline content earnings (pure — does NOT mutate state)
   function calculateOfflineContentEarnings(minutes) {
-    const earnings = { vgems: 0, vringgit: 0, blueTicket: 0, studioExp: 0, contentPieces: 0 };
+    const earnings = { vgems: 0, vringgit: 0, liveCache: 0, studioExp: 0, contentPieces: 0 };
     const contentCycles = Math.floor(minutes); // 1 per minute
     if (contentCycles <= 0) return earnings;
 
@@ -672,21 +682,23 @@ const Game = (() => {
 
       const qualityMult = 1.0; // B tier
 
-      // Studio flat bonus per level
-      const flatBonus = stationId === 'practiceHall'
-        ? (state.studio.level - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
-        : (state.studio.level - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
+      // Studio flat bonus per level (NOT applied to premium currency VGems)
+      const flatBonus = stationId === 'streamRoom'
+        ? 0
+        : stationId === 'practiceHall'
+          ? (state.studio.level - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
+          : (state.studio.level - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
 
       const perPieceReward = def.baseReward * qualityMult * rarityMult * stationMult * levelBonus + flatBonus;
       const totalReward = perPieceReward * actualPieces;
 
       if (def.resource === 'vgems') earnings.vgems += Math.floor(totalReward);
       else if (def.resource === 'vringgit') earnings.vringgit += Math.floor(totalReward);
-      else if (def.resource === 'blueTicket') earnings.blueTicket += totalReward;
+      else if (def.resource === 'liveCache') earnings.liveCache += totalReward;
 
-      // Lounge bonus VGems
-      if (def.bonusResource === 'vgems' && def.bonusAmount) {
-        earnings.vgems += Math.floor(def.bonusAmount * qualityMult * rarityMult * stationMult * levelBonus * actualPieces);
+      // Lounge bonus LiveCache
+      if (def.bonusResource === 'liveCache' && def.bonusAmount) {
+        earnings.liveCache += Math.floor(def.bonusAmount * qualityMult * rarityMult * stationMult * levelBonus * actualPieces);
       }
 
       // Passive studio EXP drip (runs for full offline duration regardless of stamina)
@@ -716,6 +728,7 @@ const Game = (() => {
     // Apply overhaul currency earnings
     state.currencies.vgems += Math.floor(offline.earnings.vgems || 0);
     state.currencies.vringgit += Math.floor(offline.earnings.vringgit || 0);
+    state.currencies.liveCache += Math.floor(offline.earnings.liveCache || 0);
     // Blue tickets are fractional — track remainder
     const blueWhole = Math.floor(offline.earnings.blueTicket || 0);
     const blueFrac = (offline.earnings.blueTicket || 0) - blueWhole;
@@ -782,7 +795,7 @@ const Game = (() => {
         rewards: {
           vgems: Math.floor(offline.earnings.vgems || 0),
           vringgit: Math.floor(offline.earnings.vringgit || 0),
-          blueTicket: offline.earnings.blueTicket || 0,
+          liveCache: Math.floor(offline.earnings.liveCache || 0),
           studioExp: Math.floor(offline.earnings.studioExp || 0),
         },
         trendingMatch: false,
@@ -813,7 +826,7 @@ const Game = (() => {
 
   // Get estimated income per content cycle (60s) for all active stations
   function getTotalIncome() {
-    const earnings = { vgems: 0, vringgit: 0, blueTicket: 0 };
+    const earnings = { vgems: 0, vringgit: 0, liveCache: 0 };
     for (const [stationId, stationDef] of Object.entries(STATION_DEFS)) {
       if (stationDef.resource === 'studioExp') continue; // Studio EXP not a currency
       const station = state.studio.stations[stationId];
@@ -828,7 +841,7 @@ const Game = (() => {
   // Get total estimated income per content cycle
   function getTotalIncomePerMin() {
     const earnings = getTotalIncome();
-    return earnings.vgems + earnings.vringgit + earnings.blueTicket * 100;
+    return earnings.vgems + earnings.vringgit + earnings.liveCache;
   }
 
   // Get breakdown of station incomes for display (quality-based)
@@ -850,10 +863,14 @@ const Game = (() => {
           const rarityMult = RarityMultipliers[charData.rarity] || 1;
           const def = CONTENT_TYPES[stationId];
           const baseReward = def ? def.baseReward : 0;
-          const flatBonus = stationId === 'practiceHall'
-            ? (state.studio.level - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
-            : (state.studio.level - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
-          income = baseReward * quality.qualityMultiplier * rarityMult + flatBonus;
+          const stationMult = STATION_MULTIPLIERS[(station.level || 1) - 1] || 1;
+          const levelBonus = 1 + (charData.level || 0) * 0.02;
+          const flatBonus = stationId === 'streamRoom'
+            ? 0
+            : stationId === 'practiceHall'
+              ? (state.studio.level - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
+              : (state.studio.level - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
+          income = baseReward * quality.qualityMultiplier * rarityMult * stationMult * levelBonus + flatBonus;
         }
       }
 
