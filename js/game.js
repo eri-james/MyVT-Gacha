@@ -55,12 +55,12 @@ const Game = (() => {
   const TRENDING_ROTATION_MS = 2 * 60 * 60 * 1000; // 2 hours
   const CONTENT_LOG_MAX = 20;
 
-  // Content types with primary/secondary stat mappings
+  // Content types with primary/secondary stat mappings (keys must match lowercase stat keys in characters.json)
   const CONTENT_TYPES = {
-    streamRoom:    { primary: 'CH', secondary: 'VC', resource: 'vgems',      baseReward: 5 },     // VGems
-    creativeCorner:{ primary: 'TC', secondary: 'MG', resource: 'vringgit',   baseReward: 3 },     // VRinggit
-    practiceHall:  { primary: 'ST', secondary: 'PS', resource: 'blueTicket', baseReward: 0.03 },  // Blue Tickets
-    lounge:        { primary: 'PS', secondary: 'CH', resource: 'studioExp',  baseReward: 3, bonusResource: 'vgems', bonusAmount: 1 }, // Studio EXP + small VGems
+    streamRoom:    { primary: 'ch', secondary: 'vc', resource: 'vgems',      baseReward: 5 },     // VGems
+    creativeCorner:{ primary: 'tc', secondary: 'mg', resource: 'vringgit',   baseReward: 3 },     // VRinggit
+    practiceHall:  { primary: 'st', secondary: 'ps', resource: 'blueTicket', baseReward: 0.03 },  // Blue Tickets
+    lounge:        { primary: 'ps', secondary: 'ch', resource: 'studioExp',  baseReward: 3, bonusResource: 'vgems', bonusAmount: 1 }, // Studio EXP + small VGems
   };
 
   // Quality tier definitions
@@ -381,9 +381,13 @@ const Game = (() => {
   // Get current trending stat (rotates every 2 hours)
   function getTrendingStat() {
     const now = Date.now();
+    // Normalize legacy uppercase trending stat from older saves
+    if (state.studio.trendingStat && state.studio.trendingStat !== state.studio.trendingStat.toLowerCase()) {
+      state.studio.trendingStat = state.studio.trendingStat.toLowerCase();
+    }
     if (!state.studio.trendingStat || !state.studio.trendingExpires || now >= state.studio.trendingExpires) {
       // Only growth stats can trend — ST/PS are expendable (HP/SP) and excluded
-      const trendableStats = ['TC', 'CH', 'VC', 'MG'];
+      const trendableStats = ['tc', 'ch', 'vc', 'mg'];
       state.studio.trendingStat = trendableStats[Math.floor(Math.random() * trendableStats.length)];
       state.studio.trendingExpires = now + TRENDING_ROTATION_MS;
     }
@@ -1420,6 +1424,40 @@ const Game = (() => {
     }
   }
 
+  // Repair baseStats for characters that got empty baseStats during migration
+  // (DataLoader wasn't loaded yet when migrateState ran, so charInfo was null)
+  function repairBaseStats() {
+    if (!state || !state.characters) return;
+    let repaired = false;
+    for (const [slug, charData] of Object.entries(state.characters)) {
+      if (!charData || !charData.owned) continue;
+      if (!charData.baseStats || charData.baseStats.st === 0) {
+        const charInfo = DataLoader.getBySlug(slug);
+        if (charInfo && charInfo.stats) {
+          const fresh = { ...charInfo.stats };
+          // Preserve echo gains: add current stats minus current baseStats
+          if (charData.stats) {
+            const oldBase = charData.baseStats || {};
+            for (const k of Object.keys(fresh)) {
+              const gain = (charData.stats[k] || 0) - (oldBase[k] || 0);
+              if (gain > 0) fresh[k] += gain;
+            }
+          }
+          charData.baseStats = charInfo.stats;
+          // Only overwrite current stats if they were empty/broken
+          if (!charData.stats || Object.keys(charData.stats).length === 0) {
+            charData.stats = fresh;
+          }
+          repaired = true;
+        }
+      }
+    }
+    if (repaired) {
+      save();
+      if (_onStateChange) _onStateChange();
+    }
+  }
+
   // Find which station a character is assigned to
   function getCharacterStation(slug) {
     for (const [stationId, station] of Object.entries(state.studio.stations)) {
@@ -1456,5 +1494,6 @@ const Game = (() => {
     getCharacterBondInfo, getBondStatBonus,
     BOND_MAX_LEVEL, BOND_LEVELS, BOND_DATE_COOLDOWN_MS, BOND_DATE_LEVEL_REQ,
     OSHI_MAX, isOshi, getOshiList, getOshiCount, toggleOshi,
+    repairBaseStats,
   };
 })();

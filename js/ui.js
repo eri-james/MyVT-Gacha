@@ -38,6 +38,7 @@ const UI = (() => {
     try {
       await DataLoader.load();
       Game.load();
+      Game.repairBaseStats(); // Fix baseStats that were empty during migration (DataLoader not loaded yet)
       Game.onStateChange(updateUI);
       Game.startTickLoop();
       Game.startAutoSave();
@@ -1170,10 +1171,10 @@ const UI = (() => {
 
   // Stat name mapping for display
   const STAT_NAMES = {
-    ST: 'Stamina', PS: 'Passion', TC: 'Tech', CH: 'Charisma', VC: 'Voice', MG: 'Music',
+    st: 'Stamina', ps: 'Passion', tc: 'Tech', ch: 'Charisma', vc: 'Voice', mg: 'Music',
   };
   const STAT_COLORS = {
-    ST: '#f472b6', PS: '#fb923c', TC: '#60a5fa', CH: '#a78bfa', VC: '#34d399', MG: '#fbbf24',
+    st: '#f472b6', ps: '#fb923c', tc: '#60a5fa', ch: '#a78bfa', vc: '#34d399', mg: '#fbbf24',
   };
 
   function renderStudio() {
@@ -1264,11 +1265,11 @@ const UI = (() => {
         </div>
         ${contentType ? `
           <div class="station-stats-preview">
-            <span class="station-stat-hint" style="color:${STAT_COLORS[contentType.primary]}">${contentType.primary}</span>
+            <span class="station-stat-hint" style="color:${STAT_COLORS[contentType.primary]}">${contentType.primary.toUpperCase()}</span>
             <span class="station-stat-arrow">\u2190</span>
             <span class="station-stat-hint">Main</span>
             <span style="color:var(--text-dim);margin:0 4px;">|</span>
-            <span class="station-stat-hint" style="color:${STAT_COLORS[contentType.secondary]}">${contentType.secondary}</span>
+            <span class="station-stat-hint" style="color:${STAT_COLORS[contentType.secondary]}">${contentType.secondary.toUpperCase()}</span>
             <span class="station-stat-arrow">\u2190</span>
             <span class="station-stat-hint">Sub</span>
           </div>
@@ -1360,7 +1361,7 @@ const UI = (() => {
     banner.innerHTML = `
       <span class="trending-fire">\uD83D\uDD25</span>
       <span class="trending-label">Trending:</span>
-      <span class="trending-stat" style="color:${trendingColor};">${trending}</span>
+      <span class="trending-stat" style="color:${trendingColor};">${trending.toUpperCase()}</span>
       <span class="trending-name">${STAT_NAMES[trending] || trending}</span>
       <span class="trending-timer">${timeStr} left</span>
       <span class="trending-bonus">1.5x bonus!</span>
