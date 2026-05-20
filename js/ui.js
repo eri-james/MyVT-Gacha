@@ -94,7 +94,7 @@ const UI = (() => {
         const parts = [];
         if (e.vgems) parts.push(`VGems +${Math.floor(e.vgems)}`);
         if (e.vringgit) parts.push(`VRinggit +${Math.floor(e.vringgit)}`);
-        if (e.blueTicket) parts.push(`Blue Tickets +${Math.floor(e.blueTicket)}`);
+        if (e.liveCache) parts.push(`LiveCache +${Math.floor(e.liveCache)}`);
         showToast(`Claimed ${result.minutes}min offline: ${parts.join(', ') || 'nothing'}`, 'success');
         document.getElementById('btn-claim-offline').style.display = 'none';
         updateUI();
@@ -382,11 +382,11 @@ const UI = (() => {
       const btn = document.getElementById('btn-claim-offline');
       const vgems = Math.floor(offline.earnings.vgems || 0);
       const vringgit = Math.floor(offline.earnings.vringgit || 0);
-      const tickets = Math.floor(offline.earnings.blueTicket || 0);
+      const tickets = Math.floor(offline.earnings.liveCache || 0);
       const parts = [];
       if (vgems > 0) parts.push(`${currencyIcon('vgems', 12)}+${formatNum(vgems)}`);
       if (vringgit > 0) parts.push(`${currencyIcon('vringgit', 12)}+${formatNum(vringgit)}`);
-      if (tickets > 0) parts.push(`${currencyIcon('ticket_blue', 12)}+${tickets}`);
+      if (tickets > 0) parts.push(`${currencyIcon('livecache', 12)}+${tickets}`);
       btn.innerHTML = `Claim Offline (${Math.round(offline.minutes)}min) ${parts.join(' ')}`;
       btn.style.display = 'inline-flex';
     }
@@ -1252,15 +1252,15 @@ const UI = (() => {
           const expIncome = Game.getStationStudioExp(stationId);
           const resName = getResourceName(def.resource);
           let rewardParts = [];
-          rewardParts.push(`+${def.resource === 'blueTicket' ? income.toFixed(2) : formatNum(income, 1)} ${resName}`);
+          rewardParts.push(`+${formatNum(income, 1)} ${resName}`);
           // Show passive EXP rate
           if (expIncome > 0) {
             rewardParts.push(`${formatNum(expIncome, 1)} EXP/min`);
           }
-          // Lounge bonus VGems
+          // Lounge bonus LiveCache
           if (contentType && contentType.bonusResource) {
             const bonusVal = contentType.bonusAmount * (quality ? quality.qualityMultiplier : 1) * (state.characters[station.assigned] ? (Game.RarityMultipliers[state.characters[station.assigned].rarity] || 1) : 1);
-            rewardParts.push(`${currencyIcon('vgems', 12)}+${formatNum(bonusVal, 1)}`);
+            rewardParts.push(`${currencyIcon('livecache', 12)}+${formatNum(bonusVal, 1)}`);
           }
           outputHTML = `<div class="station-output"><span class="station-output-rewards">${rewardParts.join(' ')}</span></div>`;
         } else {
@@ -1442,12 +1442,12 @@ const UI = (() => {
     // Estimated income per cycle
     let incomeHTML = '';
     const totalIncome = Game.getTotalIncome();
-    const hasIncome = totalIncome.vgems > 0 || totalIncome.vringgit > 0 || totalIncome.blueTicket > 0;
+    const hasIncome = totalIncome.vgems > 0 || totalIncome.vringgit > 0 || totalIncome.liveCache > 0;
     if (hasIncome) {
       incomeHTML = '<div class="income-breakdown-mini">';
       if (totalIncome.vgems > 0) incomeHTML += `<span class="income-mini-item" style="color:#22d3ee;">${currencyIcon('vgems', 12)}+${formatNum(totalIncome.vgems, 1)}</span>`;
       if (totalIncome.vringgit > 0) incomeHTML += `<span class="income-mini-item" style="color:#fb923c;">${currencyIcon('vringgit', 12)}+${formatNum(totalIncome.vringgit, 1)}</span>`;
-      if (totalIncome.blueTicket > 0) incomeHTML += `<span class="income-mini-item" style="color:#60a5fa;">${currencyIcon('ticket_blue', 12)}+${totalIncome.blueTicket.toFixed(2)}</span>`;
+      if (totalIncome.liveCache > 0) incomeHTML += `<span class="income-mini-item" style="color:#a78bfa;">${currencyIcon('livecache', 12)}+${formatNum(totalIncome.liveCache, 1)}</span>`;
       incomeHTML += '</div>';
     }
 
@@ -1481,7 +1481,7 @@ const UI = (() => {
       if (entry.rewards) {
         if (entry.rewards.vgems) rewardParts.push(`${currencyIcon('vgems', 12)}+${formatNum(Math.floor(entry.rewards.vgems))}`);
         if (entry.rewards.vringgit) rewardParts.push(`${currencyIcon('vringgit', 12)}+${formatNum(Math.floor(entry.rewards.vringgit))}`);
-        if (entry.rewards.blueTicket) rewardParts.push(`${currencyIcon('ticket_blue', 12)}+${entry.rewards.blueTicket.toFixed(2)}`);
+        if (entry.rewards.liveCache) rewardParts.push(`${currencyIcon('livecache', 12)}+${formatNum(Math.floor(entry.rewards.liveCache))}`);
       }
       if (entry.flatBonus && entry.flatBonus > 0) {
         rewardParts.push(`<span style="color:var(--accent);font-size:0.8em">+${entry.flatBonus % 1 === 0 ? formatNum(entry.flatBonus) : entry.flatBonus.toFixed(1)} Lv bonus</span>`);
@@ -2012,7 +2012,8 @@ const UI = (() => {
 
   function getResourceName(key) {
     const names = {
-      vgems: 'VGems', vringgit: 'VRinggit', blueTicket: 'Blue Tickets',
+      vgems: 'VGems', vringgit: 'VRinggit', liveCache: 'LiveCache',
+      blueTicket: 'Blue Tickets',
       stars: 'Stars', starDust: 'Star Dust', starFragments: 'Star Fragments', bondPoints: 'Bond Points',
     };
     return names[key] || key;
