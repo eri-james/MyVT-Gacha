@@ -398,6 +398,7 @@ body {
   right: 0;
   background: linear-gradient(transparent, rgba(30, 20, 50, 0.85));
   padding: var(--space-lg) var(--space-md) var(--space-md);
+  padding-left: calc(var(--space-md) + 44px);
   display: flex;
   flex-direction: column;
   gap: 2px;
