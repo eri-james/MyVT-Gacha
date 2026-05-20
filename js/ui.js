@@ -117,6 +117,7 @@ const UI = (() => {
     document.getElementById('btn-back-home-2').addEventListener('click', () => switchTab('home'));
     document.getElementById('btn-back-home-3').addEventListener('click', () => switchTab('home'));
     document.getElementById('btn-back-home-4').addEventListener('click', () => switchTab('home'));
+    document.getElementById('btn-back-home-quests').addEventListener('click', () => switchTab('home'));
 
     // Featured VTuber select
     document.getElementById('btn-select-featured').addEventListener('click', () => {
@@ -1210,7 +1211,10 @@ const UI = (() => {
             e.stopPropagation();
             const result = Game.claimQuest(category, q.id);
             if (result) {
-              showToast(`Claimed! ${currencyIcon('vgems', 12)}+${result.vgems}${result.tickets ? ' ' + currencyIcon('ticket_blue', 12) + '+' + result.tickets : ''}`, 'success');
+              let msg = 'Claimed!';
+              if (result.vgems) msg += ` VGems +${result.vgems}`;
+              if (result.tickets) msg += ` Blue Tickets +${result.tickets}`;
+              showToast(msg, 'success');
               renderQuests();
               updateUI();
             }
