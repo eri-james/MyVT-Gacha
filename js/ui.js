@@ -1159,6 +1159,40 @@ const UI = (() => {
     st: '#f472b6', ps: '#fb923c', tc: '#60a5fa', ch: '#a78bfa', vc: '#34d399', mg: '#fbbf24',
   };
 
+  // Collapsible toggle state (persists across re-renders but not saves)
+  let _roadmapOpen = false;
+  let _feedOpen = false;
+
+  function _initCollapsibleToggles() {
+    const toggleRoadmap = document.getElementById('toggle-roadmap');
+    const bodyRoadmap = document.getElementById('body-roadmap');
+    const toggleFeed = document.getElementById('toggle-feed');
+    const bodyFeed = document.getElementById('body-feed');
+
+    if (toggleRoadmap && !toggleRoadmap._bound) {
+      toggleRoadmap._bound = true;
+      toggleRoadmap.addEventListener('click', () => {
+        _roadmapOpen = !_roadmapOpen;
+        toggleRoadmap.classList.toggle('open', _roadmapOpen);
+        bodyRoadmap.classList.toggle('open', _roadmapOpen);
+      });
+    }
+    if (toggleFeed && !toggleFeed._bound) {
+      toggleFeed._bound = true;
+      toggleFeed.addEventListener('click', () => {
+        _feedOpen = !_feedOpen;
+        toggleFeed.classList.toggle('open', _feedOpen);
+        bodyFeed.classList.toggle('open', _feedOpen);
+      });
+    }
+
+    // Sync DOM to current state (after renderStudio rebuilds inner content)
+    toggleRoadmap.classList.toggle('open', _roadmapOpen);
+    bodyRoadmap.classList.toggle('open', _roadmapOpen);
+    toggleFeed.classList.toggle('open', _feedOpen);
+    bodyFeed.classList.toggle('open', _feedOpen);
+  }
+
   function renderStudio() {
     try {
     const state = Game.getState();
@@ -1320,6 +1354,9 @@ const UI = (() => {
 
     // Content log feed
     renderContentLog();
+
+    // Restore collapsible toggle states after DOM rebuild
+    _initCollapsibleToggles();
 
     } catch (err) { console.error('renderStudio failed:', err); }
   }
