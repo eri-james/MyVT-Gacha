@@ -203,6 +203,10 @@ body {
   width: 0%;
 }
 
+@media (max-width: 768px) {
+  .producer-exp-bar-track { display: none; }
+}
+
 .top-bar-right {
   display: flex;
   align-items: center;
