@@ -284,7 +284,7 @@ const UI = (() => {
     updateStaminaDisplay();
 
     // Producer info
-    const producerInfo = Game.getProducerInfo ? Game.getProducerInfo() : { level: 1, exp: 0, expCap: 10 };
+    const producerInfo = Game.getProducerInfo();
 
     // Producer level (top bar)
     updateProducerLevel();
@@ -340,12 +340,6 @@ const UI = (() => {
   function updateStaminaDisplay() {
     const stam = Game.getStamina();
     const pct = (stam.current / stam.max) * 100;
-
-    // Nav bar stamina (global — still shown for legacy display)
-    const navFill = document.getElementById('stamina-bar-fill-nav');
-    const navVal = document.getElementById('res-stamina-val');
-    if (navFill) navFill.style.width = pct + '%';
-    if (navVal) navVal.textContent = stam.current;
 
     // Minigame tab stamina bar — uses lead character's per-VTuber ST
     updateMinigameStaminaBar();
@@ -457,7 +451,7 @@ const UI = (() => {
     const counts = { R: 0, SR: 0, SSR: 0, UR: 0 };
     sorted.forEach(r => { if (counts[r.rarity] !== undefined) counts[r.rarity]++; });
     const newCount = sorted.filter(r => r.isNew).length;
-    let totalLiveCache = sorted.reduce((sum, r) => sum + (r.liveCacheGained || 0), 0);
+    const totalLiveCache = sorted.reduce((sum, r) => sum + (r.liveCacheGained || 0), 0);
 
     // Grid setup
     if (isSingle) {
@@ -480,6 +474,7 @@ const UI = (() => {
       ? summaryParts.join('&nbsp;&nbsp;')
       : `${sorted.length} R`;
     if (newCount > 0) summaryHtml += ` &middot; <span style="color:var(--success)">${newCount} NEW</span>`;
+    if (totalLiveCache > 0) summaryHtml += ` &middot; <span style="color:var(--livecache)">+${totalLiveCache} LC</span>`;
     summaryEl.innerHTML = summaryHtml;
     container.appendChild(summaryEl);
 
@@ -2143,7 +2138,7 @@ const UI = (() => {
       : owned;
 
     // Sort by variant rarity, then level
-    const rarityOrder = { ssr: 3, sr: 2, normal: 1 };
+    const rarityOrder = { ur: 4, ssr: 3, sr: 2, normal: 1 };
     filtered.sort((a, b) => {
       const aState = state.characters[a.slug];
       const bState = state.characters[b.slug];
@@ -2245,11 +2240,11 @@ const UI = (() => {
   }
 
   function updateProducerLevel() {
-    const info = Game.getProducerInfo ? Game.getProducerInfo() : { level: 1, exp: 0, expCap: 10 };
+    const info = Game.getProducerInfo();
     const nameEl = document.getElementById('producer-name');
     const lvEl = document.getElementById('producer-level');
     const fillEl = document.getElementById('producer-exp-fill');
-    const username = Game.getUsername ? Game.getUsername() : null;
+    const username = Game.getUsername();
 
     if (nameEl) nameEl.textContent = username || 'Producer';
     if (lvEl) lvEl.textContent = info.level;
@@ -2263,7 +2258,7 @@ const UI = (() => {
   }
 
   function renderFeaturedVtuber() {
-    const slug = Game.getFeaturedVtuber ? Game.getFeaturedVtuber() : null;
+    const slug = Game.getFeaturedVtuber();
     const placeholder = document.getElementById('featured-placeholder');
     const img = document.getElementById('featured-img');
     const info = document.getElementById('featured-info');
@@ -2326,7 +2321,7 @@ const UI = (() => {
       return;
     }
 
-    const currentFeatured = Game.getFeaturedVtuber ? Game.getFeaturedVtuber() : null;
+    const currentFeatured = Game.getFeaturedVtuber();
 
     filtered.forEach(c => {
       const data = state.characters[c.slug];
