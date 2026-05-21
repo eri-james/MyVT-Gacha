@@ -131,12 +131,14 @@ const Game = (() => {
     { id: 'daily_login',    label: 'Daily Login',              target: 1,  reward: { vgems: 100, streakScaled: true }, desc: 'Log in today (rewards scale with streak!)' },
     { id: 'daily_assign',   label: 'Assign a VTuber',          target: 1,  reward: { vgems: 100 }, desc: 'Assign a VTuber to any station' },
     { id: 'daily_toss',     label: 'Play Superchat Toss',      target: 1,  reward: { vgems: 100 }, desc: 'Complete a Superchat Toss round' },
+    { id: 'daily_liveon',   label: 'Play Live!ON',             target: 1,  reward: { vgems: 100 }, desc: 'Complete a Live!ON run' },
     { id: 'daily_all',      label: 'Clear All Daily Quests',   target: 1,  reward: { vgems: 200, tickets: 1 }, desc: 'Claim all daily quests', meta: true },
   ];
   const WEEKLY_QUESTS = [
     { id: 'weekly_login3',  label: 'Login 3 Days',            target: 3,  reward: { vgems: 200, tickets: 1 }, desc: 'Log in on 3 different days this week' },
     { id: 'weekly_assign10',label: 'Assign to Station x10',   target: 10, reward: { vgems: 200, tickets: 1 }, desc: 'Assign VTubers to stations 10 times' },
     { id: 'weekly_toss25',  label: 'Play Toss x25',           target: 25, reward: { vgems: 200, tickets: 1 }, desc: 'Play Superchat Toss 25 times' },
+    { id: 'weekly_liveon25',label: 'Play Live!ON x25',        target: 25, reward: { vgems: 200, tickets: 1 }, desc: 'Complete 25 Live!ON runs' },
     { id: 'weekly_all',     label: 'Clear All Weekly Quests', target: 1,  reward: { vgems: 500, tickets: 2 }, desc: 'Claim all weekly quests', meta: true },
   ];
 

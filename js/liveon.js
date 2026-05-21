@@ -1035,6 +1035,10 @@ const LiveON = (() => {
     // Give Producer EXP
     Game.addProducerExp(Math.floor(turnsSurvived * 2));
 
+    // Quest progress: Live!ON daily + weekly
+    Game.incrementQuestProgress('daily', 'daily_liveon', 1);
+    Game.incrementQuestProgress('weekly', 'weekly_liveon25', 1);
+
     // Save
     Game.save();
 
