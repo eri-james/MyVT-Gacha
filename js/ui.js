@@ -2899,7 +2899,8 @@ const UI = (() => {
     const baseSubs = 30 + turnNum * 5;
     html += `<div class="event-preview">Base subs: ~${baseSubs} (before bonuses)</div>`;
 
-    // Choices
+    // Choices — track if any action is available for escape hatch
+    let anyActionAvailable = false;
     html += '<div class="event-choices">';
     event.choices.forEach((choice, i) => {
       const tier = choice.tier;
@@ -2917,7 +2918,7 @@ const UI = (() => {
       // Check if choice is locked (stat too low)
       const preview = LiveON.getStatCheckPreview(choice.stat, tier, turnNum);
       const isLocked = preview && !preview.canPick;
-      const isDisabled = isLocked || run.ps <= psCost;
+      const isDisabled = isLocked || run.ps < psCost;
 
       // Stat check display
       let statCheckHtml = '';
@@ -2937,6 +2938,7 @@ const UI = (() => {
 
       const disabledAttr = isDisabled ? 'disabled' : '';
       const lockedClass = isLocked ? 'choice-locked' : '';
+      if (!isDisabled) anyActionAvailable = true;
 
       html += `<button class="btn choice-btn ${tierClass} ${lockedClass}" data-choice="${i}" ${disabledAttr}>
         <div class="choice-label">${choice.label}</div>
@@ -2951,16 +2953,17 @@ const UI = (() => {
       </button>`;
     });
 
-    // Skip button — disabled when player can't afford the PS cost
+    // Track skip availability
     const skipPsCost = LiveON.getConstants().SKIP_PS_LOSS;
-    const skipDisabled = run.ps <= skipPsCost ? 'disabled' : '';
+    const skipDisabled = run.ps < skipPsCost ? 'disabled' : '';
+    if (!skipDisabled) anyActionAvailable = true;
     html += `<button class="btn btn-danger skip-btn" data-skip="true" ${skipDisabled}>
       <div class="choice-label">Skip Event</div>
       <div class="choice-outcome">-5% subs, -10 PS</div>
     </button>`;
 
-    // Escape hatch — if PS too low for any action, provide a way to end the run
-    if (run.ps <= 2) {
+    // Escape hatch — if no action is available at all, provide a way to end the run
+    if (!anyActionAvailable) {
       if (isFinale) {
         html += `<button class="btn btn-primary finish-btn" data-finish="true" data-ending="good">
           <div class="choice-label">Finish Stream</div>
