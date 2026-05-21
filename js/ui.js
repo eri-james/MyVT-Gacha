@@ -292,6 +292,15 @@ const UI = (() => {
     if (tab === 'minigame') renderMinigame();
     if (tab === 'shop') renderShop();
     if (tab === 'liveon') renderLiveON();
+
+    // Homepage visual effects: particles + entrance animations
+    if (tab === 'home') {
+      setTimeout(() => {
+        FX.initHomeParticles();
+        FX.initHomeAnimations();
+      }, 100);
+    }
+
     updateUI();
   }
 

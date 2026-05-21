@@ -80,6 +80,21 @@
   --nav-height: 56px;
   --footer-height: 48px;
   --max-width: 1200px;
+
+  /* Homepage dark theme overrides */
+  --home-bg: #1a1033;
+  --home-bg2: #2d1b4e;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-bg-hover: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Particle canvas (homepage background) ── */
+.tsparticles-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* ── Reset & Base ── */
@@ -365,17 +380,31 @@ body {
   flex-direction: column;
   gap: var(--space-md);
   padding: var(--space-sm) 0;
+  position: relative;
+  min-height: calc(100vh - var(--top-bar-height, 56px) - var(--bottom-nav-height, 64px));
+  background:
+    linear-gradient(180deg,
+      rgba(26, 16, 51, 0.92) 0%,
+      rgba(45, 27, 78, 0.85) 40%,
+      rgba(26, 16, 51, 0.95) 100%
+    ),
+    url('https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fsteins-gate.us%2Fimages%2Fbg_about.jpg&f=1&nofb=1&ipt=69119e52031c1402ca2540f1476b859d2e09e44a4a73a21723361ada07cb1cee') center/cover no-repeat;
+  background-attachment: fixed;
+  overflow: hidden;
 }
 
 .featured-showcase {
   position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  box-shadow: 0 2px 8px var(--shadow);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   aspect-ratio: 16/10;
   max-height: 280px;
+  z-index: 1;
 }
 
 .featured-character {
@@ -497,18 +526,23 @@ body {
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-md) var(--space-sm);
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all var(--transition-fast);
-  box-shadow: 0 1px 3px var(--shadow);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
   font-family: inherit;
+  position: relative;
+  z-index: 1;
 }
 .game-panel-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--shadow-md);
-  border-color: var(--accent);
+  box-shadow: 0 4px 20px rgba(167, 139, 250, 0.3), 0 0 12px rgba(167, 139, 250, 0.15);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: var(--glass-bg-hover);
 }
 
 .panel-icon-wrap {
@@ -534,12 +568,25 @@ body {
   color: var(--text-muted);
 }
 
+/* Homepage overrides: white text for dark background */
+.landing-page .panel-label {
+  color: #ffffff;
+}
+.landing-page .panel-sub {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* Landing banner */
 .landing-banner {
-  background: linear-gradient(135deg, var(--accent-dim), rgba(244, 114, 182, 0.1));
-  border: 1px solid var(--border-light);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-md);
   padding: var(--space-md);
+  position: relative;
+  z-index: 1;
 }
 .landing-banner-tag {
   font-size: 0.6rem;
@@ -6089,4 +6136,12 @@ body {
     width: 80px;
     height: 80px;
   }
+}
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE — Homepage FX
+   ═══════════════════════════════════════════════ */
+
+@media (max-width: 380px) {
+  .tsparticles-canvas { display: none; }
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MyVT Gacha Collection</title>
-  <link rel="stylesheet" href="css/style.css?v=62">
+  <link rel="stylesheet" href="css/style.css?v=63">
   <link rel="preconnect" href="https://fonts.googleapis.com">
 </head>
 <body>
@@ -32,6 +32,7 @@
     <!-- HOME TAB — Landing Page -->
     <section class="tab-content active" id="tab-home">
       <div class="landing-page">
+        <div id="tsparticles-home" class="tsparticles-canvas"></div>
         <!-- Left: Featured VTuber Showcase -->
         <div class="featured-showcase">
           <div class="featured-character" id="featured-character">
@@ -600,12 +601,17 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="js/data.js?v=62"></script>
-  <script src="js/game.js?v=62"></script>
-  <script src="js/gacha.js?v=62"></script>
-  <script src="js/characters.js?v=62"></script>
-  <script src="js/minigame.js?v=62"></script>
-  <script src="js/liveon.js?v=62"></script>
-  <script src="js/ui.js?v=62"></script>
+  <!-- GSAP Animation Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <!-- tsParticles -->
+  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.12.0/tsparticles.bundle.min.js"></script>
+  <script src="js/data.js?v=63"></script>
+  <script src="js/game.js?v=63"></script>
+  <script src="js/gacha.js?v=63"></script>
+  <script src="js/characters.js?v=63"></script>
+  <script src="js/minigame.js?v=63"></script>
+  <script src="js/liveon.js?v=63"></script>
+  <script src="js/ui.js?v=63"></script>
+  <script src="js/fx.js?v=63"></script>
 </body>
 </html>
