@@ -1102,7 +1102,6 @@ const LiveON = (() => {
   function getConstants() {
     return {
       MAX_TURNS,
-      SAFE_ZONE_END,
       AGENCY_VISIT_TURNS,
       COACH_SLOTS,
       COACH_STAT_MAP,
@@ -1159,7 +1158,6 @@ const LiveON = (() => {
     getOwnedVTubersForCoach,
 
     // Turn checks
-    isSafeZone,
     isAgencyVisitTurn,
     isFinaleTurn,
 
