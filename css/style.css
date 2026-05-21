@@ -520,9 +520,9 @@ body {
   justify-content: center;
   margin-bottom: 4px;
 }
-.panel-icon-pink { background: rgba(244, 114, 182, 0.15); }
-.panel-icon-purple { background: var(--accent-dim); }
-.panel-icon-blue { background: rgba(96, 165, 250, 0.15); }
+.panel-icon-pink { background: rgba(244, 114, 182, 0.35); }
+.panel-icon-purple { background: rgba(167, 139, 250, 0.35); }
+.panel-icon-blue { background: rgba(96, 165, 250, 0.35); }
 
 .panel-label {
   font-size: 0.85rem;
