@@ -7,7 +7,7 @@ const LiveON = (() => {
   // ── Constants ──────────────────────────────────────────
 
   const MAX_TURNS = 20;
-  const SAFE_ZONE_END = 5;
+  const SAFE_ZONE_END = 0; // no safe zone — all turns have stat checks + PS costs
   const AGENCY_VISIT_TURNS = [5, 10, 15];
 
   const COACH_SLOTS = ['streamer', 'performance', 'stage'];
@@ -25,7 +25,7 @@ const LiveON = (() => {
   // R=1x, SR=1.5x, SSR=2x, UR=3x (so SSR coach = 20% bonus)
   const COACH_RARITY_MULT = { R: 1, SR: 1.5, SSR: 2, UR: 3 };
 
-  // Choice tier multipliers and PS costs (for turns 6-20)
+  // Choice tier multipliers and PS costs (all turns)
   const CHOICE_TIERS = {
     best:    { mult: 1.0, psCost: 0 },
     neutral: { mult: 0.7, psCost: 4 },
@@ -37,7 +37,7 @@ const LiveON = (() => {
   const SKIP_PS_LOSS = 12;
 
   // Finale target formula: FINALE_BASE_TARGET + scenario.difficulty * FINALE_DIFFICULTY_MULT
-  const FINALE_BASE_TARGET = 500;
+  const FINALE_BASE_TARGET = 1100; // 1100 + 1*100 = 1200 finale target
   const FINALE_DIFFICULTY_MULT = 100;
 
   // Ending reward multipliers
@@ -386,6 +386,7 @@ const LiveON = (() => {
       subscribers: 0,
       subscriberLog: [],
       upgrades: [],
+      consumedUpgrades: [], // upgrades picked during agency visits (disappear from future visits)
       chaosUpgrades: [],
       targetSubs: 0,
       currentEvent: null,
@@ -615,10 +616,10 @@ const LiveON = (() => {
   // Threshold scales with turn number so later turns demand stronger teams.
 
   const STAT_CHECK_ENABLED = true;
-  // Base threshold at turn 6, scales up by +2 per turn
-  // Turn 6: 18, Turn 10: 26, Turn 15: 36, Turn 20: 46
+  // Threshold for all turns (1-20), scales up by +2 per turn
+  // Turn 1: 8, Turn 5: 16, Turn 10: 26, Turn 15: 36, Turn 20: 46
   function getStatThreshold(turn) {
-    return 16 + (turn - 5) * 2;
+    return 6 + turn * 2;
   }
 
   // Returns stat check preview for UI display
@@ -685,33 +686,26 @@ const LiveON = (() => {
     let subGain, psCost;
     let effectiveTier = tier; // may be downgraded by stat check
     let statCheck = { passed: true };
-    const safe = isSafeZone(turn);
 
-    if (safe) {
-      // Safe zone: all choices are 100% with 0 PS cost, no stat check
-      subGain = calculateBaseSubs(turn) * 1.0 * (1 + coachBonus);
-      psCost = 0;
-    } else {
-      // Stat check: Best choice can be downgraded to Neutral if stat is too low
-      if (tier === 'best') {
-        statCheck = checkStatForChoice(stat, turn);
-        if (!statCheck.passed) {
-          effectiveTier = 'neutral';
-        }
+    // Stat check: Best choice can be downgraded to Neutral if stat is too low
+    if (tier === 'best') {
+      statCheck = checkStatForChoice(stat, turn);
+      if (!statCheck.passed) {
+        effectiveTier = 'neutral';
       }
-
-      const tierData = CHOICE_TIERS[effectiveTier] || CHOICE_TIERS.neutral;
-      let choiceMult = tierData.mult;
-      psCost = tierData.psCost;
-
-      // Apply chaos upgrades
-      for (const chaos of _runState.chaosUpgrades) {
-        choiceMult += chaos.subBoost;
-        psCost += chaos.psPenalty;
-      }
-
-      subGain = calculateBaseSubs(turn) * choiceMult * (1 + coachBonus);
     }
+
+    const tierData = CHOICE_TIERS[effectiveTier] || CHOICE_TIERS.neutral;
+    let choiceMult = tierData.mult;
+    psCost = tierData.psCost;
+
+    // Apply chaos upgrades
+    for (const chaos of _runState.chaosUpgrades) {
+      choiceMult += chaos.subBoost;
+      psCost += chaos.psPenalty;
+    }
+
+    subGain = calculateBaseSubs(turn) * choiceMult * (1 + coachBonus);
 
     subGain = Math.floor(subGain);
 
@@ -734,7 +728,6 @@ const LiveON = (() => {
       psCost,
       psRemaining: _runState.ps,
       coachBonus: Math.round(coachBonus * 100),
-      safe,
     };
     _runState.subscriberLog.push(logEntry);
 
@@ -792,7 +785,6 @@ const LiveON = (() => {
       psCost: psLoss,
       psRemaining: _runState.ps,
       coachBonus: 0,
-      safe: isSafeZone(turn),
     };
     _runState.subscriberLog.push(logEntry);
 
@@ -814,21 +806,38 @@ const LiveON = (() => {
 
   function getUpgradePool() {
     if (!_runState || !_runState.active) return [];
-    // Filter out non-repeatable upgrades that have already been taken
+    // Filter out upgrades already consumed in previous agency visits
     return UPGRADE_POOL.filter(u => {
+      if (_runState.consumedUpgrades.includes(u.id)) return false;
       if (!u.repeatable && _runState.upgrades.some(gu => gu.id === u.id)) return false;
       return true;
     });
+  }
+
+  // Returns a random subset of upgrades for the current agency visit
+  function getAgencyVisitChoices(count) {
+    if (!_runState || !_runState.active) return [];
+    const pool = getUpgradePool();
+    // Shuffle and pick 'count' upgrades
+    const shuffled = [...pool];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const choices = shuffled.slice(0, Math.min(count, shuffled.length));
+    // Store for processAgencyVisit to reference
+    _runState.currentVisitChoices = choices;
+    return choices;
   }
 
   function processAgencyVisit(upgradeIndex) {
     if (!_runState || !_runState.active) return { error: 'No active run.' };
     if (!isAgencyVisitTurn(_runState.turn)) return { error: 'Not an agency visit turn.' };
 
-    const pool = getUpgradePool();
-    if (upgradeIndex < 0 || upgradeIndex >= pool.length) return { error: 'Invalid upgrade.' };
+    const choices = _runState.currentVisitChoices;
+    if (!choices || upgradeIndex < 0 || upgradeIndex >= choices.length) return { error: 'Invalid upgrade.' };
 
-    const upgrade = pool[upgradeIndex];
+    const upgrade = choices[upgradeIndex];
     const effect = upgrade.effect;
 
     // Apply upgrade effect
@@ -872,8 +881,13 @@ const LiveON = (() => {
       psCost: effect.type === 'ps_recover' ? -effect.amount : 0,
       psRemaining: _runState.ps,
       coachBonus: 0,
-      safe: false,
     });
+
+    // Mark upgrade as consumed (disappears from future visits)
+    if (!_runState.consumedUpgrades.includes(upgrade.id)) {
+      _runState.consumedUpgrades.push(upgrade.id);
+    }
+    _runState.currentVisitChoices = null;
 
     // Advance turn after agency visit
     _runState.turn++;
@@ -1001,7 +1015,6 @@ const LiveON = (() => {
       targetSubs: _runState.targetSubs,
       subPct: _runState.targetSubs > 0 ? Math.round((_runState.subscribers / _runState.targetSubs) * 100) : 0,
       currentEventType: currentEvent.type,
-      isSafe: isSafeZone(_runState.turn),
       isAgency: isAgencyVisitTurn(_runState.turn),
       isFinale: isFinaleTurn(_runState.turn),
       chaosActive: _runState.chaosUpgrades.length > 0,
@@ -1049,11 +1062,6 @@ const LiveON = (() => {
       if (leadData && leadData.baseStats) {
         leadData.stats.ps = leadData.baseStats.ps || 0;
       }
-    }
-
-    // Refund stamina if in safe zone (turns 1-5)
-    if (isSafeZone(_runState.turn)) {
-      state.stamina.current = Math.min(Game.STAMINA_MAX, (state.stamina.current || 0) + Game.LIVEON_STAMINA_COST);
     }
 
     _runState.active = false;
@@ -1108,6 +1116,7 @@ const LiveON = (() => {
     getEventPool,
     getRandomEvent,
     getUpgradePool,
+    getAgencyVisitChoices,
     getRunProgress,
 
     // Coach system

@@ -2815,7 +2815,6 @@ const UI = (() => {
     const progress = LiveON.getRunProgress();
     const isAgencyVisit = LiveON.isAgencyVisitTurn(run.turn);
     const isFinale = LiveON.isFinaleTurn(run.turn);
-    const isSafe = LiveON.isSafeZone(run.turn);
     const turnNum = run.turn; // next turn to play
 
     let html = '<div class="liveon-run-layout">';
@@ -2847,7 +2846,6 @@ const UI = (() => {
       <span class="turn-num">Turn ${turnNum}</span>
       <span class="turn-progress">of ${run.maxTurns}</span>
       <div class="turn-progress-bar"><div class="turn-progress-fill" style="width:${(turnNum / run.maxTurns) * 100}%"></div></div>
-      ${isSafe ? '<span class="safe-zone-badge">Safe Zone</span>' : ''}
       ${isAgencyVisit ? '<span class="agency-badge">Agency Visit!</span>' : ''}
       ${isFinale ? '<span class="finale-badge">Finale!</span>' : ''}
     </div>`;
@@ -2896,53 +2894,38 @@ const UI = (() => {
       const coachBonus = LiveON.calculateCoachBonus(choice.stat);
       const bonusPct = Math.round(coachBonus * 100);
 
-      if (isSafe) {
-        // Safe zone: all choices give 100%, 0 PS cost
-        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}">
-          <div class="choice-label">${choice.label}</div>
-          <div class="choice-meta">
-            <span class="choice-tier safe-tier">${tierLabel}</span>
-            <span class="choice-stat">${statLabel}</span>
-            ${bonusPct > 0 ? `<span class="choice-bonus">+${bonusPct}% coach</span>` : ''}
-          </div>
-          <div class="choice-outcome">+100% subs, 0 PS</div>
-        </button>`;
-      } else {
-        const mults = { best: 1.0, neutral: 0.7, fumble: 0.5 };
-        const psCosts = { best: 0, neutral: 4, fumble: 8 };
-        const subPct = Math.round(mults[tier] * 100 * (1 + coachBonus));
-        const psCost = psCosts[tier];
+      const mults = { best: 1.0, neutral: 0.7, fumble: 0.5 };
+      const psCosts = { best: 0, neutral: 4, fumble: 8 };
+      const subPct = Math.round(mults[tier] * 100 * (1 + coachBonus));
+      const psCost = psCosts[tier];
 
-        // Stat check preview for Best choice
-        let statCheckHtml = '';
-        if (tier === 'best') {
-          const preview = LiveON.getStatCheckPreview(choice.stat, turnNum);
-          if (preview && preview.enabled) {
-            const checkClass = preview.willPass ? 'stat-pass' : 'stat-fail';
-            statCheckHtml = `<div class="choice-stat-check ${checkClass}">Needs ${statLabel} ${preview.threshold} (you: ${preview.playerStat}) ${preview.willPass ? '' : '— risk downgrade!'}</div>`;
-          }
+      // Stat check preview for Best choice
+      let statCheckHtml = '';
+      if (tier === 'best') {
+        const preview = LiveON.getStatCheckPreview(choice.stat, turnNum);
+        if (preview && preview.enabled) {
+          const checkClass = preview.willPass ? 'stat-pass' : 'stat-fail';
+          statCheckHtml = `<div class="choice-stat-check ${checkClass}">Needs ${statLabel} ${preview.threshold} (you: ${preview.playerStat}) ${preview.willPass ? '' : '— risk downgrade!'}</div>`;
         }
-
-        html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" ${run.ps <= psCost ? 'disabled title="Not enough PS!"' : ''}>
-          <div class="choice-label">${choice.label}</div>
-          <div class="choice-meta">
-            <span class="choice-tier ${tierClass}">${tierLabel}</span>
-            <span class="choice-stat">${statLabel}</span>
-            ${bonusPct > 0 ? `<span class="choice-bonus">+${bonusPct}% coach</span>` : ''}
-          </div>
-          ${statCheckHtml}
-          <div class="choice-outcome">${subPct}% subs${psCost > 0 ? `, -${psCost} PS` : ', 0 PS'}</div>
-        </button>`;
       }
+
+      html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" ${run.ps <= psCost ? 'disabled title="Not enough PS!"' : ''}>
+        <div class="choice-label">${choice.label}</div>
+        <div class="choice-meta">
+          <span class="choice-tier ${tierClass}">${tierLabel}</span>
+          <span class="choice-stat">${statLabel}</span>
+          ${bonusPct > 0 ? `<span class="choice-bonus">+${bonusPct}% coach</span>` : ''}
+        </div>
+        ${statCheckHtml}
+        <div class="choice-outcome">${subPct}% subs${psCost > 0 ? `, -${psCost} PS` : ', 0 PS'}</div>
+      </button>`;
     });
 
-    // Skip button (only in normal zone)
-    if (!isSafe) {
-      html += `<button class="btn btn-danger skip-btn" data-skip="true">
-        <div class="choice-label">Skip Event</div>
-        <div class="choice-outcome">-5% subs, -12 PS</div>
-      </button>`;
-    }
+    // Skip button
+    html += `<button class="btn btn-danger skip-btn" data-skip="true">
+      <div class="choice-label">Skip Event</div>
+      <div class="choice-outcome">-5% subs, -12 PS</div>
+    </button>`;
 
     html += '</div>'; // .event-choices
     html += '</div>'; // .run-event
@@ -3031,7 +3014,7 @@ const UI = (() => {
 
   function bindAgencyVisitEvents(container) {
     const run = LiveON.getRunState();
-    const upgrades = LiveON.getUpgradePool();
+    const upgrades = LiveON.getAgencyVisitChoices(3);
 
     let upgradeHtml = '<div class="run-event agency-visit">';
     upgradeHtml += '<div class="event-title">Agency Visit</div>';
