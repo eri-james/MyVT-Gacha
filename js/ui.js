@@ -2959,12 +2959,19 @@ const UI = (() => {
       <div class="choice-outcome">-5% subs, -10 PS</div>
     </button>`;
 
-    // Finale escape hatch — if all buttons are disabled on the finale, let them finish anyway
-    if (isFinale && skipDisabled && run.ps <= 2) {
-      html += `<button class="btn btn-primary finish-btn" data-finish="true">
-        <div class="choice-label">Finish Stream</div>
-        <div class="choice-outcome">No PS left — end the run</div>
-      </button>`;
+    // Escape hatch — if PS too low for any action, provide a way to end the run
+    if (run.ps <= 2) {
+      if (isFinale) {
+        html += `<button class="btn btn-primary finish-btn" data-finish="true" data-ending="good">
+          <div class="choice-label">Finish Stream</div>
+          <div class="choice-outcome">No PS left — end the run</div>
+        </button>`;
+      } else {
+        html += `<button class="btn btn-danger finish-btn" data-finish="true" data-ending="bad">
+          <div class="choice-label">Out of Steam</div>
+          <div class="choice-outcome">Not enough PS — bad ending</div>
+        </button>`;
+      }
     }
 
     html += '</div>'; // .event-choices
@@ -3045,11 +3052,12 @@ const UI = (() => {
       });
     });
 
-    // Finale escape hatch — end run directly with no PS cost
+    // Escape hatch — end run when PS is too low for any action
     container.querySelectorAll('.finish-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         try {
-          LiveON.endRun();
+          const ending = btn.dataset.ending || 'bad';
+          LiveON.endRun(ending);
           showLiveONScreen('results');
         } catch (e) {
           console.error('Live!ON finish error:', e);
