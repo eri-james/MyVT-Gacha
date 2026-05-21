@@ -5950,14 +5950,16 @@ body {
   margin-top: var(--space-sm);
 }
 .ending-good .results-ending-label {
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.4);
+}
+.ending-neutral .results-ending-label {
   color: var(--accent2);
   text-shadow: 0 0 12px rgba(74, 222, 128, 0.4);
 }
-.ending-neutral .results-ending-label {
-  color: var(--gold);
-}
 .ending-bad .results-ending-label {
-  color: var(--error);
+  color: #60a5fa;
+  text-shadow: 0 0 12px rgba(96, 165, 250, 0.3);
 }
 .results-ending-desc {
   font-size: 0.85rem;

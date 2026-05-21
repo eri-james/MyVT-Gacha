@@ -2577,7 +2577,7 @@ const UI = (() => {
     html += '<div class="liveon-info-box">';
     html += '<h4>How It Works</h4>';
     html += '<p>Pick a Lead VTuber and 3 Coach supports, then guide them through 20 turns of streaming events.</p>';
-    html += '<p><strong>PS (Passion)</strong> is your run HP — if it hits 0, the run ends early!</p>';
+    html += '<p><strong>PS (Passion)</strong> is your run HP (capped at 55). If it hits 0, the run ends early!</p>';
     html += '<p>Each turn, pick from 3 choices tagged with different stats. Coaches boost gains for their associated stats.</p>';
     html += '<p>Agency visits at turns 5, 10, 15 let you pick upgrades!</p>';
     html += '</div>';
@@ -2610,7 +2610,7 @@ const UI = (() => {
     // Lead selection
     html += '<div class="team-section">';
     html += '<h3 class="liveon-section-title">Lead VTuber</h3>';
-    html += '<p class="team-hint">Their PS becomes your run HP. Higher PS = longer runs!</p>';
+    html += '<p class="team-hint">Their PS becomes your run HP (capped at 55). Manage it wisely!</p>';
     if (leadInfo) {
       const charData = Game.getState().characters[_liveonTeamState.lead];
       const ps = charData && charData.stats ? charData.stats.ps : 0;
@@ -2631,7 +2631,7 @@ const UI = (() => {
     // Coach slots
     html += '<div class="team-section">';
     html += '<h3 class="liveon-section-title">Support Coaches</h3>';
-    html += '<p class="team-hint">Each coach boosts 2 stats. Higher rarity = bigger bonus!</p>';
+    html += '<p class="team-hint">Each coach boosts subscriber gains. Higher rarity = bigger bonus!</p>';
     coachSlots.forEach(slot => {
       const coachSlug = _liveonTeamState.coaches[slot];
       const coachInfo = coachSlug ? DataLoader.getBySlug(coachSlug) : null;
@@ -3192,12 +3192,12 @@ const UI = (() => {
     }
 
     const endingClass = run.ending === 'good' ? 'ending-good' : run.ending === 'neutral' ? 'ending-neutral' : 'ending-bad';
-    const endingLabel = run.ending === 'good' ? 'Perfect Ending!' : run.ending === 'neutral' ? 'Normal Ending' : 'Stream Ended Early';
+    const endingLabel = run.ending === 'good' ? '\u2728 Trending Stream!' : run.ending === 'neutral' ? 'Great Stream!' : 'Decent Stream';
     const endingDesc = run.ending === 'good'
-      ? 'An incredible stream! Your lead VTuber delivered beyond expectations!'
+      ? 'Your VTuber\'s stream became the talk of the net!'
       : run.ending === 'neutral'
-        ? 'A decent stream. Not perfect, but the fans still enjoyed it.'
-        : 'Your lead ran out of passion mid-stream... Better luck next time.';
+        ? 'Your VTuber\'s stream is a success, keep it up!'
+        : 'The stream was decent, your VTuber definitely can do better next time.';
 
     let html = `<div class="liveon-results-layout ${endingClass}">`;
     html += `<div class="results-header">
@@ -3209,9 +3209,10 @@ const UI = (() => {
     </div>`;
 
     html += '<div class="results-stats">';
-    html += `<div class="results-stat"><span>Turns Survived</span><strong>${(run.subscriberLog && run.subscriberLog.length) || run.turn}</strong></div>`;
+
     html += `<div class="results-stat"><span>Total Subscribers</span><strong>${formatNum(run.subscribers)}</strong></div>`;
     html += `<div class="results-stat"><span>Ending Multiplier</span><strong>${run.ending === 'good' ? '120%' : run.ending === 'neutral' ? '100%' : '60%'}</strong></div>`;
+    html += `<div class="results-stat"><span>Turns Survived</span><strong>${(run.subscriberLog && run.subscriberLog.length) || run.turn} / 20</strong></div>`;
     html += '</div>';
 
     html += '<div class="results-rewards">';
