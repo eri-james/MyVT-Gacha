@@ -958,9 +958,21 @@ const LiveON = (() => {
     const mult = ENDING_MULT[ending] || 1.0;
     const turnsSurvived = _runState.subscriberLog.length;
 
+    // VGems reward bracket based on turns survived
+    const VGEMS_BRACKETS = [
+      { minTurn: 1,  maxTurn: 5,  min: 10,  max: 20  },
+      { minTurn: 6,  maxTurn: 10, min: 30,  max: 50  },
+      { minTurn: 11, maxTurn: 15, min: 60,  max: 100 },
+      { minTurn: 16, maxTurn: 19, min: 120, max: 150 },
+      { minTurn: 20, maxTurn: 20, min: 160, max: 200 },
+    ];
+    const vgemsBracket = VGEMS_BRACKETS.find(b => turnsSurvived >= b.minTurn && turnsSurvived <= b.maxTurn);
+    const vgemsReward = vgemsBracket ? vgemsBracket.min + Math.floor(Math.random() * (vgemsBracket.max - vgemsBracket.min + 1)) : 0;
+
     // Calculate rewards
     const bondBase = Math.min(turnsSurvived * 3, 60); // max 60 from turns
     const rewards = {
+      vgems: vgemsReward,
       vringgit: Math.floor(_runState.subscribers / 10 * mult),
       liveCache: Math.floor(_runState.subscribers / 20 * mult),
       bondExp: bondBase,
@@ -973,6 +985,11 @@ const LiveON = (() => {
 
     // Apply rewards to game state
     const state = Game.getState();
+
+    // VGems
+    if (rewards.vgems > 0) {
+      state.currencies.vgems = (state.currencies.vgems || 0) + rewards.vgems;
+    }
 
     // VRinggit
     if (rewards.vringgit > 0) {

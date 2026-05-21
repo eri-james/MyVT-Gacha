@@ -3217,9 +3217,10 @@ const UI = (() => {
     html += '<div class="results-rewards">';
     html += '<h3>Rewards</h3>';
     if (run.rewards) {
+      html += `<div class="reward-row">${CurrencyIcons.vgems(14)} <span>VGems +${formatNum(run.rewards.vgems)}</span></div>`;
       html += `<div class="reward-row">${CurrencyIcons.vringgit(14)} <span>VRinggit +${formatNum(run.rewards.vringgit)}</span></div>`;
       html += `<div class="reward-row">${CurrencyIcons.livecache(14)} <span>LiveCache +${formatNum(run.rewards.liveCache)}</span></div>`;
-      html += `<div class="reward-row">${CurrencyIcons.vgems(14)} <span>Producer EXP +${formatNum(run.rewards.bondExp)}</span></div>`;
+      html += `<div class="reward-row" style="opacity:0.8"><span style="color:var(--rarity-ssr)">&#9733;</span> <span>Bond EXP +${formatNum(run.rewards.bondExp)}</span></div>`;
     }
     html += '</div>';
 
