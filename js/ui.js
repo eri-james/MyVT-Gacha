@@ -296,7 +296,9 @@ const UI = (() => {
     if (tab !== 'home' && typeof FX !== 'undefined') {
       FX.resetHome();
       // Clear any GSAP inline styles that may persist
-      gsap.set('.featured-showcase, .game-panel-btn, .landing-banner', { clearProps: 'all' });
+      if (typeof gsap !== 'undefined') {
+        gsap.set('.featured-showcase, .game-panel-btn, .landing-banner', { clearProps: 'all' });
+      }
     }
 
     if (tab === 'collection') { _collectionPage = 0; renderCollection(); }

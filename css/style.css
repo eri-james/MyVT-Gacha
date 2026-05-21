@@ -520,7 +520,7 @@ body.home-active #tab-home::before {
   right: 0;
   background: linear-gradient(transparent, rgba(30, 20, 50, 0.85));
   padding: var(--space-lg) var(--space-md) var(--space-md);
-  padding-left: calc(var(--space-md) + 44px);
+  padding-left: calc(var(--space-md) + 36px);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -680,11 +680,11 @@ body.home-active #tab-home::before {
 .landing-banner-title {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #ffffff;
 }
 .landing-banner-sub {
   font-size: 0.65rem;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.6);
   margin-top: 2px;
 }
 
