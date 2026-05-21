@@ -283,6 +283,13 @@ const UI = (() => {
     // Toggle dark homepage theme on body
     document.body.classList.toggle('home-active', tab === 'home');
 
+    // Reset homepage FX flags when leaving so they replay on return
+    if (tab !== 'home' && typeof FX !== 'undefined') {
+      FX.resetHome();
+      // Clear any GSAP inline styles that may persist
+      gsap.set('.featured-showcase, .game-panel-btn, .landing-banner', { clearProps: 'all' });
+    }
+
     if (tab === 'collection') { _collectionPage = 0; renderCollection(); }
     if (tab === 'studio') renderStudio();
     if (tab === 'quests') renderQuests();

@@ -432,23 +432,23 @@ body {
   overflow: hidden;
 }
 
-/* Full-bleed background on the home tab */
-#tab-home {
-  position: relative;
-}
-#tab-home::before {
+/* Full-bleed background on the home tab — only visible when home is active */
+body.home-active #tab-home::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
-  background:
+  background-color: #1a1033;
+  background-image:
     linear-gradient(180deg,
       rgba(26, 16, 51, 0.92) 0%,
       rgba(45, 27, 78, 0.85) 40%,
       rgba(26, 16, 51, 0.95) 100%
     ),
-    url('https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fsteins-gate.us%2Fimages%2Fbg_about.jpg&f=1&nofb=1&ipt=69119e52031c1402ca2540f1476b859d2e09e44a4a73a21723361ada07cb1cee') center/cover no-repeat;
-  background-attachment: fixed;
+    url('https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fsteins-gate.us%2Fimages%2Fbg_about.jpg&f=1&nofb=1&ipt=69119e52031c1402ca2540f1476b859d2e09e44a4a73a21723361ada07cb1cee');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   pointer-events: none;
 }
 

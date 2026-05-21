@@ -5,6 +5,17 @@
 const FX = (() => {
   let particlesInit = false;
   let animationsInit = false;
+  let pulseTween = null;
+
+  // ── Reset flags (called when leaving the home tab) ──
+  function resetHome() {
+    particlesInit = false;
+    animationsInit = false;
+    if (pulseTween) {
+      pulseTween.kill();
+      pulseTween = null;
+    }
+  }
 
   // ── tsParticles — Homepage floating particles ──
   async function initHomeParticles() {
@@ -73,7 +84,7 @@ const FX = (() => {
     }, '-=0.2');
 
     // Featured select button pulses
-    gsap.to('.featured-select-btn', {
+    pulseTween = gsap.to('.featured-select-btn', {
       scale: 1.08,
       duration: 1.2,
       repeat: -1,
@@ -89,5 +100,6 @@ const FX = (() => {
   return {
     initHomeParticles,
     initHomeAnimations,
+    resetHome,
   };
 })();
