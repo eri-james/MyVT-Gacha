@@ -37,6 +37,9 @@ const LiveON = (() => {
   const SKIP_SUB_LOSS_PCT = 0.05;
   const SKIP_PS_LOSS = 10;
 
+  // PS cap — all rarities enter with similar budgets (SSR/UR can't brute-force with infinite PS)
+  const RUN_PS_CAP = 55;
+
   // Turn-scaled PS cost: every 5 turns, all costs increase by 1
   // T1-4: base, T5-9: +1, T10-14: +2, T15-19: +3, T20: +4
   // This creates escalating tension while staying fair across all rarities
@@ -572,8 +575,8 @@ const LiveON = (() => {
       return { success: false, reason: 'Stage coach is not owned.' };
     }
 
-    // Lead's current PS is the run's HP (not max)
-    const runPS = leadData.stats ? (leadData.stats.ps || 0) : 0;
+    // Lead's current PS is the run's HP (capped so all rarities face similar pressure)
+    const runPS = Math.min(leadData.stats ? (leadData.stats.ps || 0) : 0, RUN_PS_CAP);
     if (runPS <= 0) return { success: false, reason: 'Lead has no PS! Restore their Passion first.' };
 
     const targetSubs = FINALE_BASE_TARGET + scenario.difficulty * FINALE_DIFFICULTY_MULT;
@@ -589,7 +592,7 @@ const LiveON = (() => {
     };
     _runState.turn = 1;
     _runState.ps = runPS;
-    _runState.maxPS = leadData.baseStats ? (leadData.baseStats.ps || 0) : runPS;
+    _runState.maxPS = Math.min(leadData.baseStats ? (leadData.baseStats.ps || 0) : runPS, RUN_PS_CAP);
     _runState.targetSubs = targetSubs;
     _runState.currentEvent = getRandomEvent();
 
@@ -891,10 +894,7 @@ const LiveON = (() => {
         break;
       }
       case 'ps_recover': {
-        _runState.ps += effect.amount;
-        if (_runState.maxPS > 0 && _runState.ps > _runState.maxPS) {
-          _runState.ps = _runState.maxPS;
-        }
+        _runState.ps = Math.min(_runState.ps + effect.amount, RUN_PS_CAP);
         break;
       }
       case 'flat_subs': {
@@ -1127,6 +1127,7 @@ const LiveON = (() => {
       CHOICE_TIERS,
       SKIP_SUB_LOSS_PCT,
       SKIP_PS_LOSS,
+      RUN_PS_CAP,
       FINALE_BASE_TARGET,
       FINALE_DIFFICULTY_MULT,
       ENDING_MULT,
