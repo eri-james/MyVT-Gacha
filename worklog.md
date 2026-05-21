@@ -32,3 +32,33 @@ Stage Summary:
 - Dark theme from overhaul carried over
 - Game logic modules are pure functions, fully unit-testable
 - Next phase: Build Gacha module UI
+
+---
+Task ID: 2
+Agent: Main
+Task: Build Gacha module — banner selection, pull flow, reveal animation, summary
+
+Work Log:
+- Created CharacterCard.svelte — reusable card with full/compact modes, rarity borders/glows, stat display
+- Created GachaStore — banner state, pull results, reveal/summary overlay state, computed summary stats
+- Created gacha/+page.svelte — full gacha screen with:
+  - Banner selector (standard/featured) with featured character rate-up display
+  - Pity counter with gradient progress bar (blue → purple → gold at thresholds)
+  - Current rates display (pity-adjusted R/SR/SSR/UR)
+  - Pull stats (total pulls, SSR streak)
+  - Single pull (x1) and multi pull (x10) buttons with gradient styling
+  - VGem conversion note
+  - Full pull logic: rarity roll with pity, character selection, cost deduction, result handling
+  - Rollback on failure (reverts pity counter and streak)
+  - 10-pull guarantee: ensures at least 1 SR+ in multi-pull
+- Pull reveal overlay: single pull (centered large card) and multi pull (2×5 grid with staggered animations)
+- Pull summary overlay: new count, echo count, LiveCache gained, best rarity, updated pity
+- Added rarity-text-* CSS classes for text coloring
+- Fixed build errors: onclick|stopPropagation syntax, missing getFeaturedCharacters import, duplicate imports
+- Verified successful production build: 392KB total, gacha page 12.7KB
+
+Stage Summary:
+- Gacha module fully functional: banner switch, pull x1/x10, reveal animation, result summary
+- All pull logic ported from vanilla gacha.js with TypeScript type safety
+- Pity system with soft pity (40) and hard pity (90) visual progress
+- Next phase: Studio module (station management, content log, offline earnings)
