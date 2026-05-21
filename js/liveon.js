@@ -761,8 +761,8 @@ const LiveON = (() => {
     };
     _runState.subscriberLog.push(logEntry);
 
-    // Check for Bad Ending (PS hit 0)
-    if (_runState.ps <= 0 && turn < MAX_TURNS) {
+    // Check for Bad Ending (PS hit 0) — regardless of turn
+    if (_runState.ps <= 0) {
       _runState.ending = 'bad';
       endRun('bad');
       return { result: logEntry, runEnded: true, ending: 'bad' };
@@ -812,14 +812,24 @@ const LiveON = (() => {
     };
     _runState.subscriberLog.push(logEntry);
 
-    // Check Bad Ending
-    if (_runState.ps <= 0 && turn < MAX_TURNS) {
+    // Check Bad Ending (PS hit 0) — regardless of turn
+    if (_runState.ps <= 0) {
       _runState.ending = 'bad';
       endRun('bad');
       return { result: logEntry, runEnded: true, ending: 'bad' };
     }
 
+    // Advance turn
     _runState.turn++;
+
+    // Check if this was the last turn (turn 20) — determine ending
+    if (turn === MAX_TURNS) {
+      const ending = _runState.subscribers >= _runState.targetSubs ? 'good' : 'neutral';
+      _runState.ending = ending;
+      endRun(ending);
+      return { result: logEntry, runEnded: true, ending };
+    }
+
     _runState.currentEvent = getRandomEvent();
 
     return { result: logEntry, runEnded: false };

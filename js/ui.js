@@ -2951,8 +2951,10 @@ const UI = (() => {
       </button>`;
     });
 
-    // Skip button
-    html += `<button class="btn btn-danger skip-btn" data-skip="true">
+    // Skip button — disabled when player can't afford the PS cost
+    const skipPsCost = LiveON.getConstants().SKIP_PS_LOSS;
+    const skipDisabled = run.ps <= skipPsCost ? 'disabled' : '';
+    html += `<button class="btn btn-danger skip-btn" data-skip="true" ${skipDisabled}>
       <div class="choice-label">Skip Event</div>
       <div class="choice-outcome">-5% subs, -10 PS</div>
     </button>`;
