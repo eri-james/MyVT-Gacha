@@ -25,7 +25,7 @@ const LiveON = (() => {
   // R=1x, SR=1.5x, SSR=2x, UR=3x (so SSR coach = 20% bonus)
   const COACH_RARITY_MULT = { R: 1, SR: 1.5, SSR: 2, UR: 3 };
 
-  // Choice tier multipliers and PS costs (all turns)
+  // Choice tier multipliers and base PS costs (scaled by turn)
   // Stat check: each choice checks a different stat; if effective stat < threshold, choice is locked out
   const CHOICE_TIERS = {
     best:    { mult: 1.0, psCost: 2 },
@@ -36,6 +36,13 @@ const LiveON = (() => {
   // Skip penalty (player opts out or can't pick)
   const SKIP_SUB_LOSS_PCT = 0.05;
   const SKIP_PS_LOSS = 10;
+
+  // Turn-scaled PS cost: every 5 turns, all costs increase by 1
+  // T1-4: base, T5-9: +1, T10-14: +2, T15-19: +3, T20: +4
+  // This creates escalating tension while staying fair across all rarities
+  function getScaledPsCost(baseCost, turn) {
+    return baseCost + Math.floor(turn / 5);
+  }
 
   // Comeback bonus: flat +20 subs on Best choice success during final turn
   const FINALE_COMEBACK_BONUS = 20;
@@ -723,7 +730,7 @@ const LiveON = (() => {
     const coachBonus = calculateCoachBonus(stat);
     const tierData = CHOICE_TIERS[tier] || CHOICE_TIERS.neutral;
     let choiceMult = tierData.mult;
-    let psCost = tierData.psCost;
+    let psCost = getScaledPsCost(tierData.psCost, turn);
 
     // Apply chaos upgrades
     for (const chaos of _runState.chaosUpgrades) {
@@ -789,9 +796,9 @@ const LiveON = (() => {
     if (!_runState || !_runState.active) return { error: 'No active run.' };
     if (turn !== _runState.turn) return { error: 'Turn mismatch.' };
 
-    // Skip: lose 5% current total subs and 12 PS
+    // Skip: lose 5% current total subs and scaled PS
     const subLoss = Math.floor(_runState.subscribers * SKIP_SUB_LOSS_PCT);
-    const psLoss = SKIP_PS_LOSS;
+    const psLoss = getScaledPsCost(SKIP_PS_LOSS, turn);
 
     _runState.subscribers -= subLoss;
     if (_runState.subscribers < 0) _runState.subscribers = 0;
@@ -1159,6 +1166,7 @@ const LiveON = (() => {
 
     // Stat check
     getStatThreshold,
+    getScaledPsCost,
     canPickChoice,
     getStatCheckPreview,
     getLeadMaxStat,

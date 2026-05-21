@@ -2913,7 +2913,7 @@ const UI = (() => {
       const mults = { best: 1.0, good: 0.6, neutral: 0.4 };
       const psCosts = { best: 2, good: 5, neutral: 8 };
       const subPct = Math.round(mults[tier] * 100 * (1 + coachBonus));
-      const psCost = psCosts[tier];
+      const psCost = LiveON.getScaledPsCost(psCosts[tier], turnNum);
 
       // Check if choice is locked (stat too low)
       const preview = LiveON.getStatCheckPreview(choice.stat, tier, turnNum);
@@ -2954,12 +2954,12 @@ const UI = (() => {
     });
 
     // Track skip availability
-    const skipPsCost = LiveON.getConstants().SKIP_PS_LOSS;
+    const skipPsCost = LiveON.getScaledPsCost(LiveON.getConstants().SKIP_PS_LOSS, turnNum);
     const skipDisabled = run.ps < skipPsCost ? 'disabled' : '';
     if (!skipDisabled) anyActionAvailable = true;
     html += `<button class="btn btn-danger skip-btn" data-skip="true" ${skipDisabled}>
       <div class="choice-label">Skip Event</div>
-      <div class="choice-outcome">-5% subs, -10 PS</div>
+      <div class="choice-outcome">-5% subs, -${skipPsCost} PS</div>
     </button>`;
 
     // Escape hatch — if no action is available at all, provide a way to end the run
