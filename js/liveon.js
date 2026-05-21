@@ -761,22 +761,22 @@ const LiveON = (() => {
     };
     _runState.subscriberLog.push(logEntry);
 
-    // Check for Bad Ending (PS hit 0) — regardless of turn
-    if (_runState.ps <= 0) {
-      _runState.ending = 'bad';
-      endRun('bad');
-      return { result: logEntry, runEnded: true, ending: 'bad' };
-    }
-
     // Advance turn
     _runState.turn++;
 
-    // Check if this was the last turn (turn 20) — determine ending
+    // Check if this was the last turn (turn 20) — always end with good/neutral on finale
     if (turn === MAX_TURNS) {
       const ending = _runState.subscribers >= _runState.targetSubs ? 'good' : 'neutral';
       _runState.ending = ending;
       endRun(ending);
       return { result: logEntry, runEnded: true, ending };
+    }
+
+    // Check for Bad Ending (PS hit 0) — only after confirming it's not the finale
+    if (_runState.ps <= 0) {
+      _runState.ending = 'bad';
+      endRun('bad');
+      return { result: logEntry, runEnded: true, ending: 'bad' };
     }
 
     // Generate next event
@@ -812,22 +812,22 @@ const LiveON = (() => {
     };
     _runState.subscriberLog.push(logEntry);
 
-    // Check Bad Ending (PS hit 0) — regardless of turn
-    if (_runState.ps <= 0) {
-      _runState.ending = 'bad';
-      endRun('bad');
-      return { result: logEntry, runEnded: true, ending: 'bad' };
-    }
-
     // Advance turn
     _runState.turn++;
 
-    // Check if this was the last turn (turn 20) — determine ending
+    // Check if this was the last turn (turn 20) — always end with good/neutral on finale
     if (turn === MAX_TURNS) {
       const ending = _runState.subscribers >= _runState.targetSubs ? 'good' : 'neutral';
       _runState.ending = ending;
       endRun(ending);
       return { result: logEntry, runEnded: true, ending };
+    }
+
+    // Check Bad Ending (PS hit 0) — only after confirming it's not the finale
+    if (_runState.ps <= 0) {
+      _runState.ending = 'bad';
+      endRun('bad');
+      return { result: logEntry, runEnded: true, ending: 'bad' };
     }
 
     _runState.currentEvent = getRandomEvent();

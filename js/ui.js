@@ -2959,6 +2959,14 @@ const UI = (() => {
       <div class="choice-outcome">-5% subs, -10 PS</div>
     </button>`;
 
+    // Finale escape hatch — if all buttons are disabled on the finale, let them finish anyway
+    if (isFinale && skipDisabled && run.ps <= 2) {
+      html += `<button class="btn btn-primary finish-btn" data-finish="true">
+        <div class="choice-label">Finish Stream</div>
+        <div class="choice-outcome">No PS left — end the run</div>
+      </button>`;
+    }
+
     html += '</div>'; // .event-choices
     html += '</div>'; // .run-event
 
@@ -3031,6 +3039,20 @@ const UI = (() => {
           }
         } catch (e) {
           console.error('Live!ON skip error:', e);
+          showToast('Something went wrong. Try again.', 'warning');
+          renderLiveONRun();
+        }
+      });
+    });
+
+    // Finale escape hatch — end run directly with no PS cost
+    container.querySelectorAll('.finish-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        try {
+          LiveON.endRun();
+          showLiveONScreen('results');
+        } catch (e) {
+          console.error('Live!ON finish error:', e);
           showToast('Something went wrong. Try again.', 'warning');
           renderLiveONRun();
         }
