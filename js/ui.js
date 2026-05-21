@@ -1873,7 +1873,7 @@ const UI = (() => {
           </div>
           <div class="cdv-bond-text">${bondInfo.isMaxBond ? 'MAX' : bondInfo.bondPoints + ' / ' + bondInfo.nextLevelBpRequired + ' BP'}${bondInfo.totalBondStatBonus > 0 ? '  &middot;  +' + bondInfo.totalBondStatBonus + ' all stats' : ''}</div>
           ${bondInfo.isOnCooldown ? `<div class="cdv-bond-hint">Date cooldown: ${formatCooldown(bondInfo.cooldownRemaining)}</div>` : ''}
-          ${!bondInfo.isOnCooldown && (data.level || 1) < Game.BOND_DATE_LEVEL_REQ ? `<div class="cdv-bond-hint">Requires LV.${Game.BOND_DATE_LEVEL_REQ} to date</div>` : ''}
+          ${!bondInfo.isOnCooldown && bondInfo.bondLevel < Game.BOND_DATE_BOND_REQ ? `<div class="cdv-bond-hint">Requires Bond Lv.${Game.BOND_DATE_BOND_REQ} to date</div>` : ''}
         </div>
       `;
     }

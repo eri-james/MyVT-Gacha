@@ -158,7 +158,7 @@ const Game = (() => {
   ];
   const BOND_MAX_LEVEL = 8;
   const BOND_DATE_COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
-  const BOND_DATE_LEVEL_REQ = 10; // VTuber must be Level 10+
+  const BOND_DATE_BOND_REQ = 4; // VTuber must be Bond Level 4+ to date
 
   // Starting resources
   const OSHI_MAX = 6; // Maximum Oshi (favourite) slots
@@ -1393,7 +1393,7 @@ const Game = (() => {
       totalBondStatBonus: totalBondBonus, // per stat (all 6 stats get this much bonus)
       isOnCooldown,
       cooldownRemaining,
-      isDateEligible: (charData.level || 1) >= BOND_DATE_LEVEL_REQ && !isOnCooldown,
+      isDateEligible: bl >= BOND_DATE_BOND_REQ && !isOnCooldown,
     };
   }
 
@@ -1408,6 +1408,38 @@ const Game = (() => {
       total += BOND_LEVELS[i].statBonus;
     }
     return { st: total, ps: total, tc: total, ch: total, vc: total, mg: total };
+  }
+
+  // Check and apply bond level-ups for a character (call after adding bond points).
+  // Returns array of { newLevel, statBonus } for each level gained, or empty array.
+  function checkBondLevelUp(slug) {
+    const charData = state.characters[slug];
+    if (!charData) return [];
+    const bl = charData.bondLevel || 0;
+    const bp = charData.bondPoints || 0;
+    const gained = [];
+    let current = bl;
+    while (current < BOND_MAX_LEVEL && bp >= BOND_LEVELS[current].bpRequired) {
+      current++;
+      gained.push({ newLevel: current, statBonus: BOND_LEVELS[current - 1].statBonus });
+    }
+    if (gained.length > 0) {
+      charData.bondLevel = current;
+      // Apply cumulative stat bonuses from newly gained levels
+      if (charData.stats) {
+        for (const lvl of gained) {
+          for (const key of Object.keys(charData.stats)) {
+            charData.stats[key] += lvl.statBonus;
+          }
+        }
+        // Sync baseStats caps for ST/PS
+        if (charData.baseStats) {
+          charData.baseStats.st = Math.max(charData.baseStats.st || 0, charData.stats.st || 0);
+          charData.baseStats.ps = Math.max(charData.baseStats.ps || 0, charData.stats.ps || 0);
+        }
+      }
+    }
+    return gained;
   }
 
   // ═══════════════════════════════════════════════
@@ -1839,8 +1871,8 @@ const Game = (() => {
     STAMINA_MAX, STAMINA_RECOVERY_INTERVAL_MS, LIVEON_STAMINA_COST,
     purchaseShopItem, getShopItems, SHOP_ITEMS,
     recoverVTuberStamina, recoverAllVTuberStamina, restoreVTuberStamina, useVTuberStamina, getVTuberStaminaInfo,
-    getCharacterBondInfo, getBondStatBonus,
-    BOND_MAX_LEVEL, BOND_LEVELS, BOND_DATE_COOLDOWN_MS, BOND_DATE_LEVEL_REQ,
+    getCharacterBondInfo, getBondStatBonus, checkBondLevelUp,
+    BOND_MAX_LEVEL, BOND_LEVELS, BOND_DATE_COOLDOWN_MS, BOND_DATE_BOND_REQ,
     OSHI_MAX, isOshi, getOshiList, getOshiCount, toggleOshi,
     repairBaseStats,
     getProducerInfo, addProducerExp, PRODUCER_MAX_LEVEL,

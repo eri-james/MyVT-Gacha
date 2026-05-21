@@ -989,6 +989,7 @@ const LiveON = (() => {
       const leadData = state.characters[_runState.lead];
       if (leadData) {
         leadData.bondPoints = (leadData.bondPoints || 0) + rewards.bondExp;
+        Game.checkBondLevelUp(_runState.lead);
       }
     }
 
@@ -1001,6 +1002,7 @@ const LiveON = (() => {
         const coachData = state.characters[coachSlug];
         if (coachData) {
           coachData.bondPoints = (coachData.bondPoints || 0) + coachBondExp;
+          Game.checkBondLevelUp(coachSlug);
         }
       }
     }
