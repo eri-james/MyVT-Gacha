@@ -1,0 +1,170 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── MyVT-Gacha Dark Theme (carried over from overhaul) ─── */
+
+:root {
+	--bg-primary: #0a0e1a;
+	--bg-secondary: #111827;
+	--bg-glass: rgba(255, 255, 255, 0.05);
+	--border-glass: rgba(255, 255, 255, 0.1);
+	--text-primary: #ffffff;
+	--text-secondary: rgba(255, 255, 255, 0.6);
+	--text-muted: rgba(255, 255, 255, 0.4);
+	--accent-blue: #42a5f5;
+	--accent-purple: #c77dff;
+	--accent-gold: #fbbf24;
+	--accent-green: #66bb6a;
+	--accent-red: #ef5350;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html,
+body {
+	font-family: 'Inter', system-ui, -apple-system, sans-serif;
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	overflow-x: hidden;
+	min-height: 100vh;
+	min-height: 100dvh;
+}
+
+/* Prevent text selection on game UI */
+body {
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+/* Allow text selection on specific elements */
+.selectable {
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+/* ─── Glass Morphism ─── */
+
+.glass {
+	background: var(--bg-glass);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border: 1px solid var(--border-glass);
+	border-radius: 12px;
+}
+
+.glass-strong {
+	background: rgba(255, 255, 255, 0.08);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 12px;
+}
+
+/* ─── Rarity Colors ─── */
+
+.rarity-R { color: #9ca3af; }
+.rarity-SR { color: #60a5fa; }
+.rarity-SSR { color: #c77dff; }
+.rarity-UR { color: #fbbf24; }
+
+.rarity-border-R { border-color: #9ca3af; }
+.rarity-border-SR { border-color: #60a5fa; }
+.rarity-border-SSR { border-color: #c77dff; }
+.rarity-border-UR { border-color: #fbbf24; }
+
+.rarity-glow-R { box-shadow: 0 0 8px rgba(156, 163, 175, 0.3); }
+.rarity-glow-SR { box-shadow: 0 0 8px rgba(96, 165, 250, 0.3); }
+.rarity-glow-SSR { box-shadow: 0 0 12px rgba(199, 125, 255, 0.4); }
+.rarity-glow-UR { box-shadow: 0 0 16px rgba(251, 191, 36, 0.5); }
+
+.rarity-bg-R { background-color: rgba(156, 163, 175, 0.1); }
+.rarity-bg-SR { background-color: rgba(96, 165, 250, 0.1); }
+.rarity-bg-SSR { background-color: rgba(199, 125, 255, 0.1); }
+.rarity-bg-UR { background-color: rgba(251, 191, 36, 0.15); }
+
+/* ─── Scrollbar ─── */
+
+::-webkit-scrollbar {
+	width: 4px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.15);
+	border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.25);
+}
+
+/* ─── Utility Classes ─── */
+
+.text-glow {
+	text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.safe-bottom {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-top {
+	padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ─── Animation Utilities ─── */
+
+.animate-fade-in {
+	animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+	animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes slideUp {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* ─── Pull Reveal Animation ─── */
+
+@keyframes shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+.shimmer {
+	background: linear-gradient(90deg, transparent 25%, rgba(255, 255, 255, 0.08) 50%, transparent 75%);
+	background-size: 200% 100%;
+	animation: shimmer 1.5s infinite;
+}
