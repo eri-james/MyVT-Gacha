@@ -7,7 +7,7 @@ const LiveON = (() => {
   // ── Constants ──────────────────────────────────────────
 
   const MAX_TURNS = 20;
-  const SAFE_ZONE_END = 0; // no safe zone — all turns have stat checks + PS costs
+  const SAFE_ZONE_END = 0; // removed — all turns have stat checks + PS costs
   const AGENCY_VISIT_TURNS = [5, 10, 15];
 
   const COACH_SLOTS = ['streamer', 'performance', 'stage'];
@@ -26,15 +26,19 @@ const LiveON = (() => {
   const COACH_RARITY_MULT = { R: 1, SR: 1.5, SSR: 2, UR: 3 };
 
   // Choice tier multipliers and PS costs (all turns)
+  // Stat check: each choice checks a different stat; if effective stat < threshold, choice is locked out
   const CHOICE_TIERS = {
-    best:    { mult: 1.0, psCost: 0 },
-    neutral: { mult: 0.7, psCost: 4 },
-    fumble:  { mult: 0.5, psCost: 8 },
+    best:    { mult: 1.0, psCost: 2 },
+    good:    { mult: 0.6, psCost: 5 },
+    neutral: { mult: 0.4, psCost: 8 },
   };
 
   // Skip penalty (player opts out or can't pick)
   const SKIP_SUB_LOSS_PCT = 0.05;
-  const SKIP_PS_LOSS = 12;
+  const SKIP_PS_LOSS = 10;
+
+  // Comeback bonus: flat +20 subs on Best choice success during final turn
+  const FINALE_COMEBACK_BONUS = 20;
 
   // Finale target formula: FINALE_BASE_TARGET + scenario.difficulty * FINALE_DIFFICULTY_MULT
   const FINALE_BASE_TARGET = 1100; // 1100 + 1*100 = 1200 finale target
@@ -70,8 +74,8 @@ const LiveON = (() => {
       description: 'Your lead is shaking before their first stream. The chat is already filling with anticipation…',
       choices: [
         { label: 'Give a heartfelt pep talk', stat: 'ch', tier: 'best' },
-        { label: 'Run full tech checks to distract them', stat: 'tc', tier: 'neutral' },
-        { label: 'Just push them live — sink or swim!', stat: 'mg', tier: 'fumble' },
+        { label: 'Run full tech checks to distract them', stat: 'tc', tier: 'good' },
+        { label: 'Just push them live — sink or swim!', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -80,8 +84,8 @@ const LiveON = (() => {
       description: 'Mid-stream audio cuts out and the bitrate is dropping. Viewers are starting to leave…',
       choices: [
         { label: 'Diagnose and fix the setup live', stat: 'tc', tier: 'best' },
-        { label: 'Switch to a backup streaming rig', stat: 'mg', tier: 'neutral' },
-        { label: 'Pretend it\'s a "silent challenge" stream', stat: 'ch', tier: 'fumble' },
+        { label: 'Switch to a backup streaming rig', stat: 'mg', tier: 'good' },
+        { label: 'Pretend it\'s a "silent challenge" stream', stat: 'ch', tier: 'neutral' },
       ],
     },
     {
@@ -90,8 +94,8 @@ const LiveON = (() => {
       description: 'A generous fan drops a massive superchat. Chat erupts. How does your lead respond?',
       choices: [
         { label: 'Deliver an emotional thank-you speech', stat: 'ch', tier: 'best' },
-        { label: 'Plan a special content reward for donors', stat: 'mg', tier: 'neutral' },
-        { label: 'Scream and break character composure', stat: 'vc', tier: 'fumble' },
+        { label: 'Plan a special content reward for donors', stat: 'mg', tier: 'good' },
+        { label: 'Scream and break character composure', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -100,8 +104,8 @@ const LiveON = (() => {
       description: 'A popular VTuber from another agency slides into your DMs wanting to collab. This could be huge…',
       choices: [
         { label: 'Coordinate a polished joint stream plan', stat: 'mg', tier: 'best' },
-        { label: 'Freestyle it — organic chemistry matters', stat: 'ch', tier: 'neutral' },
-        { label: 'Say yes but wing the entire setup', stat: 'tc', tier: 'fumble' },
+        { label: 'Freestyle it — organic chemistry matters', stat: 'ch', tier: 'good' },
+        { label: 'Say yes but wing the entire setup', stat: 'tc', tier: 'neutral' },
       ],
     },
     {
@@ -109,9 +113,9 @@ const LiveON = (() => {
       title: 'Trolls in Chat',
       description: 'A coordinated raid of antis floods the chat with negativity. Your lead\'s composure is tested…',
       choices: [
-        { label: 'Laugh it off with professional charm', stat: 'ch', tier: 'best' },
-        { label: 'Use moderation tools to clean house', stat: 'tc', tier: 'neutral' },
-        { label: 'Get visibly frustrated on stream', stat: 'vc', tier: 'fumble' },
+        { label: 'Deploy anti-troll tools and timing', stat: 'tc', tier: 'best' },
+        { label: 'Laugh it off with professional charm', stat: 'ch', tier: 'good' },
+        { label: 'Get visibly frustrated on stream', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -120,8 +124,8 @@ const LiveON = (() => {
       description: 'A 30-second clip from yesterday\'s stream is going viral on social media! New viewers are flooding in…',
       choices: [
         { label: 'Capitalize with a follow-up stream', stat: 'mg', tier: 'best' },
-        { label: 'Engage the new fans on social media', stat: 'ch', tier: 'neutral' },
-        { label: 'Ignore it and do your usual content', stat: 'vc', tier: 'fumble' },
+        { label: 'Engage the new fans on social media', stat: 'ch', tier: 'good' },
+        { label: 'Ignore it and do your usual content', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -130,8 +134,8 @@ const LiveON = (() => {
       description: 'Your current mic is crackling and the lighting is dim. Time to invest in better gear?',
       choices: [
         { label: 'Research and buy optimal gear within budget', stat: 'mg', tier: 'best' },
-        { label: 'Borrow equipment from a senpai VTuber', stat: 'ch', tier: 'neutral' },
-        { label: 'DIY a solution with duct tape and prayers', stat: 'tc', tier: 'fumble' },
+        { label: 'Borrow equipment from a senpai VTuber', stat: 'ch', tier: 'good' },
+        { label: 'DIY a solution with duct tape and prayers', stat: 'tc', tier: 'neutral' },
       ],
     },
     {
@@ -139,9 +143,9 @@ const LiveON = (() => {
       title: 'Fan Art Showcase',
       description: 'Fans have been flooding your hashtag with amazing artwork. Time for a dedicated art stream!',
       choices: [
-        { label: 'Prepare a heartfelt commentary on each piece', stat: 'ch', tier: 'best' },
-        { label: 'Set up a polished gallery overlay', stat: 'tc', tier: 'neutral' },
-        { label: 'Rush through them — too many to cover', stat: 'mg', tier: 'fumble' },
+        { label: 'Set up a polished gallery overlay', stat: 'tc', tier: 'best' },
+        { label: 'Prepare heartfelt commentary on each piece', stat: 'ch', tier: 'good' },
+        { label: 'Rush through them — too many to cover', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -150,8 +154,8 @@ const LiveON = (() => {
       description: 'Chat has been begging for ASMR content. Your lead has never tried it before…',
       choices: [
         { label: 'Practice whispering techniques beforehand', stat: 'vc', tier: 'best' },
-        { label: 'Study popular ASMR VTuber methods', stat: 'mg', tier: 'neutral' },
-        { label: 'Just start whispering into the mic randomly', stat: 'tc', tier: 'fumble' },
+        { label: 'Study popular ASMR VTuber methods', stat: 'mg', tier: 'good' },
+        { label: 'Just start whispering into the mic randomly', stat: 'tc', tier: 'neutral' },
       ],
     },
     {
@@ -160,8 +164,8 @@ const LiveON = (() => {
       description: 'Karaoke night! Your lead\'s singing will be on full display. This is make-or-break for growth.',
       choices: [
         { label: 'Rehearse song picks and warm up vocals', stat: 'vc', tier: 'best' },
-        { label: 'Take song requests from chat live', stat: 'ch', tier: 'neutral' },
-        { label: 'Sing loudly but completely off-key', stat: 'mg', tier: 'fumble' },
+        { label: 'Take song requests from chat live', stat: 'ch', tier: 'good' },
+        { label: 'Sing loudly but completely off-key', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -170,8 +174,8 @@ const LiveON = (() => {
       description: 'The game your lead is playing keeps crashing and corrupting their save file. Chat is laughing…',
       choices: [
         { label: 'Turn the disaster into entertaining content', stat: 'ch', tier: 'best' },
-        { label: 'Troubleshoot and switch games smoothly', stat: 'tc', tier: 'neutral' },
-        { label: 'Rage-quit on stream dramatically', stat: 'vc', tier: 'fumble' },
+        { label: 'Troubleshoot and switch games smoothly', stat: 'tc', tier: 'good' },
+        { label: 'Rage-quit on stream dramatically', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -180,8 +184,8 @@ const LiveON = (() => {
       description: 'A local charity has asked your lead to host a fundraiser stream. Great for reputation!',
       choices: [
         { label: 'Organize milestone-based donation goals', stat: 'mg', tier: 'best' },
-        { label: 'Pour genuine emotion into the cause', stat: 'ch', tier: 'neutral' },
-        { label: ' wing it and hope donations flow naturally', stat: 'vc', tier: 'fumble' },
+        { label: 'Pour genuine emotion into the cause', stat: 'ch', tier: 'good' },
+        { label: 'Wing it and hope donations flow naturally', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -190,8 +194,8 @@ const LiveON = (() => {
       description: 'Anonymous questions are pouring in. Some are wholesome, some are… spicy.',
       choices: [
         { label: 'Filter carefully and answer thoughtfully', stat: 'mg', tier: 'best' },
-        { label: 'Read everything raw for authentic reactions', stat: 'ch', tier: 'neutral' },
-        { label: 'Only pick the weird ones for shock value', stat: 'tc', tier: 'fumble' },
+        { label: 'Read everything raw for authentic reactions', stat: 'ch', tier: 'good' },
+        { label: 'Only pick the weird ones for shock value', stat: 'tc', tier: 'neutral' },
       ],
     },
     {
@@ -200,8 +204,8 @@ const LiveON = (() => {
       description: 'The mama/papa has finished a gorgeous new costume! Time for the grand reveal stream.',
       choices: [
         { label: 'Plan a choreographed reveal with effects', stat: 'vc', tier: 'best' },
-        { label: 'Show it off casually with genuine excitement', stat: 'ch', tier: 'neutral' },
-        { label: 'Wear it backward and pretend it\'s intentional', stat: 'mg', tier: 'fumble' },
+        { label: 'Show it off casually with genuine excitement', stat: 'ch', tier: 'good' },
+        { label: 'Wear it backward and pretend it\'s intentional', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -209,9 +213,9 @@ const LiveON = (() => {
       title: 'Stream Marathon',
       description: 'Your lead wants to attempt a 12-hour endurance stream. Their energy management is crucial.',
       choices: [
-        { label: 'Schedule breaks and prepare snacks/drinks', stat: 'mg', tier: 'best' },
-        { label: 'Power through with sheer determination', stat: 'ch', tier: 'neutral' },
-        { label: 'Fall asleep on stream after 3 hours', stat: 'vc', tier: 'fumble' },
+        { label: 'Maintain vocal energy throughout', stat: 'vc', tier: 'best' },
+        { label: 'Power through with sheer determination', stat: 'ch', tier: 'good' },
+        { label: 'Forget schedule and wing it entirely', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -219,9 +223,9 @@ const LiveON = (() => {
       title: 'Harsh Review',
       description: 'A prominent VTuber reviewer just published a scathing critique of your lead\'s content. Ouch.',
       choices: [
-        { label: 'Analyze the feedback for actionable improvements', stat: 'mg', tier: 'best' },
-        { label: 'Address it professionally on next stream', stat: 'ch', tier: 'neutral' },
-        { label: 'Make a passive-aggressive reply video', stat: 'vc', tier: 'fumble' },
+        { label: 'Use data to track and improve metrics', stat: 'tc', tier: 'best' },
+        { label: 'Address it professionally on next stream', stat: 'ch', tier: 'good' },
+        { label: 'Make a passive-aggressive reply video', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -230,8 +234,8 @@ const LiveON = (() => {
       description: 'Chat has compiled a folder of memes about your lead. Most are flattering… most.',
       choices: [
         { label: 'React with perfect comedic timing', stat: 'ch', tier: 'best' },
-        { label: 'Set up a professional slideshow presentation', stat: 'tc', tier: 'neutral' },
-        { label: 'Get offended at every single meme', stat: 'vc', tier: 'fumble' },
+        { label: 'Set up a professional slideshow presentation', stat: 'tc', tier: 'good' },
+        { label: 'Get offended at every single meme', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -239,9 +243,9 @@ const LiveON = (() => {
       title: 'Cooking Stream',
       description: 'Your lead attempts to cook live on stream. The kitchen may or may not survive.',
       choices: [
-        { label: 'Follow a tested recipe with mise en place', stat: 'mg', tier: 'best' },
-        { label: 'Improvise with chat-suggested ingredients', stat: 'ch', tier: 'neutral' },
-        { label: 'Set off the smoke alarm within 5 minutes', stat: 'tc', tier: 'fumble' },
+        { label: 'Set up camera for cooking show presentation', stat: 'tc', tier: 'best' },
+        { label: 'Improvise with chat-suggested ingredients', stat: 'ch', tier: 'good' },
+        { label: 'Wing it without any preparation', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -249,9 +253,9 @@ const LiveON = (() => {
       title: 'Milestone Celebration',
       description: 'Your lead is approaching a major subscriber milestone! Time to celebrate properly.',
       choices: [
-        { label: 'Plan an elaborate variety show', stat: 'mg', tier: 'best' },
-        { label: 'Do a heartfelt gratitude stream with fans', stat: 'ch', tier: 'neutral' },
-        { label: 'Just shout "THANKS" and play a game', stat: 'vc', tier: 'fumble' },
+        { label: 'Sing a special celebration song', stat: 'vc', tier: 'best' },
+        { label: 'Do a heartfelt gratitude stream with fans', stat: 'ch', tier: 'good' },
+        { label: 'Just announce it and move on', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -260,18 +264,18 @@ const LiveON = (() => {
       description: 'Chat voted for the scariest horror game available. Your lead is terrified of horror.',
       choices: [
         { label: 'Use voice acting skills to play it up', stat: 'vc', tier: 'best' },
-        { label: 'Bribe chat to switch to a cozy game', stat: 'ch', tier: 'neutral' },
-        { label: 'Scream so loud the mic clips every 10 seconds', stat: 'mg', tier: 'fumble' },
+        { label: 'Bribe chat to switch to a cozy game', stat: 'ch', tier: 'good' },
+        { label: 'Scream so loud the mic clips every 10 seconds', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
       id: 'evt_relay_race',
       title: 'Agency Relay',
-      description: 'The agency is hosting a接力 (relay) stream event. Your lead needs to pass the baton smoothly.',
+      description: 'The agency is hosting a relay stream event. Your lead needs to pass the baton smoothly.',
       choices: [
         { label: 'Coordinate handoff timing with next VTuber', stat: 'mg', tier: 'best' },
-        { label: 'Give an energetic and memorable segment', stat: 'vc', tier: 'neutral' },
-        { label: 'Forget about the relay and go over time', stat: 'tc', tier: 'fumble' },
+        { label: 'Give an energetic and memorable segment', stat: 'vc', tier: 'good' },
+        { label: 'Forget about the relay and go over time', stat: 'tc', tier: 'neutral' },
       ],
     },
     {
@@ -280,8 +284,8 @@ const LiveON = (() => {
       description: 'Management wants your lead to make a major announcement on stream. The stakes are high.',
       choices: [
         { label: 'Prepare a polished presentation with visuals', stat: 'tc', tier: 'best' },
-        { label: 'Deliver the news with genuine excitement', stat: 'ch', tier: 'neutral' },
-        { label: 'Accidentally leak the news on Twitter first', stat: 'mg', tier: 'fumble' },
+        { label: 'Deliver the news with genuine excitement', stat: 'ch', tier: 'good' },
+        { label: 'Accidentally leak the news on Twitter first', stat: 'mg', tier: 'neutral' },
       ],
     },
     {
@@ -290,8 +294,8 @@ const LiveON = (() => {
       description: 'A relaxed talking stream with no plan. Just your lead and their thoughts. Simple, right?',
       choices: [
         { label: 'Weave engaging stories and anecdotes', stat: 'ch', tier: 'best' },
-        { label: 'Prepare talking points hidden in a second monitor', stat: 'mg', tier: 'neutral' },
-        { label: 'Stare at chat in silence for 2 minutes', stat: 'vc', tier: 'fumble' },
+        { label: 'Prepare talking points hidden in a second monitor', stat: 'mg', tier: 'good' },
+        { label: 'Stare at chat in silence for 2 minutes', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -300,8 +304,8 @@ const LiveON = (() => {
       description: 'Your lead\'s stream hashtag is suddenly trending! New viewers are pouring in from everywhere.',
       choices: [
         { label: 'Welcome newcomers warmly and explain the channel', stat: 'ch', tier: 'best' },
-        { label: 'Quickly set up a fresh overlay for new viewers', stat: 'tc', tier: 'neutral' },
-        { label: 'Panic and freeze under the pressure', stat: 'vc', tier: 'fumble' },
+        { label: 'Quickly set up a fresh overlay for new viewers', stat: 'tc', tier: 'good' },
+        { label: 'Panic and freeze under the pressure', stat: 'vc', tier: 'neutral' },
       ],
     },
     {
@@ -310,8 +314,8 @@ const LiveON = (() => {
       description: 'A professional voice coach is watching and offering live tips. Chat is hype!',
       choices: [
         { label: 'Follow the advice and demonstrate range', stat: 'vc', tier: 'best' },
-        { label: 'Ask thoughtful questions about technique', stat: 'ch', tier: 'neutral' },
-        { label: 'Try to imitate a dubbing meme instead', stat: 'mg', tier: 'fumble' },
+        { label: 'Ask thoughtful questions about technique', stat: 'ch', tier: 'good' },
+        { label: 'Try to imitate a dubbing meme instead', stat: 'mg', tier: 'neutral' },
       ],
     },
   ];
@@ -612,40 +616,59 @@ const LiveON = (() => {
 
 
   // ── Stat Check for Choices ────────────────────────────
-  // Best choice requires meeting a stat threshold; fail = downgraded to Neutral.
-  // Threshold scales with turn number so later turns demand stronger teams.
+  // Each choice (Best/Good/Neutral) checks a different stat against a threshold.
+  // If effective stat < threshold, the choice is LOCKED OUT (greyed out).
+  // Threshold scales with turn number AND the lead's max base stat.
 
   const STAT_CHECK_ENABLED = true;
-  // Threshold for all turns (1-20), scales up by +2 per turn
-  // Turn 1: 8, Turn 5: 16, Turn 10: 26, Turn 15: 36, Turn 20: 46
-  function getStatThreshold(turn) {
-    return 6 + turn * 2;
+
+  // Get the lead's highest base stat (before coach bonuses)
+  function getLeadMaxStat() {
+    if (!_runState || !_runState.active || !_runState.lead) return 20; // fallback
+    const state = Game.getState();
+    const charData = state.characters[_runState.lead];
+    if (!charData || !charData.stats) return 20;
+    const tc = charData.stats.tc || 0;
+    const ch = charData.stats.ch || 0;
+    const vc = charData.stats.vc || 0;
+    const mg = charData.stats.mg || 0;
+    return Math.max(tc, ch, vc, mg);
   }
 
-  // Returns stat check preview for UI display
-  function getStatCheckPreview(stat, turn) {
-    if (!STAT_CHECK_ENABLED) return { enabled: false };
+  // Threshold formula: scales from lead's max base stat
+  // Best:    ~70% at turn 1 → ~100% at turn 20 of max stat
+  // Good:    ~43% at turn 1 → ~68% at turn 20
+  // Neutral: ~16% at turn 1 → ~25% at turn 20
+  function getStatThreshold(tier, turn) {
+    const base = getLeadMaxStat();
+    switch (tier) {
+      case 'best':    return Math.round(base * (0.70 + turn * 0.015));
+      case 'good':    return Math.round(base * (0.42 + turn * 0.013));
+      case 'neutral': return Math.round(base * (0.15 + turn * 0.005));
+      default:        return Infinity;
+    }
+  }
+
+  // Check if a choice is available (not locked out)
+  function canPickChoice(stat, tier, turn) {
+    if (!STAT_CHECK_ENABLED) return { canPick: true, playerStat: 0, threshold: 0 };
     const effective = getEffectiveStats();
-    if (!effective) return { enabled: false };
+    if (!effective) return { canPick: false, playerStat: 0, threshold: Infinity };
     const statData = effective.boosted[stat];
     const playerStat = statData ? statData.total : 0;
-    const threshold = getStatThreshold(turn);
+    const threshold = getStatThreshold(tier, turn);
     return {
-      enabled: true,
+      canPick: playerStat >= threshold,
       playerStat,
       threshold,
-      willPass: playerStat >= threshold,
+      tier,
     };
   }
 
-  function checkStatForChoice(stat, turn) {
-    if (!STAT_CHECK_ENABLED) return { passed: true };
-    const effective = getEffectiveStats();
-    if (!effective) return { passed: true }; // fallback: no check if no stats
-    const statData = effective.boosted[stat];
-    const playerStat = statData ? statData.total : 0;
-    const threshold = getStatThreshold(turn);
-    return { passed: playerStat >= threshold, playerStat, threshold };
+  // Returns choice availability for UI display (any tier)
+  function getStatCheckPreview(stat, tier, turn) {
+    if (!STAT_CHECK_ENABLED) return { enabled: false };
+    return canPickChoice(stat, tier, turn);
   }
 
 
@@ -681,23 +704,22 @@ const LiveON = (() => {
     const choice = event.choices[choiceIndex];
     const stat = choice.stat;
     const tier = choice.tier;
-    const coachBonus = calculateCoachBonus(stat);
 
-    let subGain, psCost;
-    let effectiveTier = tier; // may be downgraded by stat check
-    let statCheck = { passed: true };
-
-    // Stat check: Best choice can be downgraded to Neutral if stat is too low
-    if (tier === 'best') {
-      statCheck = checkStatForChoice(stat, turn);
-      if (!statCheck.passed) {
-        effectiveTier = 'neutral';
-      }
+    // Lockout check: is this choice available?
+    const pickCheck = canPickChoice(stat, tier, turn);
+    if (!pickCheck.canPick) {
+      return {
+        error: 'Choice locked',
+        locked: true,
+        playerStat: pickCheck.playerStat,
+        threshold: pickCheck.threshold,
+      };
     }
 
-    const tierData = CHOICE_TIERS[effectiveTier] || CHOICE_TIERS.neutral;
+    const coachBonus = calculateCoachBonus(stat);
+    const tierData = CHOICE_TIERS[tier] || CHOICE_TIERS.neutral;
     let choiceMult = tierData.mult;
-    psCost = tierData.psCost;
+    let psCost = tierData.psCost;
 
     // Apply chaos upgrades
     for (const chaos of _runState.chaosUpgrades) {
@@ -705,7 +727,12 @@ const LiveON = (() => {
       psCost += chaos.psPenalty;
     }
 
-    subGain = calculateBaseSubs(turn) * choiceMult * (1 + coachBonus);
+    let subGain = calculateBaseSubs(turn) * choiceMult * (1 + coachBonus);
+
+    // Turn 20 comeback: Best choice gives flat +20 bonus
+    if (turn === MAX_TURNS && tier === 'best') {
+      subGain += FINALE_COMEBACK_BONUS;
+    }
 
     subGain = Math.floor(subGain);
 
@@ -722,17 +749,16 @@ const LiveON = (() => {
       choiceLabel: choice.label,
       choiceStat: stat,
       choiceTier: tier,
-      effectiveTier,
-      statCheck: statCheck.passed ? null : { playerStat: statCheck.playerStat, threshold: statCheck.threshold },
       subGain,
       psCost,
       psRemaining: _runState.ps,
       coachBonus: Math.round(coachBonus * 100),
+      comebackBonus: (turn === MAX_TURNS && tier === 'best') ? FINALE_COMEBACK_BONUS : 0,
     };
     _runState.subscriberLog.push(logEntry);
 
-    // Check for Bad Ending (PS hit 0 before finale)
-    if (_runState.ps <= 0 && !isFinaleTurn(turn)) {
+    // Check for Bad Ending (PS hit 0)
+    if (_runState.ps <= 0 && turn < MAX_TURNS) {
       _runState.ending = 'bad';
       endRun('bad');
       return { result: logEntry, runEnded: true, ending: 'bad' };
@@ -741,24 +767,18 @@ const LiveON = (() => {
     // Advance turn
     _runState.turn++;
 
-    // Generate next event (if not finale)
-    if (!isFinaleTurn(turn)) {
-      _runState.currentEvent = getRandomEvent();
+    // Check if this was the last turn (turn 20) — determine ending
+    if (turn === MAX_TURNS) {
+      const ending = _runState.subscribers >= _runState.targetSubs ? 'good' : 'neutral';
+      _runState.ending = ending;
+      endRun(ending);
+      return { result: logEntry, runEnded: true, ending };
     }
 
-    // Check if this was the finale turn (turn 20)
-    if (isFinaleTurn(turn)) {
-      if (_runState.subscribers >= _runState.targetSubs) {
-        _runState.ending = 'good';
-        endRun('good');
-      } else {
-        _runState.ending = 'neutral';
-        endRun('neutral');
-      }
-      return { result: logEntry, runEnded: true, ending: _runState.ending };
-    }
+    // Generate next event
+    _runState.currentEvent = getRandomEvent();
 
-    return { result: logEntry, runEnded: false, statCheck: statCheck.passed ? null : statCheck };
+    return { result: logEntry, runEnded: false };
   }
 
   function processSkip(turn, event) {
@@ -789,7 +809,7 @@ const LiveON = (() => {
     _runState.subscriberLog.push(logEntry);
 
     // Check Bad Ending
-    if (_runState.ps <= 0 && !isFinaleTurn(turn)) {
+    if (_runState.ps <= 0 && turn < MAX_TURNS) {
       _runState.ending = 'bad';
       endRun('bad');
       return { result: logEntry, runEnded: true, ending: 'bad' };
@@ -1126,7 +1146,9 @@ const LiveON = (() => {
 
     // Stat check
     getStatThreshold,
+    canPickChoice,
     getStatCheckPreview,
+    getLeadMaxStat,
 
     // VTuber selection
     getOwnedVTubersForLead,

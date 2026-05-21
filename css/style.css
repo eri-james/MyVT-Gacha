@@ -5683,22 +5683,11 @@ body {
   color: var(--accent2);
 }
 .choice-neutral {
-  border-color: var(--gold) !important;
-}
-.choice-tier.choice-neutral {
-  background: var(--gold-dim);
-  color: var(--gold);
-}
-.choice-fumble {
   border-color: var(--error) !important;
 }
-.choice-tier.choice-fumble {
+.choice-tier.choice-neutral {
   background: rgba(239, 68, 68, 0.1);
   color: var(--error);
-}
-.safe-tier {
-  background: var(--accent2-dim) !important;
-  color: var(--accent2) !important;
 }
 .choice-stat {
   font-size: 0.65rem;
@@ -5726,7 +5715,7 @@ body {
   margin-top: var(--space-xs);
 }
 
-/* Stat check display on Best choice buttons */
+/* Stat check display on choice buttons (all tiers) */
 .choice-stat-check {
   font-size: 0.65rem;
   font-weight: 600;
@@ -5741,6 +5730,81 @@ body {
 .choice-stat-check.stat-fail {
   color: var(--error);
   background: rgba(239, 68, 68, 0.1);
+}
+
+/* Locked choice (greyed out — stat too low) */
+.choice-btn.choice-locked {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.choice-btn.choice-locked:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Comeback bonus indicator */
+.comeback-bonus {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent-pink);
+  background: rgba(236, 72, 153, 0.1);
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+/* Choice tier colors — Good */
+.choice-good {
+  border-color: #3b82f6;
+}
+.choice-tier.choice-good {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+/* Lead stats display in run header */
+.run-lead-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  margin: 0 12px;
+  flex-wrap: wrap;
+}
+.lead-stats-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.lead-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+}
+.lead-stat-label {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.lead-stat-val {
+  font-weight: 700;
+  color: var(--text);
+}
+.lead-stat-bonus {
+  font-size: 0.6rem;
+  color: var(--accent2);
+  font-weight: 600;
+}
+
+/* Comeback bonus in event log */
+.log-comeback {
+  font-size: 0.7rem;
+  color: var(--accent-pink);
+  font-weight: 600;
 }
 
 /* ── Agency Visit ── */

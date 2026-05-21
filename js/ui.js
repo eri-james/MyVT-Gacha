@@ -2847,8 +2847,30 @@ const UI = (() => {
       <span class="turn-progress">of ${run.maxTurns}</span>
       <div class="turn-progress-bar"><div class="turn-progress-fill" style="width:${(turnNum / run.maxTurns) * 100}%"></div></div>
       ${isAgencyVisit ? '<span class="agency-badge">Agency Visit!</span>' : ''}
-      ${isFinale ? '<span class="finale-badge">Finale!</span>' : ''}
+      ${isFinale ? '<span class="finale-badge">Final Turn!</span>' : ''}
     </div>`;
+
+    // Lead stats display
+    const effectiveStats = LiveON.getEffectiveStats();
+    if (effectiveStats) {
+      html += '<div class="run-lead-stats">';
+      html += '<span class="lead-stats-title">Stats</span>';
+      const statKeys = ['tc', 'ch', 'vc', 'mg'];
+      statKeys.forEach(key => {
+        const s = effectiveStats.boosted[key];
+        if (!s) return;
+        const label = LiveON.STAT_LABELS[key] || key;
+        const baseVal = s.base;
+        const totalVal = s.total;
+        const bonusVal = totalVal - baseVal;
+        html += `<div class="lead-stat-item">
+          <span class="lead-stat-label">${label}</span>
+          <span class="lead-stat-val">${totalVal}</span>
+          ${bonusVal > 0 ? `<span class="lead-stat-bonus">+${bonusVal}</span>` : ''}
+        </div>`;
+      });
+      html += '</div>';
+    }
 
     // Event or Agency Visit
     if (isAgencyVisit) {
@@ -2858,14 +2880,7 @@ const UI = (() => {
       return;
     }
 
-    if (isFinale) {
-      renderFinale(container, run);
-      container.innerHTML = html + '</div>';
-      bindFinaleEvents(container);
-      return;
-    }
-
-    // Normal event turn — use the stored currentEvent from run state
+    // All turns including turn 20 are now regular event turns
     const event = run.currentEvent;
     if (!event) {
       html += '<p>Error: No event available.</p>';
@@ -2888,28 +2903,42 @@ const UI = (() => {
     html += '<div class="event-choices">';
     event.choices.forEach((choice, i) => {
       const tier = choice.tier;
-      const tierLabel = tier === 'best' ? 'Best' : tier === 'neutral' ? 'Neutral' : 'Fumble';
+      const tierLabel = tier === 'best' ? 'Best' : tier === 'good' ? 'Good' : 'Neutral';
       const tierClass = `choice-${tier}`;
       const statLabel = LiveON.STAT_LABELS[choice.stat] || choice.stat.toUpperCase();
       const coachBonus = LiveON.calculateCoachBonus(choice.stat);
       const bonusPct = Math.round(coachBonus * 100);
 
-      const mults = { best: 1.0, neutral: 0.7, fumble: 0.5 };
-      const psCosts = { best: 0, neutral: 4, fumble: 8 };
+      const mults = { best: 1.0, good: 0.6, neutral: 0.4 };
+      const psCosts = { best: 2, good: 5, neutral: 8 };
       const subPct = Math.round(mults[tier] * 100 * (1 + coachBonus));
       const psCost = psCosts[tier];
 
-      // Stat check preview for Best choice
+      // Check if choice is locked (stat too low)
+      const preview = LiveON.getStatCheckPreview(choice.stat, tier, turnNum);
+      const isLocked = preview && !preview.canPick;
+      const isDisabled = isLocked || run.ps <= psCost;
+
+      // Stat check display
       let statCheckHtml = '';
-      if (tier === 'best') {
-        const preview = LiveON.getStatCheckPreview(choice.stat, turnNum);
-        if (preview && preview.enabled) {
-          const checkClass = preview.willPass ? 'stat-pass' : 'stat-fail';
-          statCheckHtml = `<div class="choice-stat-check ${checkClass}">Needs ${statLabel} ${preview.threshold} (you: ${preview.playerStat}) ${preview.willPass ? '' : '— risk downgrade!'}</div>`;
+      if (preview && preview.enabled) {
+        if (isLocked) {
+          statCheckHtml = `<div class="choice-stat-check stat-fail">Needs ${statLabel} ${preview.threshold} (you: ${preview.playerStat}) — locked</div>`;
+        } else {
+          statCheckHtml = `<div class="choice-stat-check stat-pass">Needs ${statLabel} ${preview.threshold} (you: ${preview.playerStat})</div>`;
         }
       }
 
-      html += `<button class="btn choice-btn ${tierClass}" data-choice="${i}" ${run.ps <= psCost ? 'disabled title="Not enough PS!"' : ''}>
+      // Comeback bonus indicator for turn 20 Best
+      let comebackHtml = '';
+      if (isFinale && tier === 'best' && !isLocked) {
+        comebackHtml = '<div class="comeback-bonus">+20 comeback bonus!</div>';
+      }
+
+      const disabledAttr = isDisabled ? 'disabled' : '';
+      const lockedClass = isLocked ? 'choice-locked' : '';
+
+      html += `<button class="btn choice-btn ${tierClass} ${lockedClass}" data-choice="${i}" ${disabledAttr}>
         <div class="choice-label">${choice.label}</div>
         <div class="choice-meta">
           <span class="choice-tier ${tierClass}">${tierLabel}</span>
@@ -2917,14 +2946,15 @@ const UI = (() => {
           ${bonusPct > 0 ? `<span class="choice-bonus">+${bonusPct}% coach</span>` : ''}
         </div>
         ${statCheckHtml}
-        <div class="choice-outcome">${subPct}% subs${psCost > 0 ? `, -${psCost} PS` : ', 0 PS'}</div>
+        ${comebackHtml}
+        <div class="choice-outcome">${subPct}% subs, -${psCost} PS</div>
       </button>`;
     });
 
     // Skip button
     html += `<button class="btn btn-danger skip-btn" data-skip="true">
       <div class="choice-label">Skip Event</div>
-      <div class="choice-outcome">-5% subs, -12 PS</div>
+      <div class="choice-outcome">-5% subs, -10 PS</div>
     </button>`;
 
     html += '</div>'; // .event-choices
@@ -2942,7 +2972,7 @@ const UI = (() => {
           <span class="log-event">${log.eventTitle || 'Event'}</span>
           <span class="log-result">${icon}${Math.round(log.subGain)} subs</span>
           ${log.psCost > 0 ? `<span class="log-ps">-${log.psCost} PS</span>` : ''}
-          ${log.safe ? '<span class="log-safe">Safe</span>' : ''}
+          ${log.comebackBonus ? '<span class="log-comeback">+' + log.comebackBonus + ' comeback</span>' : ''}
         </div>`;
       });
       html += '</div>';
@@ -2961,14 +2991,12 @@ const UI = (() => {
           if (!eventData) return;
           const result = LiveON.processChoice(turnNum, eventData, choiceIdx);
           if (result.error) {
-            showToast('Error: ' + result.error, 'warning');
-            renderLiveONRun();
+            if (result.locked) {
+              showToast(`Choice locked! Need ${result.threshold} but you have ${result.playerStat}`, 'warning');
+            } else {
+              showToast('Error: ' + result.error, 'warning');
+            }
             return;
-          }
-          // Show toast when Best choice was downgraded by stat check
-          if (result.statCheck && !result.statCheck.passed) {
-            const sc = result.statCheck;
-            showToast(`Stat check failed! ${sc.playerStat} < ${sc.threshold} needed — downgraded to Neutral`, 'warning');
           }
           if (result.runEnded) {
             showLiveONScreen('results');
