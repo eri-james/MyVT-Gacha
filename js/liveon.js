@@ -615,10 +615,10 @@ const LiveON = (() => {
   // Threshold scales with turn number so later turns demand stronger teams.
 
   const STAT_CHECK_ENABLED = true;
-  // Base threshold at turn 6, scales up by +3 per turn
-  // Turn 6: 30, Turn 10: 42, Turn 15: 57, Turn 20: 72
+  // Base threshold at turn 6, scales up by +2 per turn
+  // Turn 6: 18, Turn 10: 26, Turn 15: 36, Turn 20: 46
   function getStatThreshold(turn) {
-    return 24 + (turn - 5) * 3;
+    return 16 + (turn - 5) * 2;
   }
 
   // Returns stat check preview for UI display
