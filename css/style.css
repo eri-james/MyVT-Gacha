@@ -285,6 +285,24 @@ body {
   color: var(--accent);
 }
 
+/* Red notification dot on bottom nav buttons */
+.bnav-dot {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.6);
+  animation: bnavDotPulse 2s ease-in-out infinite;
+}
+@keyframes bnavDotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
 /* Center home button — raised circle */
 .bnav-home {
   position: relative;

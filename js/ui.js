@@ -349,6 +349,9 @@ const UI = (() => {
       updateCollectionVariantStats();
     }
 
+    // Quest notification dot (bottom nav)
+    updateQuestNotificationDot();
+
     // Sprint 4: Detect studio level-up
     const currentLv = Game.getState().studio.level;
     if (currentLv > _lastStudioLevel && _lastStudioLevel > 0) {
@@ -1237,6 +1240,21 @@ const UI = (() => {
     });
   }
 
+  function updateQuestNotificationDot() {
+    const btn = document.querySelector('.bnav-btn[data-page="quests"]');
+    if (!btn) return;
+    const hasDot = btn.querySelector('.bnav-dot');
+    if (Game.hasUnclaimedQuests()) {
+      if (!hasDot) {
+        const dot = document.createElement('span');
+        dot.className = 'bnav-dot';
+        btn.appendChild(dot);
+      }
+    } else if (hasDot) {
+      hasDot.remove();
+    }
+  }
+
   function renderMilestones() {
     const milestones = Game.getMilestones();
     const stats = Game.getCollectionStats();
@@ -1872,8 +1890,8 @@ const UI = (() => {
             <div class="cdv-bond-bar-fill ${bondInfo.isMaxBond ? 'cdv-bond-bar-max' : ''}" style="width:${bondInfo.bpProgressPct}%;"></div>
           </div>
           <div class="cdv-bond-text">${bondInfo.isMaxBond ? 'MAX' : bondInfo.bondPoints + ' / ' + bondInfo.nextLevelBpRequired + ' BP'}${bondInfo.totalBondStatBonus > 0 ? '  &middot;  +' + bondInfo.totalBondStatBonus + ' all stats' : ''}</div>
-          ${bondInfo.isOnCooldown ? `<div class="cdv-bond-hint">Date cooldown: ${formatCooldown(bondInfo.cooldownRemaining)}</div>` : ''}
-          ${!bondInfo.isOnCooldown && bondInfo.bondLevel < Game.BOND_DATE_BOND_REQ ? `<div class="cdv-bond-hint">Requires Bond Lv.${Game.BOND_DATE_BOND_REQ} to date</div>` : ''}
+          ${bondInfo.isOnCooldown ? `<div class="cdv-bond-hint">Odekake cooldown: ${formatCooldown(bondInfo.cooldownRemaining)}</div>` : ''}
+          ${!bondInfo.isOnCooldown && bondInfo.bondLevel < Game.BOND_DATE_BOND_REQ ? `<div class="cdv-bond-hint">Requires Bond Lv.${Game.BOND_DATE_BOND_REQ} for Odekake</div>` : ''}
         </div>
       `;
     }

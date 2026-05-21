@@ -158,7 +158,7 @@ const Game = (() => {
   ];
   const BOND_MAX_LEVEL = 8;
   const BOND_DATE_COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
-  const BOND_DATE_BOND_REQ = 4; // VTuber must be Bond Level 4+ to date
+  const BOND_DATE_BOND_REQ = 4; // VTuber must be Bond Level 4+ for Odekake
 
   // Starting resources
   const OSHI_MAX = 6; // Maximum Oshi (favourite) slots
@@ -1033,6 +1033,25 @@ const Game = (() => {
     };
   }
 
+  // Quick check: any unclaimable quest rewards across daily + weekly?
+  function hasUnclaimedQuests() {
+    resetQuestsIfNeeded();
+    const defs = [
+      ...DAILY_QUESTS.map(d => ({ ...d, cat: 'daily' })),
+      ...WEEKLY_QUESTS.map(d => ({ ...d, cat: 'weekly' })),
+    ];
+    for (const def of defs) {
+      const q = state.quests[def.cat];
+      if (!q) continue;
+      if (q.claimed[def.id]) continue;
+      const prog = q.progress[def.id] || 0;
+      if (prog < def.target) continue;
+      if (def.meta && !canClaimMeta(def.cat)) continue;
+      return true;
+    }
+    return false;
+  }
+
   // Daily login (read-only — does NOT mutate state)
   function getDailyLoginReward() {
     const today = new Date().toISOString().split('T')[0];
@@ -1849,7 +1868,7 @@ const Game = (() => {
     getContentQuality, getContentLog, getQualityDistribution,
     generateContent, processContentTick, getTrendingStat, getTrendingTimeRemaining,
     getDailyLoginReward, claimDailyLogin,
-    getQuestsData, claimQuest, incrementQuestProgress,
+    getQuestsData, claimQuest, incrementQuestProgress, hasUnclaimedQuests,
     DAILY_QUESTS, WEEKLY_QUESTS,
     exportSaveCode, importSaveCode,
     onStateChange, notifyStateChange, getCollectionStats,
