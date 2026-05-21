@@ -50,6 +50,15 @@ const UI = (() => {
       checkMilestoneCelebration();
       _lastStudioLevel = Game.getState().studio.level; // Sprint 4: init studio level tracker
       _initSortBars();
+      // Activate dark homepage theme on first load (home tab starts active in HTML)
+      document.body.classList.add('home-active');
+      // Trigger homepage FX on first load
+      setTimeout(() => {
+        if (typeof FX !== 'undefined') {
+          FX.initHomeParticles();
+          FX.initHomeAnimations();
+        }
+      }, 200);
       showToast('Welcome back to MyVT Gacha!', 'info');
     } catch (err) {
       console.error('Init failed:', err);

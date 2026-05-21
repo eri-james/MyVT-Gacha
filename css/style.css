@@ -409,6 +409,10 @@ body {
 #tab-home.active {
   margin: calc(var(--top-bar-height) * -1) calc(var(--space-md) * -1) 0;
   padding: var(--top-bar-height) var(--space-md) calc(var(--bottom-nav-height) + var(--space-md));
+  /* Create stacking context so ::before z-index:-1 stays inside this element
+     (not the root), preventing body's background from covering it */
+  position: relative;
+  z-index: 0;
 }
 
 @keyframes fadeIn {
@@ -427,6 +431,7 @@ body {
   gap: var(--space-md);
   padding: var(--space-sm) 0;
   position: relative;
+  z-index: 1; /* Above tsParticles canvas (z-index: 0) */
   min-height: calc(100vh - var(--top-bar-height, 56px) - var(--bottom-nav-height, 64px));
   /* Background is applied on tab-home instead for full-bleed coverage */
   overflow: hidden;
