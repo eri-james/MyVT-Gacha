@@ -7,7 +7,7 @@ const LiveON = (() => {
   // ── Constants ──────────────────────────────────────────
 
   const MAX_TURNS = 20;
-  const SAFE_ZONE_END = 0; // removed — all turns have stat checks + PS costs
+  // Safe zone fully removed — all turns have stat checks + PS costs
   const AGENCY_VISIT_TURNS = [5, 10, 15];
 
   const COACH_SLOTS = ['streamer', 'performance', 'stage'];
@@ -75,7 +75,7 @@ const LiveON = (() => {
       choices: [
         { label: 'Give a heartfelt pep talk', stat: 'ch', tier: 'best' },
         { label: 'Run full tech checks to distract them', stat: 'tc', tier: 'good' },
-        { label: 'Just push them live — sink or swim!', stat: 'mg', tier: 'neutral' },
+        { label: 'Just push them live — sink or swim!', stat: 'ch', tier: 'neutral' },
       ],
     },
     {
@@ -124,7 +124,7 @@ const LiveON = (() => {
       description: 'A 30-second clip from yesterday\'s stream is going viral on social media! New viewers are flooding in…',
       choices: [
         { label: 'Capitalize with a follow-up stream', stat: 'mg', tier: 'best' },
-        { label: 'Engage the new fans on social media', stat: 'ch', tier: 'good' },
+        { label: 'Engage the new fans on social media', stat: 'mg', tier: 'good' },
         { label: 'Ignore it and do your usual content', stat: 'vc', tier: 'neutral' },
       ],
     },
@@ -134,7 +134,7 @@ const LiveON = (() => {
       description: 'Your current mic is crackling and the lighting is dim. Time to invest in better gear?',
       choices: [
         { label: 'Research and buy optimal gear within budget', stat: 'mg', tier: 'best' },
-        { label: 'Borrow equipment from a senpai VTuber', stat: 'ch', tier: 'good' },
+        { label: 'Borrow equipment from a senpai VTuber', stat: 'mg', tier: 'good' },
         { label: 'DIY a solution with duct tape and prayers', stat: 'tc', tier: 'neutral' },
       ],
     },
@@ -164,8 +164,8 @@ const LiveON = (() => {
       description: 'Karaoke night! Your lead\'s singing will be on full display. This is make-or-break for growth.',
       choices: [
         { label: 'Rehearse song picks and warm up vocals', stat: 'vc', tier: 'best' },
-        { label: 'Take song requests from chat live', stat: 'ch', tier: 'good' },
-        { label: 'Sing loudly but completely off-key', stat: 'mg', tier: 'neutral' },
+        { label: 'Take song requests from chat live', stat: 'vc', tier: 'good' },
+        { label: 'Sing loudly but completely off-key', stat: 'ch', tier: 'neutral' },
       ],
     },
     {
@@ -184,8 +184,8 @@ const LiveON = (() => {
       description: 'A local charity has asked your lead to host a fundraiser stream. Great for reputation!',
       choices: [
         { label: 'Organize milestone-based donation goals', stat: 'mg', tier: 'best' },
-        { label: 'Pour genuine emotion into the cause', stat: 'ch', tier: 'good' },
-        { label: 'Wing it and hope donations flow naturally', stat: 'vc', tier: 'neutral' },
+        { label: 'Pour genuine emotion into the cause', stat: 'vc', tier: 'good' },
+        { label: 'Wing it and hope donations flow naturally', stat: 'tc', tier: 'neutral' },
       ],
     },
     {
@@ -194,7 +194,7 @@ const LiveON = (() => {
       description: 'Anonymous questions are pouring in. Some are wholesome, some are… spicy.',
       choices: [
         { label: 'Filter carefully and answer thoughtfully', stat: 'mg', tier: 'best' },
-        { label: 'Read everything raw for authentic reactions', stat: 'ch', tier: 'good' },
+        { label: 'Read everything raw for authentic reactions', stat: 'tc', tier: 'good' },
         { label: 'Only pick the weird ones for shock value', stat: 'tc', tier: 'neutral' },
       ],
     },
@@ -214,7 +214,7 @@ const LiveON = (() => {
       description: 'Your lead wants to attempt a 12-hour endurance stream. Their energy management is crucial.',
       choices: [
         { label: 'Maintain vocal energy throughout', stat: 'vc', tier: 'best' },
-        { label: 'Power through with sheer determination', stat: 'ch', tier: 'good' },
+        { label: 'Power through with sheer determination', stat: 'vc', tier: 'good' },
         { label: 'Forget schedule and wing it entirely', stat: 'mg', tier: 'neutral' },
       ],
     },
@@ -224,7 +224,7 @@ const LiveON = (() => {
       description: 'A prominent VTuber reviewer just published a scathing critique of your lead\'s content. Ouch.',
       choices: [
         { label: 'Use data to track and improve metrics', stat: 'tc', tier: 'best' },
-        { label: 'Address it professionally on next stream', stat: 'ch', tier: 'good' },
+        { label: 'Address it professionally on next stream', stat: 'vc', tier: 'good' },
         { label: 'Make a passive-aggressive reply video', stat: 'vc', tier: 'neutral' },
       ],
     },
@@ -244,7 +244,7 @@ const LiveON = (() => {
       description: 'Your lead attempts to cook live on stream. The kitchen may or may not survive.',
       choices: [
         { label: 'Set up camera for cooking show presentation', stat: 'tc', tier: 'best' },
-        { label: 'Improvise with chat-suggested ingredients', stat: 'ch', tier: 'good' },
+        { label: 'Improvise with chat-suggested ingredients', stat: 'vc', tier: 'good' },
         { label: 'Wing it without any preparation', stat: 'mg', tier: 'neutral' },
       ],
     },
@@ -255,7 +255,7 @@ const LiveON = (() => {
       choices: [
         { label: 'Sing a special celebration song', stat: 'vc', tier: 'best' },
         { label: 'Do a heartfelt gratitude stream with fans', stat: 'ch', tier: 'good' },
-        { label: 'Just announce it and move on', stat: 'mg', tier: 'neutral' },
+        { label: 'Just announce it and move on', stat: 'ch', tier: 'neutral' },
       ],
     },
     {
@@ -284,7 +284,7 @@ const LiveON = (() => {
       description: 'Management wants your lead to make a major announcement on stream. The stakes are high.',
       choices: [
         { label: 'Prepare a polished presentation with visuals', stat: 'tc', tier: 'best' },
-        { label: 'Deliver the news with genuine excitement', stat: 'ch', tier: 'good' },
+        { label: 'Deliver the news with genuine excitement', stat: 'vc', tier: 'good' },
         { label: 'Accidentally leak the news on Twitter first', stat: 'mg', tier: 'neutral' },
       ],
     },
@@ -305,7 +305,7 @@ const LiveON = (() => {
       choices: [
         { label: 'Welcome newcomers warmly and explain the channel', stat: 'ch', tier: 'best' },
         { label: 'Quickly set up a fresh overlay for new viewers', stat: 'tc', tier: 'good' },
-        { label: 'Panic and freeze under the pressure', stat: 'vc', tier: 'neutral' },
+        { label: 'Panic and freeze under the pressure', stat: 'ch', tier: 'neutral' },
       ],
     },
     {
@@ -314,8 +314,8 @@ const LiveON = (() => {
       description: 'A professional voice coach is watching and offering live tips. Chat is hype!',
       choices: [
         { label: 'Follow the advice and demonstrate range', stat: 'vc', tier: 'best' },
-        { label: 'Ask thoughtful questions about technique', stat: 'ch', tier: 'good' },
-        { label: 'Try to imitate a dubbing meme instead', stat: 'mg', tier: 'neutral' },
+        { label: 'Ask thoughtful questions about technique', stat: 'tc', tier: 'good' },
+        { label: 'Try to imitate a dubbing meme instead', stat: 'ch', tier: 'neutral' },
       ],
     },
   ];
@@ -595,10 +595,6 @@ const LiveON = (() => {
 
   // ── Turn Utilities ─────────────────────────────────────
 
-  function isSafeZone(turn) {
-    return turn >= 1 && turn <= SAFE_ZONE_END;
-  }
-
   function isAgencyVisitTurn(turn) {
     return AGENCY_VISIT_TURNS.includes(turn);
   }
@@ -617,12 +613,12 @@ const LiveON = (() => {
 
   // ── Stat Check for Choices ────────────────────────────
   // Each choice (Best/Good/Neutral) checks a different stat against a threshold.
-  // If effective stat < threshold, the choice is LOCKED OUT (greyed out).
-  // Threshold scales with turn number AND the lead's max base stat.
+  // If BASE stat (no coach bonus) < threshold, the choice is LOCKED OUT (greyed out).
+  // Coach bonuses boost SUB GAINS but do NOT bypass lockout thresholds.
 
   const STAT_CHECK_ENABLED = true;
 
-  // Get the lead's highest base stat (before coach bonuses)
+  // Get the lead's highest base stat (no coach bonuses — used for threshold scaling)
   function getLeadMaxStat() {
     if (!_runState || !_runState.active || !_runState.lead) return 20; // fallback
     const state = Game.getState();
@@ -635,27 +631,35 @@ const LiveON = (() => {
     return Math.max(tc, ch, vc, mg);
   }
 
-  // Threshold formula: scales from lead's max base stat
-  // Best:    ~70% at turn 1 → ~100% at turn 20 of max stat
-  // Good:    ~43% at turn 1 → ~68% at turn 20
-  // Neutral: ~16% at turn 1 → ~25% at turn 20
+  // Get the lead's raw base stat for a specific stat key (no coach bonuses)
+  function getLeadBaseStat(stat) {
+    if (!_runState || !_runState.active || !_runState.lead) return 0;
+    const state = Game.getState();
+    const charData = state.characters[_runState.lead];
+    if (!charData || !charData.stats) return 0;
+    return charData.stats[stat] || 0;
+  }
+
+  // Threshold formula: scales from lead's max base stat (no coach bonuses in check)
+  // Best:    ~60% at turn 1 → ~110% at turn 20 of max stat
+  // Good:    ~45% at turn 1 → ~85% at turn 20
+  // Neutral: ~12% at turn 1 → ~20% at turn 20
   function getStatThreshold(tier, turn) {
     const base = getLeadMaxStat();
     switch (tier) {
-      case 'best':    return Math.round(base * (0.70 + turn * 0.015));
-      case 'good':    return Math.round(base * (0.42 + turn * 0.013));
-      case 'neutral': return Math.round(base * (0.15 + turn * 0.005));
+      case 'best':    return Math.round(base * (0.60 + turn * 0.025));
+      case 'good':    return Math.round(base * (0.45 + turn * 0.020));
+      case 'neutral': return Math.round(base * (0.12 + turn * 0.004));
       default:        return Infinity;
     }
   }
 
   // Check if a choice is available (not locked out)
+  // Uses BASE stat only — coach bonuses boost rewards, not threshold access
   function canPickChoice(stat, tier, turn) {
     if (!STAT_CHECK_ENABLED) return { canPick: true, playerStat: 0, threshold: 0 };
-    const effective = getEffectiveStats();
-    if (!effective) return { canPick: false, playerStat: 0, threshold: Infinity };
-    const statData = effective.boosted[stat];
-    const playerStat = statData ? statData.total : 0;
+    const playerStat = getLeadBaseStat(stat);
+    if (playerStat <= 0) return { canPick: false, playerStat, threshold: Infinity };
     const threshold = getStatThreshold(tier, turn);
     return {
       canPick: playerStat >= threshold,
