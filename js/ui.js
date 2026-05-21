@@ -280,6 +280,8 @@ const UI = (() => {
     currentTab = tab;
     document.querySelectorAll('.bnav-btn[data-page]').forEach(b => b.classList.toggle('active', b.dataset.page === tab));
     document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${tab}`));
+    // Toggle dark homepage theme on body
+    document.body.classList.toggle('home-active', tab === 'home');
 
     if (tab === 'collection') { _collectionPage = 0; renderCollection(); }
     if (tab === 'studio') renderStudio();

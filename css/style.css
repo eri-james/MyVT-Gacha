@@ -91,10 +91,49 @@
 
 /* ── Particle canvas (homepage background) ── */
 .tsparticles-canvas {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+}
+
+/* ── Homepage dark theme: top bar + bottom nav ── */
+body.home-active #top-bar {
+  background: rgba(26, 16, 51, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+}
+body.home-active #top-bar .producer-name {
+  color: #ffffff;
+}
+body.home-active #top-bar .producer-level {
+  color: var(--accent-pink);
+}
+body.home-active .resource-pill {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+}
+body.home-active #bottom-nav {
+  background: rgba(26, 16, 51, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -1px 8px rgba(0, 0, 0, 0.3);
+}
+body.home-active .bnav-btn {
+  color: rgba(255, 255, 255, 0.5);
+}
+body.home-active .bnav-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+body.home-active .bnav-btn.active {
+  color: var(--accent);
+}
+body.home-active .producer-avatar {
+  background: linear-gradient(135deg, var(--accent-pink), var(--accent));
 }
 
 /* ── Reset & Base ── */
@@ -366,6 +405,12 @@ body {
   display: block;
 }
 
+/* Home tab breaks out of main-content constraints for full-bleed bg */
+#tab-home.active {
+  margin: calc(var(--top-bar-height) * -1) calc(var(--space-md) * -1) 0;
+  padding: var(--top-bar-height) var(--space-md) calc(var(--bottom-nav-height) + var(--space-md));
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -378,10 +423,24 @@ body {
 .landing-page {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-md);
   padding: var(--space-sm) 0;
   position: relative;
   min-height: calc(100vh - var(--top-bar-height, 56px) - var(--bottom-nav-height, 64px));
+  /* Background is applied on tab-home instead for full-bleed coverage */
+  overflow: hidden;
+}
+
+/* Full-bleed background on the home tab */
+#tab-home {
+  position: relative;
+}
+#tab-home::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background:
     linear-gradient(180deg,
       rgba(26, 16, 51, 0.92) 0%,
@@ -390,7 +449,17 @@ body {
     ),
     url('https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fsteins-gate.us%2Fimages%2Fbg_about.jpg&f=1&nofb=1&ipt=69119e52031c1402ca2540f1476b859d2e09e44a4a73a21723361ada07cb1cee') center/cover no-repeat;
   background-attachment: fixed;
-  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Constrain all landing page content to a centered narrow column */
+.landing-inner {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
 }
 
 .featured-showcase {
@@ -402,8 +471,9 @@ body {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-  aspect-ratio: 16/10;
-  max-height: 280px;
+  width: 100%;
+  aspect-ratio: 16/9;
+  max-height: 220px;
   z-index: 1;
 }
 
@@ -516,7 +586,8 @@ body {
 /* Game mode panels */
 .game-panels {
   display: flex;
-  gap: var(--space-md);
+  gap: var(--space-sm);
+  width: 100%;
 }
 
 .game-panel-btn {
@@ -525,12 +596,12 @@ body {
   flex-direction: column;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-md) var(--space-sm);
+  padding: var(--space-sm) var(--space-xs);
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
@@ -546,25 +617,29 @@ body {
 }
 
 .panel-icon-wrap {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+}
+.panel-icon-wrap svg {
+  width: 20px;
+  height: 20px;
 }
 .panel-icon-pink { background: rgba(244, 114, 182, 0.35); }
 .panel-icon-purple { background: rgba(167, 139, 250, 0.35); }
 .panel-icon-blue { background: rgba(96, 165, 250, 0.35); }
 
 .panel-label {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 .panel-sub {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
 }
 
@@ -584,9 +659,10 @@ body {
   border: 1px solid var(--glass-border);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-md);
-  padding: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   position: relative;
   z-index: 1;
+  width: 100%;
 }
 .landing-banner-tag {
   font-size: 0.6rem;
@@ -597,35 +673,40 @@ body {
   margin-bottom: 2px;
 }
 .landing-banner-title {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 .landing-banner-sub {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   margin-top: 2px;
 }
 
 /* Desktop layout for landing page */
 @media (min-width: 768px) {
-  .landing-page {
+  .landing-inner {
     flex-direction: row;
-    gap: var(--space-lg);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 680px;
+    gap: var(--space-md);
   }
   .featured-showcase {
     flex: 1.4;
     max-height: none;
     aspect-ratio: auto;
-    min-height: 300px;
+    min-height: 240px;
+    max-width: 360px;
   }
   .game-panels {
     flex: 1;
     flex-direction: column;
+    max-width: 260px;
   }
   .landing-banner {
-    align-self: flex-end;
-    width: 200px;
+    width: 100%;
+    max-width: 680px;
   }
 }
 

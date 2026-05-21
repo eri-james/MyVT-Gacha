@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MyVT Gacha Collection</title>
-  <link rel="stylesheet" href="css/style.css?v=63">
+  <link rel="stylesheet" href="css/style.css?v=64">
   <link rel="preconnect" href="https://fonts.googleapis.com">
 </head>
 <body>
@@ -31,65 +31,67 @@
   <main id="main-content">
     <!-- HOME TAB — Landing Page -->
     <section class="tab-content active" id="tab-home">
+      <div id="tsparticles-home" class="tsparticles-canvas"></div>
       <div class="landing-page">
-        <div id="tsparticles-home" class="tsparticles-canvas"></div>
-        <!-- Left: Featured VTuber Showcase -->
-        <div class="featured-showcase">
-          <div class="featured-character" id="featured-character">
-            <!-- Placeholder (no VTuber selected / none owned) -->
-            <div class="featured-placeholder" id="featured-placeholder">
-              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0 1 14 0v-2"/><path d="M16 3.13a4 4 0 1 0-7.78 1M9 17v4"/><path d="M12 17v4"/></svg>
-              <span>Pull to get your<br>first VTuber!</span>
+        <div class="landing-inner">
+          <!-- Featured VTuber Showcase -->
+          <div class="featured-showcase">
+            <div class="featured-character" id="featured-character">
+              <!-- Placeholder (no VTuber selected / none owned) -->
+              <div class="featured-placeholder" id="featured-placeholder">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0 1 14 0v-2"/><path d="M16 3.13a4 4 0 1 0-7.78 1M9 17v4"/><path d="M12 17v4"/></svg>
+                <span>Pull to get your<br>first VTuber!</span>
+              </div>
+              <!-- Character image (shown when featured VTuber is set) -->
+              <img id="featured-img" src="" alt="" style="display:none;" onerror="this.style.display='none';document.getElementById('featured-placeholder').style.display='flex';">
+              <!-- Character info overlay -->
+              <div class="featured-info" id="featured-info" style="display:none;">
+                <div class="featured-name" id="featured-name"></div>
+                <div class="featured-agency" id="featured-agency"></div>
+                <div class="featured-rarity" id="featured-rarity"></div>
+              </div>
             </div>
-            <!-- Character image (shown when featured VTuber is set) -->
-            <img id="featured-img" src="" alt="" style="display:none;" onerror="this.style.display='none';document.getElementById('featured-placeholder').style.display='flex';">
-            <!-- Character info overlay -->
-            <div class="featured-info" id="featured-info" style="display:none;">
-              <div class="featured-name" id="featured-name"></div>
-              <div class="featured-agency" id="featured-agency"></div>
-              <div class="featured-rarity" id="featured-rarity"></div>
-            </div>
+            <button class="featured-select-btn" id="btn-select-featured" title="Select Featured VTuber">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1V13a9 9 0 0 0-9 9 4 4 0 0 0 9 9 4 4 0 0 0 9-9V5a1.65 1.65 0 0 0-1-1h-1a2 2 0 0 0-2 2 2 2 0 0 0 2 2v1a2 2 0 0 1-2 2 2 2 0 0 1-2 2z"/></svg>
+            </button>
+            <!-- Offline earnings -->
+            <button class="btn-offline" id="btn-claim-offline" style="display:none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span id="btn-offline-text">Claim</span>
+            </button>
           </div>
-          <button class="featured-select-btn" id="btn-select-featured" title="Select Featured VTuber">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1V13a9 9 0 0 0-9 9 4 4 0 0 0 9 9 4 4 0 0 0 9-9V5a1.65 1.65 0 0 0-1-1h-1a2 2 0 0 0-2 2 2 0 0 0 2 2v1a2 2 0 0 1-2 2 2 0 0 1-2 2z"/></svg>
-          </button>
-          <!-- Offline earnings -->
-          <button class="btn-offline" id="btn-claim-offline" style="display:none;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" strokejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span id="btn-offline-text">Claim</span>
-          </button>
-        </div>
 
-        <!-- Right: Game Mode Panels -->
-        <div class="game-panels">
-          <button class="game-panel-btn panel-liveon" id="btn-go-liveon">
-            <div class="panel-icon-wrap panel-icon-pink">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><path d="M12 19c-1 0-2.5.4-3.2 1"/></svg>
-            </div>
-            <div class="panel-label">Live!ON</div>
-            <div class="panel-sub">Roguelite Mode</div>
-          </button>
-          <button class="game-panel-btn panel-studio" id="btn-go-studio">
-            <div class="panel-icon-wrap panel-icon-purple">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 11.6L22 7v10"/><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><path d="M7.5 13.5l2 2L12 11"/></svg>
-            </div>
-            <div class="panel-label">Studio</div>
-            <div class="panel-sub">Manage VTubers</div>
-          </button>
-          <button class="game-panel-btn panel-gacha" id="btn-go-gacha">
-            <div class="panel-icon-wrap panel-icon-blue">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M12 8v8"/><circle cx="12" cy="12" r="2"/><path d="M8 8l4 4"/></svg>
-            </div>
-            <div class="panel-label">Gacha</div>
-            <div class="panel-sub">Pull VTubers</div>
-          </button>
-        </div>
+          <!-- Game Mode Panels -->
+          <div class="game-panels">
+            <button class="game-panel-btn panel-liveon" id="btn-go-liveon">
+              <div class="panel-icon-wrap panel-icon-pink">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><path d="M12 19c-1 0-2.5.4-3.2 1"/></svg>
+              </div>
+              <div class="panel-label">Live!ON</div>
+              <div class="panel-sub">Roguelite</div>
+            </button>
+            <button class="game-panel-btn panel-studio" id="btn-go-studio">
+              <div class="panel-icon-wrap panel-icon-purple">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 11.6L22 7v10"/><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><path d="M7.5 13.5l2 2L12 11"/></svg>
+              </div>
+              <div class="panel-label">Studio</div>
+              <div class="panel-sub">VTubers</div>
+            </button>
+            <button class="game-panel-btn panel-gacha" id="btn-go-gacha">
+              <div class="panel-icon-wrap panel-icon-blue">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M12 8v8"/><circle cx="12" cy="12" r="2"/><path d="M8 8l4 4"/></svg>
+              </div>
+              <div class="panel-label">Gacha</div>
+              <div class="panel-sub">Pull</div>
+            </button>
+          </div>
 
-        <!-- Bottom Right: Featured Banner -->
-        <div class="landing-banner" id="landing-banner">
-          <div class="landing-banner-tag">Featured</div>
-          <div class="landing-banner-title" id="landing-banner-name">Golden Week Special</div>
-          <div class="landing-banner-sub" id="landing-banner-desc">Featured UR | 14d left</div>
+          <!-- Featured Banner -->
+          <div class="landing-banner" id="landing-banner">
+            <div class="landing-banner-tag">Featured</div>
+            <div class="landing-banner-title" id="landing-banner-name">Golden Week Special</div>
+            <div class="landing-banner-sub" id="landing-banner-desc">Featured UR | 14d left</div>
+          </div>
         </div>
       </div>
     </section>
@@ -611,7 +613,7 @@
   <script src="js/characters.js?v=63"></script>
   <script src="js/minigame.js?v=63"></script>
   <script src="js/liveon.js?v=63"></script>
-  <script src="js/ui.js?v=63"></script>
-  <script src="js/fx.js?v=63"></script>
+  <script src="js/ui.js?v=64"></script>
+  <script src="js/fx.js?v=64"></script>
 </body>
 </html>

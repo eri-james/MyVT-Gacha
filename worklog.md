@@ -88,3 +88,24 @@ Stage Summary:
 - Cache buster bumped to v=54
 - Both roadmap and content feed default collapsed, expandable with chevron toggle
 - Content feed in scrollable pastel box with proper card styling
+---
+Task ID: 7
+Agent: Main
+Task: Implement dynamic homepage UI with particles, glass morphism, GSAP animations
+
+Work Log:
+- Added GSAP 3.12.5 and tsParticles 2.12.0 CDN scripts to index.html
+- Created js/fx.js module with particle init and GSAP entrance animation functions
+- Applied dark gradient background with Steins;Gate cityscape image to landing-page
+- Converted featured-showcase, game-panel-btn, and landing-banner to glass morphism (backdrop-filter blur + glass borders)
+- Added neon purple glow on panel hover
+- Changed panel labels to white text for dark background
+- Added floating particles (35 count, white/purple/pink, upward drift)
+- Added GSAP staggered entrance animations for homepage elements
+- Bumped version v62 -> v63
+- Wired FX.initHomeParticles() and FX.initHomeAnimations() into switchTab('home')
+
+Stage Summary:
+- Commit 10377ca pushed to overhaul branch
+- New file: js/fx.js
+- Modified: index.html, css/style.css, js/ui.js
