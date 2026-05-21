@@ -38,7 +38,7 @@ const LiveON = (() => {
   const SKIP_PS_LOSS = 10;
 
   // PS cap — all rarities enter with similar budgets (SSR/UR can't brute-force with infinite PS)
-  const RUN_PS_CAP = 55;
+  const RUN_PS_CAP = 70;
 
   // Turn-scaled PS cost: every 5 turns, all costs increase by 1
   // T1-4: base, T5-9: +1, T10-14: +2, T15-19: +3, T20: +4

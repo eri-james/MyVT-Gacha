@@ -2577,7 +2577,7 @@ const UI = (() => {
     html += '<div class="liveon-info-box">';
     html += '<h4>How It Works</h4>';
     html += '<p>Pick a Lead VTuber and 3 Coach supports, then guide them through 20 turns of streaming events.</p>';
-    html += '<p><strong>PS (Passion)</strong> is your run HP (capped at 55). If it hits 0, the run ends early!</p>';
+    html += '<p><strong>PS (Passion)</strong> is your run HP (capped at 70). If it hits 0, the run ends early!</p>';
     html += '<p>Each turn, pick from 3 choices tagged with different stats. Coaches boost gains for their associated stats.</p>';
     html += '<p>Agency visits at turns 5, 10, 15 let you pick upgrades!</p>';
     html += '</div>';
@@ -2610,7 +2610,7 @@ const UI = (() => {
     // Lead selection
     html += '<div class="team-section">';
     html += '<h3 class="liveon-section-title">Lead VTuber</h3>';
-    html += '<p class="team-hint">Their PS becomes your run HP (capped at 55). Manage it wisely!</p>';
+    html += '<p class="team-hint">Their PS becomes your run HP (capped at 70). Manage it wisely!</p>';
     if (leadInfo) {
       const charData = Game.getState().characters[_liveonTeamState.lead];
       const ps = charData && charData.stats ? charData.stats.ps : 0;
