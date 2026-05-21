@@ -1,126 +1,135 @@
 <script lang="ts">
-	import { uiStore } from '$lib/stores';
-	import type { PageId } from '$lib/stores';
+        import { goto } from '$app/navigation';
+        import { page } from '$app/stores';
+        import { uiStore } from '$lib/stores';
+        import type { PageId } from '$lib/stores';
 
-	type Tab = {
-		id: PageId;
-		label: string;
-		icon: string;
-	};
+        type Tab = {
+                id: PageId;
+                label: string;
+                icon: string;
+                route: string;
+        };
 
-	const tabs: Tab[] = [
-		{ id: 'home', label: 'Home', icon: 'home' },
-		{ id: 'collection', label: 'Collection', icon: 'collection' },
-		{ id: 'gacha', label: 'Gacha', icon: 'gacha' },
-		{ id: 'studio', label: 'Studio', icon: 'studio' },
-		{ id: 'toss', label: 'Toss', icon: 'toss' },
-		{ id: 'settings', label: 'Settings', icon: 'settings' }
-	];
+        const tabs: Tab[] = [
+                { id: 'home', label: 'Home', icon: 'home', route: '/' },
+                { id: 'collection', label: 'Collection', icon: 'collection', route: '/collection' },
+                { id: 'gacha', label: 'Gacha', icon: 'gacha', route: '/gacha' },
+                { id: 'studio', label: 'Studio', icon: 'studio', route: '/studio' },
+                { id: 'toss', label: 'Toss', icon: 'toss', route: '/toss' },
+                { id: 'settings', label: 'Settings', icon: 'settings', route: '/settings' }
+        ];
 
-	function navigate(page: PageId) {
-		uiStore.navigate(page);
-	}
+        function navigate(tab: Tab) {
+                uiStore.navigate(tab.id);
+                goto(tab.route);
+        }
+
+        function isActive(tab: Tab): boolean {
+                if (tab.id === 'home') return $page.url.pathname === '/';
+                return $page.url.pathname.startsWith(tab.route);
+        }
 </script>
 
 <nav class="fixed bottom-0 left-0 right-0 z-50 safe-bottom">
-	<div class="glass-strong mx-2 mb-1 rounded-xl">
-		<div class="flex items-center justify-around py-1 px-1">
-			{#each tabs as tab}
-				<button
-					onclick={() => navigate(tab.id)}
-					class="flex flex-col items-center justify-center w-12 py-1.5 rounded-lg transition-all duration-200
-					{uiStore.activePage === tab.id
-						? 'text-blue-400 bg-white/5'
-						: 'text-white/40 hover:text-white/70 hover:bg-white/3'}"
-					aria-label={tab.label}
-				>
-					<!-- Inline SVG icons -->
-					{#if tab.icon === 'home'}
-						<svg
-							class="w-5 h-5"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-							<polyline points="9 22 9 12 15 12 15 22" />
-						</svg>
-					{:else if tab.icon === 'collection'}
-						<svg
-							class="w-5 h-5"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-							<circle cx="9" cy="7" r="4" />
-							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-						</svg>
-					{:else if tab.icon === 'gacha'}
-						<svg
-							class="w-5 h-5"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-						</svg>
-					{:else if tab.icon === 'studio'}
-						<svg
-							class="w-5 h-5"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-							<line x1="8" y1="21" x2="16" y2="21" />
-							<line x1="12" y1="17" x2="12" y2="21" />
-						</svg>
-					{:else if tab.icon === 'toss'}
-						<svg
-							class="w-5 h-5"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<circle cx="12" cy="12" r="10" />
-							<polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" />
-						</svg>
-					{:else if tab.icon === 'settings'}
-						<svg
-							class="w-5 h-5"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<circle cx="12" cy="12" r="3" />
-							<path
-								d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-							/>
-						</svg>
-					{/if}
-					<span class="text-[10px] mt-0.5">{tab.label}</span>
-				</button>
-			{/each}
-		</div>
-	</div>
+        <div class="glass-strong mx-2 mb-1 rounded-xl">
+                <div class="flex items-center justify-around py-1 px-1">
+                        {#each tabs as tab}
+                                <button
+                                        onclick={() => navigate(tab)}
+                                        class="flex flex-col items-center justify-center w-12 py-1.5 rounded-lg transition-all duration-200
+                                        {isActive(tab)
+                                                ? 'text-blue-400 bg-white/5'
+                                                : 'text-white/40 hover:text-white/70 hover:bg-white/3'}"
+                                        aria-label={tab.label}
+                                >
+                                        <!-- Inline SVG icons -->
+                                        {#if tab.icon === 'home'}
+                                                <svg
+                                                        class="w-5 h-5"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                >
+                                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                                        <polyline points="9 22 9 12 15 12 15 22" />
+                                                </svg>
+                                        {:else if tab.icon === 'collection'}
+                                                <svg
+                                                        class="w-5 h-5"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                >
+                                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                                        <circle cx="9" cy="7" r="4" />
+                                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                                </svg>
+                                        {:else if tab.icon === 'gacha'}
+                                                <svg
+                                                        class="w-5 h-5"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                >
+                                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                                </svg>
+                                        {:else if tab.icon === 'studio'}
+                                                <svg
+                                                        class="w-5 h-5"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                >
+                                                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                                                        <line x1="8" y1="21" x2="16" y2="21" />
+                                                        <line x1="12" y1="17" x2="12" y2="21" />
+                                                </svg>
+                                        {:else if tab.icon === 'toss'}
+                                                <svg
+                                                        class="w-5 h-5"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                >
+                                                        <circle cx="12" cy="12" r="10" />
+                                                        <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" />
+                                                </svg>
+                                        {:else if tab.icon === 'settings'}
+                                                <svg
+                                                        class="w-5 h-5"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                >
+                                                        <circle cx="12" cy="12" r="3" />
+                                                        <path
+                                                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                                                        />
+                                                </svg>
+                                        {/if}
+                                        <span class="text-[10px] mt-0.5">{tab.label}</span>
+                                </button>
+                        {/each}
+                </div>
+        </div>
 </nav>
