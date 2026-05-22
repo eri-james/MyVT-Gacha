@@ -1,18 +1,18 @@
 <script lang="ts">
+        import { goto } from '$app/navigation';
         import { gameStore } from '$lib/stores';
         import { formatNumber } from '$lib/utils/format';
         import { loadCharacters, getBySlug, getImageUrl } from '$lib/data/characters';
+        import { onMount } from 'svelte';
 
         const username = $derived(gameStore.state.username);
         const ownedCount = $derived(gameStore.ownedCount);
         const totalPower = $derived(gameStore.totalPower);
 
         let featuredChar = $state<{ name: string; slug: string; image: string } | null>(null);
-        let charactersLoaded = $state(false);
 
-        async function loadFeatured() {
+        onMount(async () => {
                 await loadCharacters();
-                charactersLoaded = true;
                 const slug = gameStore.state.featuredVtuber;
                 if (slug) {
                         const char = getBySlug(slug);
@@ -20,9 +20,7 @@
                                 featuredChar = { name: char.name, slug: char.slug, image: getImageUrl(char.slug) };
                         }
                 }
-        }
-
-        loadFeatured();
+        });
 </script>
 
 <div class="flex flex-col items-center gap-8 pt-8 animate-fade-in">
@@ -85,15 +83,18 @@
         <!-- Quick Actions -->
         <div class="w-full grid grid-cols-2 gap-3">
                 <button
-                        onclick={() => (gameStore.state.featuredVtuber = null)}
+                        onclick={() => goto('/gacha')}
                         class="glass p-3 rounded-xl text-center hover:bg-white/10 transition-colors"
                 >
                         <div class="text-lg mb-1">&#9733;</div>
                         <div class="text-xs text-white/70">Pull Gacha</div>
                 </button>
-                <button class="glass p-3 rounded-xl text-center hover:bg-white/10 transition-colors">
+                <button
+                        onclick={() => goto('/studio')}
+                        class="glass p-3 rounded-xl text-center hover:bg-white/10 transition-colors"
+                >
                         <div class="text-lg mb-1">&#9654;</div>
-                        <div class="text-xs text-white/70">Start Live!ON</div>
+                        <div class="text-xs text-white/70">Open Studio</div>
                 </button>
         </div>
 </div>

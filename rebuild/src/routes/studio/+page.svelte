@@ -4,15 +4,13 @@
         import { loadCharacters, getBySlug, getImageUrl } from '$lib/data/characters';
         import {
                 getContentQuality,
-                getStationUpgradeCost,
-                getTrendingStat,
                 getTrendingTimeRemaining,
                 calculateOfflineEarnings,
                 addStudioExp,
                 checkStudioLevelUp,
                 recoverVTuberStamina
         } from '$lib/logic/studio';
-        import { formatNumber, formatTimeRemaining, formatTimeAgo } from '$lib/utils/format';
+        import { formatNumber, formatTimeAgo } from '$lib/utils/format';
         import {
                 STATION_DEFS,
                 STATION_UPGRADE_COSTS,
@@ -22,9 +20,7 @@
                 QUALITY_TIERS,
                 CONTENT_LOG_MAX,
                 CONTENT_INTERVAL,
-                TRENDING_ROTATION_MS,
                 STAMINA_COSTS,
-                STAMINA_RECOVERY_INTERVAL_MS,
                 RARITY_MULTIPLIERS,
                 STUDIO_EXP_RATES,
                 STUDIO_EXP_RARITY_MULT,
@@ -36,12 +32,10 @@
                 CharacterRecord,
                 CharacterData,
                 StationId,
-                Station,
-                ContentEntry,
-                QualityTier
+                ContentEntry
         } from '$lib/types';
 
-        let allChars: CharacterRecord[] = [];
+        let allChars = $state<CharacterRecord[]>([]);
         let charsLoaded = $state(false);
 
         // ── Derived State ──
@@ -63,8 +57,8 @@
                 };
         });
 
-        // Trending
-        let trendingStat = $derived(getTrendingStat(studio));
+        // Trending — read persisted value directly (no Math.random in derived)
+        let trendingStat = $derived(studio.trendingStat ?? 'tc');
         let trendingTimeRemaining = $derived(getTrendingTimeRemaining(studio));
 
         // Station icon map
@@ -111,25 +105,34 @@
         // ── Content tick ──
         function contentTick() {
                 if (!charsLoaded) return;
-                const state = gameStore.state;
                 const now = Date.now();
-                const lastTick = state.studio.lastContentTick;
+
+                // Persist trending assignment if expired
+                if (!gameStore.state.studio.trendingStat || !gameStore.state.studio.trendingExpires || now >= gameStore.state.studio.trendingExpires) {
+                        const trendableStats = ['tc', 'ch', 'vc', 'mg'];
+                        const newTrending = trendableStats[Math.floor(Math.random() * trendableStats.length)];
+                        gameStore.setStudio({
+                                ...gameStore.state.studio,
+                                trendingStat: newTrending,
+                                trendingExpires: now + 2 * 60 * 60 * 1000
+                        });
+                }
 
                 // Recover stamina for all assigned characters first
-                for (const [sid, st] of Object.entries(state.studio.stations)) {
-                        if (st.assigned && state.characters[st.assigned]) {
-                                state.characters[st.assigned] = recoverVTuberStamina(state.characters[st.assigned]);
+                for (const [sid, st] of Object.entries(gameStore.state.studio.stations)) {
+                        if (st.assigned && gameStore.state.characters[st.assigned]) {
+                                gameStore.setCharacter(st.assigned, recoverVTuberStamina(gameStore.state.characters[st.assigned]));
                         }
                 }
 
                 // Check each active station
                 for (const stationId of STATION_ORDER) {
-                        const station = state.studio.stations[stationId];
+                        const station = gameStore.state.studio.stations[stationId];
                         if (!station || !station.assigned) continue;
                         const def = STATION_DEFS[stationId];
-                        if (state.studio.level < def.unlockLv) continue;
+                        if (gameStore.state.studio.level < def.unlockLv) continue;
 
-                        const charData = state.characters[station.assigned];
+                        const charData = gameStore.state.characters[station.assigned];
                         if (!charData) continue;
                         const charInfo = getBySlug(station.assigned);
                         if (!charInfo) continue;
@@ -141,7 +144,7 @@
                         if (charData.stats.st < staminaCost) continue;
 
                         // Get quality
-                        const quality = getContentQuality(stationId, station, { ...charInfo, stats: charData.stats, level: charData.level, rarity: charData.rarity, baseStats: charData.baseStats } as any, state.studio);
+                        const quality = getContentQuality(stationId, station, { ...charInfo, stats: charData.stats, level: charData.level, rarity: charData.rarity, baseStats: charData.baseStats } as any, gameStore.state.studio);
                         if (!quality) continue;
 
                         // Calculate rewards
@@ -153,40 +156,39 @@
                                 stationId === 'streamRoom'
                                         ? 0
                                         : stationId === 'practiceHall'
-                                                ? (state.studio.level - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
-                                                : (state.studio.level - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
+                                                ? (gameStore.state.studio.level - 1) * STUDIO_FLAT_BONUS_PRACTICE_HALL
+                                                : (gameStore.state.studio.level - 1) * STUDIO_FLAT_BONUS_PER_LEVEL;
 
                         const reward = contentType.baseReward * quality.multiplier * rarityMult * stationMult * levelBonus + flatBonus;
 
                         // Apply trending bonus to quality label
-                        const trending = getTrendingStat(state.studio);
+                        const trending = gameStore.state.studio.trendingStat;
                         const isTrending = trending === contentType.primary || trending === contentType.secondary;
 
                         // Deduct stamina
-                        charData.stats.st = Math.max(0, charData.stats.st - staminaCost);
-                        charData.lastStaminaRecovery = now;
+                        gameStore.updateCharacterStamina(station.assigned!, Math.max(0, charData.stats.st - staminaCost), now);
 
                         // Apply currency reward
-                        if (contentType.resource === 'vgems') state.currencies.vgems += Math.floor(reward);
-                        else if (contentType.resource === 'vringgit') state.currencies.vringgit += Math.floor(reward);
-                        else if (contentType.resource === 'liveCache') state.currencies.liveCache += reward;
+                        if (contentType.resource === 'vgems') gameStore.addCurrency('vgems', Math.floor(reward));
+                        else if (contentType.resource === 'vringgit') gameStore.addCurrency('vringgit', Math.floor(reward));
+                        else if (contentType.resource === 'liveCache') gameStore.addCurrency('liveCache', reward);
 
                         // Lounge bonus LiveCache
                         if ('bonusResource' in contentType && contentType.bonusResource === 'liveCache') {
                                 const bonusReward = contentType.bonusAmount * quality.multiplier * rarityMult * stationMult * levelBonus;
-                                state.currencies.liveCache += Math.floor(bonusReward);
+                                gameStore.addCurrency('liveCache', Math.floor(bonusReward));
                         }
 
                         // Studio EXP
                         const expRate = (STUDIO_EXP_RATES[stationId] || 0) * (STUDIO_EXP_RARITY_MULT[charData.rarity] || 1.0);
-                        const prevLevel = state.studio.level;
-                        state.studio = addStudioExp(state.studio, expRate);
-                        state.studio = checkStudioLevelUp(state.studio);
+                        const prevLevel = gameStore.state.studio.level;
+                        gameStore.setStudio(addStudioExp(gameStore.state.studio, expRate));
+                        gameStore.setStudio(checkStudioLevelUp(gameStore.state.studio));
 
                         // Notify level up
-                        if (state.studio.level > prevLevel) {
-                                const lvlDef = STATION_LEVELS.find((l) => l.level === state.studio.level);
-                                studioStore.showLevelUpNotice(prevLevel, state.studio.level, lvlDef?.unlocks || '');
+                        if (gameStore.state.studio.level > prevLevel) {
+                                const lvlDef = STATION_LEVELS.find((l) => l.level === gameStore.state.studio.level);
+                                studioStore.showLevelUpNotice(prevLevel, gameStore.state.studio.level, lvlDef?.unlocks || '');
                         }
 
                         // Add to content log
@@ -215,56 +217,25 @@
                                 staminaCost
                         };
 
-                        state.studio.contentLog.unshift(entry);
+                        gameStore.addContentLogEntry(entry);
                 }
 
                 // Trim content log
-                if (state.studio.contentLog.length > CONTENT_LOG_MAX) {
-                        state.studio.contentLog = state.studio.contentLog.slice(0, CONTENT_LOG_MAX);
-                }
+                gameStore.trimContentLog(CONTENT_LOG_MAX);
 
-                state.studio.lastContentTick = now;
+                gameStore.setStudioLastContentTick(now);
                 gameStore.save();
         }
 
-        // ── Station Operations ──
-        function assignToStation(stationId: StationId, slug: string): boolean {
-                const state = gameStore.state;
-                const station = state.studio.stations[stationId];
-                if (!station) return false;
-
-                // Unassign from other station first
-                for (const [sid, st] of Object.entries(state.studio.stations)) {
-                        if (st.assigned === slug && sid !== stationId) {
-                                st.assigned = null;
-                        }
-                }
-
-                station.assigned = slug;
-                gameStore.save();
-                return true;
-        }
-
-        function unassignStation(stationId: StationId): void {
+        // ── Station Operations (delegated to gameStore safe methods) ──
+        function handleUpgradeStation(stationId: StationId): void {
                 const station = gameStore.state.studio.stations[stationId];
-                if (station) {
-                        station.assigned = null;
-                        gameStore.save();
-                }
-        }
-
-        function upgradeStation(stationId: StationId): boolean {
-                const state = gameStore.state;
-                const station = state.studio.stations[stationId];
-                if (!station || station.level >= 5) return false;
-
+                if (!station || station.level >= 5) return;
                 const cost = STATION_UPGRADE_COSTS[station.level] || 0;
-                if (state.currencies.vringgit < cost) return false;
-
-                state.currencies.vringgit -= cost;
-                station.level++;
+                if (gameStore.state.currencies.vringgit < cost) return;
+                gameStore.addCurrency('vringgit', -cost);
+                gameStore.upgradeStation(stationId);
                 gameStore.save();
-                return true;
         }
 
         // ── Offline Earnings ──
@@ -301,36 +272,34 @@
                         hasOffline = true;
                 }
 
-                state.lastOnline = now;
+                gameStore.setLastOnline(now);
                 gameStore.save();
         }
 
         function claimOffline(): void {
                 if (!offlineData) return;
 
-                const state = gameStore.state;
-                state.currencies.vgems += offlineData.vgems;
-                state.currencies.vringgit += offlineData.vringgit;
-                state.currencies.liveCache += offlineData.liveCache;
+                // Add currencies
+                gameStore.addCurrency('vgems', offlineData.vgems);
+                gameStore.addCurrency('vringgit', offlineData.vringgit);
+                gameStore.addCurrency('liveCache', offlineData.liveCache);
 
                 // Studio EXP from offline
-                const prevLevel = state.studio.level;
-                state.studio = addStudioExp(state.studio, offlineData.studioExp);
-                state.studio = checkStudioLevelUp(state.studio);
+                const prevLevel = gameStore.state.studio.level;
+                gameStore.setStudio(addStudioExp(gameStore.state.studio, offlineData.studioExp));
+                gameStore.setStudio(checkStudioLevelUp(gameStore.state.studio));
 
-                if (state.studio.level > prevLevel) {
-                        const lvlDef = STATION_LEVELS.find((l) => l.level === state.studio.level);
-                        studioStore.showLevelUpNotice(prevLevel, state.studio.level, lvlDef?.unlocks || '');
+                if (gameStore.state.studio.level > prevLevel) {
+                        const lvlDef = STATION_LEVELS.find((l) => l.level === gameStore.state.studio.level);
+                        studioStore.showLevelUpNotice(prevLevel, gameStore.state.studio.level, lvlDef?.unlocks || '');
                 }
 
-                // Deduct stamina for assigned VTubers based on pieces produced
-                for (const [sid, st] of Object.entries(state.studio.stations)) {
+                // Recover stamina for assigned VTubers
+                for (const [sid, st] of Object.entries(gameStore.state.studio.stations)) {
                         if (!st.assigned) continue;
-                        const char = state.characters[st.assigned];
+                        const char = gameStore.state.characters[st.assigned];
                         if (!char) continue;
-                        // Offline calc used B tier quality (mult 1.0), pieces = min(cycles, maxStamina/staminaCost)
-                        // We just set stamina to 0 or recovered amount - the offline earnings assumed stamina was used
-                        state.characters[st.assigned] = recoverVTuberStamina(char);
+                        gameStore.setCharacter(st.assigned, recoverVTuberStamina(char));
                 }
 
                 // Add offline entry to content log
@@ -356,10 +325,8 @@
                         contentPieces: offlineData.contentPieces
                 };
 
-                state.studio.contentLog.unshift(offlineEntry);
-                if (state.studio.contentLog.length > CONTENT_LOG_MAX) {
-                        state.studio.contentLog = state.studio.contentLog.slice(0, CONTENT_LOG_MAX);
-                }
+                gameStore.addContentLogEntry(offlineEntry);
+                gameStore.trimContentLog(CONTENT_LOG_MAX);
 
                 gameStore.save();
                 hasOffline = false;
@@ -485,9 +452,9 @@
 
         function handleAssign(slug: string): void {
                 if (!assignStationId) return;
-                if (assignToStation(assignStationId, slug)) {
-                        closeAssignModal();
-                }
+                gameStore.assignStation(assignStationId, slug);
+                gameStore.save();
+                closeAssignModal();
         }
 
         function getCharacterStation(slug: string): StationId | null {
@@ -662,7 +629,7 @@
 
                                 <!-- Station Slot -->
                                 <button
-                                        onclick={() => { if (!isLocked && station) { if (isAssigned) { unassignStation(stationId); } else { openAssignModal(stationId); } } }}
+                                        onclick={() => { if (!isLocked && station) { if (isAssigned) { gameStore.assignStation(stationId, null); gameStore.save(); } else { openAssignModal(stationId); } } }}
                                         class="w-full p-3 transition-colors
                                         {isLocked ? 'cursor-not-allowed' : isAssigned ? 'hover:bg-white/3' : 'hover:bg-white/5'}"
                                         disabled={isLocked}
@@ -738,7 +705,7 @@
                                                 <!-- Upgrade -->
                                                 {#if station && stationLevel < 5}
                                                         <button
-                                                                onclick={() => { if (upgradeStation(stationId)) {} }}
+                                                                onclick={() => handleUpgradeStation(stationId)}
                                                                 disabled={!canUpgrade}
                                                                 class="w-full py-2 rounded-lg text-xs font-medium transition-all
                                                                 {canUpgrade
