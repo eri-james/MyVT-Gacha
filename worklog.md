@@ -38,3 +38,22 @@ Stage Summary:
 - The deployment was serving a stale build (different chunk hashes)
 - Commit 77cf3dd: fix(deploy): point wrangler assets to rebuild/build output directory
 - Pushed to main; user needs to wait for Cloudflare Pages rebuild + hard refresh
+
+---
+Task ID: 3
+Agent: main
+Task: Fix Studio page showing "Loading error" — SPA routing 404
+
+Work Log:
+- User reported Studio page shows "Loading error" after deployment
+- Investigated: all source code verified clean, no state_unsafe_mutation issues
+- Checked build output: adapter-static generates single index.html, no /studio/ or /gacha/ directories
+- Root cause: Cloudflare Workers static assets has NO SPA fallback — requests to /studio return 404
+- wrangler.jsonc valid html_handling options: auto-trailing-slash, force-trailing-slash, drop-trailing-slash, none — none provides SPA routing
+- Fix: created _worker.js in rebuild/static/ (copied to build/) with SPA fallback logic
+- _worker.js intercepts all requests, tries static asset lookup first, falls back to /index.html for client-side SvelteKit routing
+- Verified _worker.js appears in build output after npm run build
+
+Stage Summary:
+- Commit 32494b7: fix(spa): add _worker.js for Cloudflare Workers SPA routing
+- This fixes both /studio and /gacha showing errors when navigating directly
