@@ -4,6 +4,7 @@
         import { formatNumber } from '$lib/utils/format';
         import { loadCharacters, getBySlug, getImageUrl } from '$lib/data/characters';
         import { onMount } from 'svelte';
+        import PageHint from '$components/PageHint.svelte';
 
         const username = $derived(gameStore.state.username);
         const ownedCount = $derived(gameStore.ownedCount);
@@ -23,7 +24,15 @@
         });
 </script>
 
-<div class="flex flex-col items-center gap-8 pt-8 animate-fade-in">
+<div class="animate-fade-in">
+        <!-- Home Page Hint -->
+        <PageHint
+                step="homeHint"
+                title="Your Agency Dashboard"
+                body="This is your command center. Track your VTuber roster, total power, and producer level here. Use the quick actions below to start pulling or begin a training run."
+                icon="home"
+        />
+
         <!-- Title -->
         <div class="text-center">
                 <h1
@@ -49,8 +58,8 @@
                                 <div class="text-xs text-white/50">Total Power</div>
                         </div>
                         <div class="glass p-3 rounded-lg text-center">
-                                <div class="text-2xl font-bold text-green-400">Lv.{gameStore.state.studio.level}</div>
-                                <div class="text-xs text-white/50">Studio</div>
+                                <div class="text-2xl font-bold text-green-400">{Object.keys(gameStore.state.trainedArchive.trained).length}</div>
+                                <div class="text-xs text-white/50">Trained</div>
                         </div>
                         <div class="glass p-3 rounded-lg text-center">
                                 <div class="text-2xl font-bold text-cyan-400"
@@ -90,11 +99,11 @@
                         <div class="text-xs text-white/70">Pull Gacha</div>
                 </button>
                 <button
-                        onclick={() => goto('/studio')}
+                        onclick={() => goto('/liveon')}
                         class="glass p-3 rounded-xl text-center hover:bg-white/10 transition-colors"
                 >
                         <div class="text-lg mb-1">&#9654;</div>
-                        <div class="text-xs text-white/70">Open Studio</div>
+                        <div class="text-xs text-white/70">Live!ON</div>
                 </button>
         </div>
 </div>

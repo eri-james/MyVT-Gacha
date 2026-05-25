@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "cd rebuild && npm install && npm run build",
+    "dev": "cd rebuild && npm run dev",
+    "preview": "cd rebuild && npm run preview"
+  }
+}

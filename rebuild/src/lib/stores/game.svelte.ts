@@ -1,8 +1,13 @@
-import type { GameState, Currencies, StudioState, CharacterData, QuestState, StationId } from '$lib/types';
-import { SAVE_VERSION } from '$lib/data/constants';
+import type { GameState, Currencies, CharacterData, QuestState, TrainedCopy, TrainedArchive, OnboardingState } from '$lib/types';
+import { SAVE_VERSION, TRAINED_ARCHIVE_CAP, STARTER_COACHES, AUTO_SAVE_INTERVAL } from '$lib/data/constants';
 import { loadSave, writeSave, migrateFromLocalStorage } from '$lib/utils/save';
+import { getLoginRewards } from '$lib/logic/economy';
 
 function generatePlayerId(): string {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+        }
+        // Fallback for environments without crypto.randomUUID
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let id = 'MYVT';
         for (let g = 0; g < 3; g++) {
@@ -34,19 +39,9 @@ function createInitialState(): GameState {
                 characters: {},
                 oshiList: [],
                 featuredVtuber: null,
-                studio: {
-                        level: 1,
-                        exp: 0,
-                        stations: {
-                                streamRoom: { level: 1, assigned: null },
-                                creativeCorner: { level: 1, assigned: null },
-                                practiceHall: { level: 1, assigned: null },
-                                lounge: { level: 1, assigned: null }
-                        },
-                        contentLog: [],
-                        lastContentTick: Date.now(),
-                        trendingStat: null,
-                        trendingExpires: 0
+                trainedArchive: {
+                        trained: {},
+                        starterCoaches: []
                 },
                 pity: { count: 0 },
                 stats: { totalPulls: 0, ssrStreak: 0, bestSsrStreak: 0 },
@@ -55,26 +50,39 @@ function createInitialState(): GameState {
                 dailyLogin: { streak: 0, lastClaim: null },
                 quests: {
                         daily: { date: '', progress: {}, claimed: {} },
-                        weekly: { weekId: '', progress: {}, claimed: {} }
+                        weekly: { date: '', progress: {}, claimed: {} }
                 },
                 stamina: { current: 180, lastRecovery: Date.now() },
-                minigame: { dailyPlays: 0, lastPlayDate: null, highScore: 0 },
+                minigame: { dailyPlays: 0, lastPlayDate: '', highScore: 0 },
+                onboarding: {
+                        welcome: false,
+                        homeHint: false,
+                        gachaHint: false,
+                        liveonHint: false
+                },
                 lastOnline: Date.now()
         };
 }
 
-/** State migration (v1 → v8) — simplified for rebuild */
+/** State migration (v1 → v9) */
 function migrateState(saved: GameState): GameState {
         const merged = { ...createInitialState(), ...saved, version: SAVE_VERSION };
         // Ensure all fields exist
         if (!merged.milestones) merged.milestones = [];
         if (!merged.pullHistory) merged.pullHistory = {};
-        if (!merged.minigame) merged.minigame = { dailyPlays: 0, lastPlayDate: null, highScore: 0 };
+        if (!merged.minigame) merged.minigame = { dailyPlays: 0, lastPlayDate: '', highScore: 0 };
         if (!merged.stamina) merged.stamina = { current: 180, lastRecovery: Date.now() };
         if (merged.stamina.current > 180) merged.stamina.current = 180;
-        if (!merged.quests) merged.quests = { daily: { date: '', progress: {}, claimed: {} }, weekly: { weekId: '', progress: {}, claimed: {} } };
+        if (!merged.quests) merged.quests = { daily: { date: '', progress: {}, claimed: {} }, weekly: { date: '', progress: {}, claimed: {} } };
         if (!merged.producerLevel) merged.producerLevel = { level: 1, exp: 0 };
         if (!merged.oshiList) merged.oshiList = [];
+        // v9: Remove studio field, ensure trainedArchive exists
+        delete (merged as any).studio;
+        if (!merged.trainedArchive) merged.trainedArchive = { trained: {}, starterCoaches: [] };
+        // Existing players skip onboarding
+        if (!merged.onboarding) {
+                merged.onboarding = { welcome: true, homeHint: true, gachaHint: true, liveonHint: true };
+        }
         return merged;
 }
 
@@ -82,6 +90,7 @@ export class GameStore {
         state: GameState = $state(createInitialState());
         ready: boolean = $state(false);
         private _saveTimer: ReturnType<typeof setInterval> | null = null;
+        private _beforeUnloadHandler = () => { this.save(); };
 
         async init(): Promise<void> {
                 let saved = await loadSave();
@@ -101,11 +110,11 @@ export class GameStore {
                 this.ready = true;
 
                 // Auto-save every 30 seconds
-                this._saveTimer = setInterval(() => this.save(), 30_000);
+                this._saveTimer = setInterval(() => this.save(), AUTO_SAVE_INTERVAL);
 
                 // Save on page unload
                 if (typeof window !== 'undefined') {
-                        window.addEventListener('beforeunload', () => this.save());
+                        window.addEventListener('beforeunload', this._beforeUnloadHandler);
                 }
         }
 
@@ -122,7 +131,6 @@ export class GameStore {
         // ── Currency shortcuts ──
         get currencies(): Currencies { return this.state.currencies; }
         get characters(): Record<string, CharacterData> { return this.state.characters; }
-        get studio(): StudioState { return this.state.studio; }
 
         /** Count of owned characters */
         get ownedCount(): number {
@@ -185,38 +193,36 @@ export class GameStore {
                 };
         }
 
-        /** Set studio state (full replace, used by addStudioExp/checkStudioLevelUp) */
-        setStudio(studio: StudioState): void {
-                this.state.studio = studio;
-        }
+        // ── Trained Archive ──
 
-        /** Prepend an entry to the studio content log */
-        addContentLogEntry(entry: StudioState['contentLog'][0]): void {
-                this.state.studio.contentLog.unshift(entry);
-        }
+        /** Get the trained archive */
+        get trainedArchive(): TrainedArchive { return this.state.trainedArchive; }
 
-        /** Trim content log to max entries */
-        trimContentLog(max: number): void {
-                if (this.state.studio.contentLog.length > max) {
-                        this.state.studio.contentLog = this.state.studio.contentLog.slice(0, max);
-                }
-        }
-
-        /** Assign a character to a station */
-        assignStation(stationId: StationId, slug: string | null): void {
-                // Unassign from other stations first
-                for (const [sid, st] of Object.entries(this.state.studio.stations)) {
-                        if (st.assigned === slug && sid !== stationId) {
-                                this.state.studio.stations[sid as StationId].assigned = null;
+        /** Save a trained copy to the archive (cap at TRAINED_ARCHIVE_CAP) */
+        addTrainedCopy(slug: string, trained: TrainedCopy): void {
+                const archive = this.state.trainedArchive;
+                // If at cap, remove oldest non-starter entry
+                const keys = Object.keys(archive.trained);
+                if (keys.length >= TRAINED_ARCHIVE_CAP) {
+                        const nonStarter = keys.filter(k => !archive.starterCoaches.includes(k));
+                        if (nonStarter.length > 0) {
+                                const oldest = nonStarter.sort((a, b) => archive.trained[a].timestamp - archive.trained[b].timestamp)[0];
+                                delete archive.trained[oldest];
+                        } else {
+                                // All entries are starters — evict oldest overall to preserve cap
+                                const oldest = keys.sort((a, b) => archive.trained[a].timestamp - archive.trained[b].timestamp)[0];
+                                delete archive.trained[oldest];
                         }
                 }
-                this.state.studio.stations[stationId].assigned = slug;
+                this.state.trainedArchive.trained[slug] = trained;
         }
 
-        /** Upgrade a station level */
-        upgradeStation(stationId: StationId): void {
-                this.state.studio.stations[stationId].level++;
+        /** Get all available coaches (trained copies eligible as coaches) */
+        getAvailableCoaches(): TrainedCopy[] {
+                return Object.values(this.state.trainedArchive.trained);
         }
+
+        // ── Pity ──
 
         /** Update pity counter */
         setPityCount(count: number): void {
@@ -246,19 +252,96 @@ export class GameStore {
                 this.state.pullHistory[slug].totalPulls++;
         }
 
+        // ── Quests ──
+
         /** Update quests state */
         setQuests(quests: QuestState): void {
                 this.state.quests = quests;
         }
 
+        // ── Onboarding ──
+
+        get onboarding(): OnboardingState { return this.state.onboarding; }
+
+        /** Mark an onboarding step as completed */
+        completeOnboardingStep(step: keyof OnboardingState): void {
+                this.state.onboarding[step] = true;
+                this.save();
+        }
+
+        /** Check if the welcome sequence needs to be shown */
+        get needsOnboarding(): boolean {
+                return !this.state.onboarding.welcome;
+        }
+
+        /** Claim daily login rewards based on current streak */
+        claimDailyLogin(): { vgems: number; tickets: number } | null {
+                const today = new Date().toISOString().split('T')[0];
+                // Already claimed today
+                if (this.state.quests.daily.claimed['daily_login_reward']) return null;
+                // Must have logged in today (daily_login progress set by quest reset)
+                if (!this.state.quests.daily.progress.daily_login) return null;
+
+                const rewards = getLoginRewards(this.state.dailyLogin.streak);
+                this.addCurrency('vgems', rewards.vgems);
+                this.addTickets('blue', rewards.tickets);
+                this.state.quests.daily.claimed['daily_login_reward'] = true;
+                this.save();
+                return rewards;
+        }
+
+        /** Reset all onboarding flags (replay welcome sequence) */
+        resetOnboarding(): void {
+                this.state.onboarding = { welcome: false, homeHint: false, gachaHint: false, liveonHint: false };
+                this.save();
+        }
+
+        /** Grant starter coaches to a new player. Called once after welcome completes. */
+        grantStarterCoaches(): void {
+                const archive = this.state.trainedArchive;
+                for (const coach of STARTER_COACHES) {
+                        // Don't re-grant if already present
+                        if (archive.trained[coach.slug]) continue;
+                        archive.trained[coach.slug] = {
+                                slug: coach.slug,
+                                rarity: coach.rarity,
+                                grade: coach.grade,
+                                finalStats: coach.stats,
+                                coachPassives: [{
+                                        id: `starter-${coach.slug}`,
+                                        name: coach.passive.label,
+                                        description: coach.passive.desc,
+                                        effect: { type: 'stat_boost', target: coach.passive.stat, value: coach.passive.stat === 'mg' ? 5 : 3 },
+                                        sourceCoach: coach.slug,
+                                        sourceBondLevel: 1
+                                }],
+                                totalSubscribers: 1200,
+                                scenarioId: 'starter',
+                                timestamp: Date.now(),
+                                runSummary: `Trainee ${coach.name} — ${coach.title}. ${coach.tagline}`
+                        };
+                        if (!archive.starterCoaches.includes(coach.slug)) {
+                                archive.starterCoaches.push(coach.slug);
+                        }
+                }
+                this.save();
+        }
+
+        // ── Misc ──
+
+        /** Deduct stamina (safe mutation) */
+        deductStamina(amount: number): void {
+                this.state.stamina = { ...this.state.stamina, current: Math.max(0, this.state.stamina.current - amount) };
+        }
+
+        /** Update minigame state (safe mutation) */
+        updateMinigame(partial: Partial<typeof this.state.minigame>): void {
+                this.state.minigame = { ...this.state.minigame, ...partial };
+        }
+
         /** Set lastOnline timestamp */
         setLastOnline(ts: number): void {
                 this.state.lastOnline = ts;
-        }
-
-        /** Set studio lastContentTick */
-        setStudioLastContentTick(ts: number): void {
-                this.state.studio.lastContentTick = ts;
         }
 
         /** Set featured VTuber */
@@ -269,7 +352,7 @@ export class GameStore {
         destroy(): void {
                 if (this._saveTimer) clearInterval(this._saveTimer);
                 if (typeof window !== 'undefined') {
-                        window.removeEventListener('beforeunload', () => this.save());
+                        window.removeEventListener('beforeunload', this._beforeUnloadHandler);
                 }
         }
 }
