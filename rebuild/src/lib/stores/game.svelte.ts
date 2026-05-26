@@ -76,7 +76,11 @@ export function migrateState(data: unknown): GameState {
                 playerId: (state.playerId as string) || initial.playerId,
                 currencies: (state.currencies as Currencies) || initial.currencies,
                 collection: (state.collection as Record<string, CollectionEntry>) || initial.collection,
-                roster: (state.roster as RosterEntry[]) || initial.roster,
+                roster: ((state.roster as RosterEntry[]) || initial.roster).map((entry: RosterEntry) => ({
+                        ...entry,
+                        generation: entry.generation ?? 1,
+                        parentRunId: entry.parentRunId
+                })),
                 liveon: (state.liveon as LiveonRun) || null,
                 gacha: (state.gacha as GachaState) || initial.gacha,
                 brawlAP: (state.brawlAP as BrawlAP) || initial.brawlAP,

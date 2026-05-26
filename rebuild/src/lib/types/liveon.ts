@@ -18,6 +18,7 @@ export interface LiveonRun {
         scenarioId: string;
         leadSlug: string;
         inspirations: Inspiration[];
+        inheritedFromRosterId?: string; // roster ID of the entry whose sparks were inherited
 
         // Stats
         baseStats: CharacterStats;   // original base stats of lead

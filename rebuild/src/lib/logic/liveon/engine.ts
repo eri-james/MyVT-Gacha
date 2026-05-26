@@ -38,12 +38,14 @@ const TRAINING_TURN_OPTIONS = 3; // number of choices per turn
  * @param inspirations - Optional array of roster entries supporting the lead
  * @param scenarioId - Which scenario to play
  * @param inheritedSparks - Sparks from a previous run (for spark inheritance)
+ * @param inheritedFromRosterId - Roster entry ID whose sparks were inherited (lineage tracking)
  */
 export function createRun(
         lead: CharacterData,
         inspirations: { rosterId: string; slug: string; stats: TrainedStats; grade: RunGrade; sparks: Sparks | null }[],
         scenarioId: string,
-        inheritedSparks: Sparks | null
+        inheritedSparks: Sparks | null,
+        inheritedFromRosterId?: string
 ): LiveonRun {
         // Calculate starting stats: base + inherited sparks
         const startStats: TrainedStats = {
@@ -63,6 +65,7 @@ export function createRun(
                 scenarioId,
                 leadSlug: lead.slug,
                 inspirations,
+                inheritedFromRosterId,
                 baseStats: { ...lead.stats },
                 currentStats: startStats,
                 inheritedSparks,

@@ -37,6 +37,7 @@
         let selectedLeadSlug = $state<string | null>(null);
         let selectedInspirations = $state<RosterEntry[]>([]);
         let inheritedSparks = $state<Sparks | null>(null);
+        let inheritedFromRosterId = $state<string | undefined>(undefined);
         let lastExcursionIds = $state<string[]>([]);
 
         // Sub-screen within running phase
@@ -94,6 +95,7 @@
                 // Check if this character has a previous roster entry with sparks
                 const prevRun = gameState.roster.find(r => r.slug === slug && r.sparks);
                 inheritedSparks = prevRun?.sparks || null;
+                inheritedFromRosterId = prevRun?.id || undefined;
         }
 
         function handleConfirmCharacter() {
@@ -106,6 +108,11 @@
                 const lead = characters.find(c => c.slug === leadSlug);
                 if (!lead) return;
 
+                // Calculate generation: parent's gen + 1, or 1 if no parent
+                const parentGen = inheritedFromRosterId
+                        ? (gameState.roster.find(r => r.id === inheritedFromRosterId)?.generation ?? 0)
+                        : 0;
+
                 // Create run with selected inspirations
                 const newRun = createRun(
                         lead,
@@ -117,13 +124,17 @@
                                 sparks: r.sparks
                         })),
                         selectedScenarioId,
-                        inheritedSparks
+                        inheritedSparks,
+                        inheritedFromRosterId
                 );
 
                 gameState.liveon = newRun;
                 phase = 'running';
                 subScreen = 'cycleFlow';
                 currentCycleResult = { cycle: 1, training: null, excursion: null, freeChoice: null, checkpoint: null };
+
+                // Stash generation on the run for collection
+                (newRun as any)._generation = parentGen + 1;
         }
 
         // ─── Cycle Flow ───
@@ -317,6 +328,8 @@
                         id: run.id,
                         slug: run.leadSlug,
                         sourceRunId: run.id,
+                        parentRunId: run.inheritedFromRosterId,
+                        generation: (run as any)._generation ?? 1,
                         createdAt: Date.now(),
                         stats: { ...run.currentStats },
                         grade: run.result.grade,
