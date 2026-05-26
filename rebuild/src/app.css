@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── MyVT-Gacha Dark Theme (carried over from overhaul) ─── */
+/* ─── MyVT-Gacha Dark Theme ─── */
 
 :root {
         --bg-primary: #0a0e1a;
@@ -37,13 +37,11 @@ body {
         min-height: 100dvh;
 }
 
-/* Prevent text selection on game UI */
 body {
         -webkit-user-select: none;
         user-select: none;
 }
 
-/* Allow text selection on specific elements */
 .selectable {
         -webkit-user-select: text;
         user-select: text;
@@ -133,34 +131,18 @@ body {
 }
 
 @keyframes fadeIn {
-        from {
-                opacity: 0;
-        }
-        to {
-                opacity: 1;
-        }
+        from { opacity: 0; }
+        to { opacity: 1; }
 }
 
 @keyframes slideUp {
-        from {
-                opacity: 0;
-                transform: translateY(10px);
-        }
-        to {
-                opacity: 1;
-                transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── Pull Reveal Animation ─── */
-
 @keyframes shimmer {
-        0% {
-                background-position: -200% 0;
-        }
-        100% {
-                background-position: 200% 0;
-        }
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
 }
 
 .shimmer {

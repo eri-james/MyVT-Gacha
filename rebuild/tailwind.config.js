@@ -4,7 +4,6 @@ export default {
 	theme: {
 		extend: {
 			colors: {
-				// MyVT brand colors
 				primary: {
 					50: '#eff6ff',
 					100: '#dbeafe',
@@ -17,14 +16,12 @@ export default {
 					800: '#1e40af',
 					900: '#1e3a8a'
 				},
-				// Rarity colors
 				rarity: {
 					r: '#9ca3af',
 					sr: '#60a5fa',
 					ssr: '#c77dff',
 					ur: '#fbbf24'
 				},
-				// Dark theme palette (carried over from overhaul)
 				surface: {
 					DEFAULT: 'rgba(255,255,255,0.05)',
 					hover: 'rgba(255,255,255,0.08)',
