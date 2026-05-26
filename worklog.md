@@ -116,3 +116,32 @@ Stage Summary:
 - All 7 LOW issues from third code review resolved
 - 7 files modified: game.svelte.ts, economy.ts, liveon.ts, format.ts, liveon/+page.svelte, toss/+page.svelte, LiveonSetup.svelte
 - Third code review complete: all 29 issues fixed (5 CRITICAL + 6 HIGH + 10 MEDIUM + 7 LOW across 4 batches)
+---
+Task ID: 5
+Agent: Main Agent
+Task: Clean slate — delete all code except characters.json, start fresh
+
+Work Log:
+- User requested full reset due to tangled codebase
+- Backed up characters.json (8295 lines) to /tmp
+- Deleted all 55 files in rebuild/ except characters.json
+- Created fresh SvelteKit 5 scaffold:
+  - package.json (Svelte 5.55, SvelteKit 2.57, Tailwind v3, Vite 8)
+  - svelte.config.js (adapter-static, runes enabled, $components alias)
+  - vite.config.ts, tsconfig.json, postcss.config.js, tailwind.config.js
+  - app.html (dark theme, Inter font, meta tags)
+  - app.css (Tailwind directives, dark theme CSS vars, glass morphism, rarity colors, animations)
+  - app.d.ts (SvelteKit types)
+  - +layout.svelte (imports app.css, renders children)
+  - +page.svelte (placeholder home page)
+  - static/_worker.js (Cloudflare SPA fallback)
+  - static/robots.txt
+  - .gitignore, .npmrc
+- Restored characters.json to static/data/characters.json
+- Verified build passes (adapter-static → build/)
+- Committed and force-pushed to origin/rebuild as 37cf8f4
+
+Stage Summary:
+- Full clean slate: 55 files → 16 files (all config/scaffold + characters.json)
+- Build verified working
+- Ready for fresh Training Simulator implementation from design doc
