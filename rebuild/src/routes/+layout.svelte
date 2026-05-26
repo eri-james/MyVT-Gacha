@@ -2,14 +2,64 @@
 	import '$lib/../app.css';
 	import type { PageId } from '$lib/types';
 	import type { GameState } from '$lib/stores/game.svelte.ts';
+	import { createInitialState, migrateState } from '$lib/stores/game.svelte.ts';
+	import { readSave, writeSave } from '$lib/utils/save';
 	import AppShell from '$components/layout/AppShell.svelte';
+	import { setContext, onMount } from 'svelte';
 
 	// ─── Central reactive state ───
-	// All components access state through these bindings.
-	// Game logic files produce new state; components just display it.
 	let currentPage = $state<PageId>('home');
-	let gameState = $state<GameState | null>(null);
+	let gameState = $state<GameState>(createInitialState());
 	let isLoading = $state(true);
+	let toastMessage = $state<string | null>(null);
+
+	// Navigation function — children call this instead of direct assignment
+	function navigateTo(page: PageId) {
+		currentPage = page;
+	}
+
+	function showToast(msg: string) {
+		toastMessage = msg;
+		setTimeout(() => { toastMessage = null; }, 3000);
+	}
+
+	// Provide state + mutators to all child components via context
+	setContext('myvt-game', {
+		get currentPage() { return currentPage; },
+		get gameState() { return gameState; },
+		get isLoading() { return isLoading; },
+		get toastMessage() { return toastMessage; },
+		navigateTo,
+		showToast
+	});
+
+	// ─── Save / Load ───
+	onMount(async () => {
+		try {
+			const saved = await readSave();
+			if (saved) {
+				gameState = migrateState(saved);
+			}
+		} catch (e) {
+			console.error('Failed to load save:', e);
+		}
+		isLoading = false;
+	});
+
+	// Auto-save every 30 seconds
+	onMount(() => {
+		const interval = setInterval(async () => {
+			if (!isLoading && gameState) {
+				try {
+					gameState.lastSaveAt = Date.now();
+					await writeSave(gameState);
+				} catch {
+					showToast('Save failed');
+				}
+			}
+		}, 30_000);
+		return () => clearInterval(interval);
+	});
 </script>
 
 <AppShell bind:currentPage={currentPage}>
@@ -18,7 +68,13 @@
 			<div class="loading-spinner"></div>
 			<p class="text-secondary text-sm mt-md">Loading...</p>
 		</div>
-	{:else if gameState}
+	{:else}
+		{#if toastMessage}
+			<div class="toast-bar anim-slide-down">
+				<span class="text-sm">{toastMessage}</span>
+			</div>
+		{/if}
+
 		{@render children()}
 	{/if}
 </AppShell>
@@ -44,5 +100,17 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	.toast-bar {
+		position: absolute;
+		top: calc(var(--safe-top) + var(--sp-md));
+		left: var(--sp-xl);
+		right: var(--sp-xl);
+		z-index: var(--z-toast);
+		padding: var(--sp-md) var(--sp-lg);
+		background: var(--c-accent-red);
+		border-radius: var(--r-md);
+		text-align: center;
 	}
 </style>
