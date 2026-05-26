@@ -145,3 +145,46 @@ Stage Summary:
 - Full clean slate: 55 files → 16 files (all config/scaffold + characters.json)
 - Build verified working
 - Ready for fresh Training Simulator implementation from design doc
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Phase 1 — Foundation (types, store, save/load, CSS system, app shell)
+
+Work Log:
+- Dropped Tailwind CSS entirely (postcss.config.js, tailwind.config.js deleted)
+- Added GSAP v3.15 to dependencies for future animation support
+- Removed autoprefixer, postcss devDependencies
+- Created full TypeScript type system:
+  - common.ts: Rarity, TrainableStat, AllStat, PageId, RunGrade, LiveonStage, constants, helper functions
+  - character.ts: CharacterData, CharacterStats, CollectionEntry, RosterEntry, Sparks, TrainedStats
+  - currencies.ts: Currencies interface, CurrencyKey, labels, defaults
+  - liveon.ts: LiveonRun, TrainingActivity, ExcursionActivity, ShopActivity, CheckpointActivity, TurnOption, CycleResult, RunResult
+  - gacha.ts: BannerType, Banner, GachaResult (stub)
+  - brawl.ts: BrawlAP, DEFAULT_BRAWL_AP, AP_RECOVERY_MS (stub)
+- Created game.svelte.ts: GameState interface, createInitialState(), migrateState()
+- Created save.ts: writeSave (with proxy stripping), readSave, getSaveInfo, deleteSave
+- Created characters.ts: loadCharacters (async fetch + cache), getCharacter, getCharactersByRarity, getRandomCharacter
+- Created format.ts: formatNumber, formatWithCommas, clamp, randInt, pickRandom, shuffle, deepClone, uniqueId, getISOWeekId/DateId/MonthId
+- Created custom CSS design system (app.css):
+  - CSS custom properties for colors, spacing, radius, typography, z-index layers
+  - Layer system: bg (z:0), content (z:10), nav (z:100), overlay (z:200), modal (z:300), toast (z:400)
+  - Art placeholder classes: .art-bg, .art-portrait, .art-icon, .art-frame (replace bg with images later)
+  - Button system: .btn-primary, .btn-secondary, .btn-danger, .btn-gold, stat variants, sizes
+  - Card system: .card, rarity border variants with glow
+  - Stat bars: per-stat colored fills
+  - Badges, text utilities, layout utilities, scrollbar styling, keyframe animations
+  - .page container with safe area support
+- Created AppShell.svelte: layered layout (bg → content → nav → overlay)
+- Created BottomNav.svelte: 4-tab nav (Home, Live!ON, Gacha, Collection) with active state
+- Created +layout.svelte: imports app.css, loading screen, page container
+- Created +page.svelte (Home): quick stats (collection, roster, VGems), game mode entry cards, settings link
+- Build verified: adapter-static → build/, zero errors
+
+Stage Summary:
+- Phase 1 foundation complete: 16 new files, 2 deleted files
+- Full type system covers all game modes (Live!ON, Gacha, AlgoBrawl)
+- Custom CSS replaces Tailwind — art-replaceable placeholder system
+- Modular architecture: Types → Logic → Store → Components → Routes
+- Save/load with migration support, auto-save every 30s
+- Pushed to origin/rebuild as fdb727b
