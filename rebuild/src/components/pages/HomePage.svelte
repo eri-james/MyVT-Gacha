@@ -2,6 +2,8 @@
         import { useGame } from '$lib/stores/context';
 
         const { gameState, navigateTo } = useGame();
+
+        let hasActiveRun = $derived(gameState.liveon !== null && gameState.liveon.phase === 'running');
 </script>
 
 <div class="page anim-fade-in">
@@ -39,9 +41,17 @@
                                 <div class="mode-art art-icon"></div>
                                 <div class="mode-info">
                                         <span class="text-md font-semibold">Live!ON</span>
-                                        <span class="text-xs text-secondary">Training Simulator</span>
+                                        {#if hasActiveRun}
+                                                <span class="text-xs text-gold">Run in Progress — Cycle {gameState.liveon?.cycle}/4</span>
+                                        {:else}
+                                                <span class="text-xs text-secondary">Training Simulator</span>
+                                        {/if}
                                 </div>
-                                <span class="mode-arrow text-muted">&#x203A;</span>
+                                {#if hasActiveRun}
+                                        <span class="badge badge-UR" style="align-self: center;">RESUME</span>
+                                {:else}
+                                        <span class="mode-arrow text-muted">&#x203A;</span>
+                                {/if}
                         </button>
 
                         <button class="mode-card" disabled>
