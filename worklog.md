@@ -27,3 +27,24 @@ Stage Summary:
 - Pushed to origin/rebuild as commit 7cef2d8
 - 16 files changed, 3770 insertions, 263 deletions
 - Full game loop working: scenario select → character pick → 4 cycles of (training/excursion/free choice/checkpoint) → grade → rewards → roster entry
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Code review — fix critical bugs on rebuild branch
+
+Work Log:
+- Full code review of all files in rebuild branch (types, logic, store, components, routes)
+- Identified 4 critical bugs and several non-critical issues
+- Fixed all critical bugs:
+  1. selectStackOption dead-end: stack options could consume last turn leaving UI stuck with no next turn generated. Added detection in handleTrainingOption.
+  2. Cycle result never pushed to run.cycles: currentCycleResult was built but never saved. Added push in handleCheckpointOption before advanceCycle. Fixes CycleFlow completed-stages detection.
+  3. Excursion PS bypassed shield: handleExcursionChoice did direct run.ps deduction. Changed to spendPS() for shield absorption.
+  4. (run as any)._generation type escape: Added proper `generation` field to LiveonRun type, createRun() param. Removed unsafe casting.
+- Non-critical cleanup: removed duplicate pickRandom, unused imports (getCharacter, Rarity, RARITY_LABELS), unused getDescendants, unused handleBackToSetup
+- Build: 0 errors, 0 warnings (svelte-check), clean vite build
+
+Stage Summary:
+- 5 files changed, 297 insertions, 299 deletions
+- Pushed to origin/rebuild as commit e07e2f7
+- All critical bugs resolved, codebase ready for merge consideration
