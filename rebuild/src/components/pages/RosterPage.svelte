@@ -1,7 +1,7 @@
 <script lang="ts">
         import { useGame } from '$lib/stores/context';
-        import { loadCharacters, getCharacter } from '$lib/data/characters';
-        import type { CharacterData, RosterEntry, Rarity } from '$lib/types';
+        import { loadCharacters } from '$lib/data/characters';
+        import type { CharacterData, RosterEntry } from '$lib/types';
         import { STAT_LABELS, TRAINABLE_STATS, RARITY_ORDER, MAX_ROSTER_SIZE } from '$lib/types';
 
         const { gameState, navigateTo } = useGame();
@@ -70,27 +70,9 @@
                 return chain;
         }
 
-        /** Get all descendants (entries that list this entry as ancestor) */
-        function getDescendants(entry: RosterEntry): RosterEntry[] {
-                return roster.filter(r => {
-                        let current: RosterEntry | undefined = r;
-                        while (current) {
-                                if (current.parentRunId === entry.id) return true;
-                                current = current.parentRunId
-                                        ? roster.find(p => p.id === current!.parentRunId)
-                                        : undefined;
-                        }
-                        return false;
-                });
-        }
-
-        /** Full lineage chain: ancestors + self + descendants */
+        /** Full lineage chain: ancestors + self */
         let fullLineage = $derived(
                 selectedEntry ? getLineage(selectedEntry) : []
-        );
-
-        let descendants = $derived(
-                selectedEntry ? getDescendants(selectedEntry) : []
         );
 </script>
 

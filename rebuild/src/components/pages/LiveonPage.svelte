@@ -1,10 +1,12 @@
 <script lang="ts">
         import { useGame } from '$lib/stores/context';
-        import { loadCharacters, getCharacter } from '$lib/data/characters';
-        import type { CharacterData, RosterEntry, Sparks, LiveonRun, LiveonActivity, TrainableStat } from '$lib/types';
+        import { loadCharacters } from '$lib/data/characters';
+        import type { CharacterData, RosterEntry, Sparks, TrainableStat } from '$lib/types';
         import { STAT_LABELS, TRAINABLE_STATS, MAX_ROSTER_SIZE } from '$lib/types';
+        import { pickRandom } from '$lib/utils/format';
         import {
                 createRun,
+                spendPS,
                 advanceStage,
                 advanceCycle,
                 startTraining,
@@ -18,7 +20,7 @@
                 purchaseShopItem,
                 getAvailableScenarios
         } from '$lib/logic/liveon';
-        import type { TrainingActivity, ExcursionActivity, ShopActivity, CheckpointActivity, TrainingResult, ExcursionResult, CheckpointResult, CycleResult, FreeChoiceResult, RunResult } from '$lib/types';
+        import type { TrainingActivity, ExcursionActivity, ShopActivity, CheckpointActivity, TrainingResult, ExcursionResult, CheckpointResult, CycleResult } from '$lib/types';
 
         import CharacterSelect from '$components/liveon/CharacterSelect.svelte';
         import CycleFlow from '$components/liveon/CycleFlow.svelte';
@@ -125,7 +127,8 @@
                         })),
                         selectedScenarioId,
                         inheritedSparks,
-                        inheritedFromRosterId
+                        inheritedFromRosterId,
+                        parentGen + 1
                 );
 
                 gameState.liveon = newRun;
@@ -133,8 +136,7 @@
                 subScreen = 'cycleFlow';
                 currentCycleResult = { cycle: 1, training: null, excursion: null, freeChoice: null, checkpoint: null };
 
-                // Stash generation on the run for collection
-                (newRun as any)._generation = parentGen + 1;
+                // Generation is stored directly on the run object
         }
 
         // ─── Cycle Flow ───
@@ -188,40 +190,52 @@
 
                 if (option.kind === 'stack-add' || option.kind === 'stack-mul' || option.kind === 'shield-high' || option.kind === 'shield-low') {
                         selectStackOption(run, activity, option);
+
+                        // Check if stack option used the last turn
+                        if (activity.turnsRemaining <= 0 && !activity.currentTurn) {
+                                // Training ended after stack — record and advance
+                                completeTraining(activity, 'subpar');
+                        }
                         return;
                 }
 
                 const { continue: cont, outcome } = selectTurnOption(run, activity, option);
 
                 if (!cont && outcome) {
-                        // Training complete — record result and return to cycle flow
-                        const ratio = activity.currentHype / activity.hypeGoal;
-                        let statGain: number;
-                        if (outcome === 'perfect') statGain = Math.floor(3 + ratio * 2);
-                        else if (outcome === 'great') statGain = Math.floor(2 + ratio * 1.5);
-                        else statGain = Math.floor(1 + ratio);
-
-                        // Apply stat gain
-                        run.currentStats[activity.stat] += statGain;
-                        run.trainingCount++;
-
-                        const trainingResult: TrainingResult = {
-                                stat: activity.stat,
-                                statGain,
-                                hypeGenerated: activity.currentHype,
-                                psSpent: 0,
-                                outcome,
-                                turnsUsed: activity.turnsTotal - activity.turnsRemaining
-                        };
-
-                        if (currentCycleResult) {
-                                currentCycleResult.training = trainingResult;
-                        }
-
-                        // Advance stage
-                        advanceStage(run);
-                        subScreen = 'cycleFlow';
+                        completeTraining(activity, outcome);
                 }
+        }
+
+        function completeTraining(activity: TrainingActivity, outcome: import('$lib/types').StreamOutcome) {
+                if (!run) return;
+
+                // Training complete — record result and return to cycle flow
+                const ratio = activity.currentHype / activity.hypeGoal;
+                let statGain: number;
+                if (outcome === 'perfect') statGain = Math.floor(3 + ratio * 2);
+                else if (outcome === 'great') statGain = Math.floor(2 + ratio * 1.5);
+                else statGain = Math.floor(1 + ratio);
+
+                // Apply stat gain
+                run.currentStats[activity.stat] += statGain;
+                run.trainingCount++;
+
+                const trainingResult: TrainingResult = {
+                        stat: activity.stat,
+                        statGain,
+                        hypeGenerated: activity.currentHype,
+                        psSpent: 0,
+                        outcome,
+                        turnsUsed: activity.turnsTotal - activity.turnsRemaining
+                };
+
+                if (currentCycleResult) {
+                        currentCycleResult.training = trainingResult;
+                }
+
+                // Advance stage
+                advanceStage(run);
+                subScreen = 'cycleFlow';
         }
 
         // ─── Excursion Handlers ───
@@ -240,9 +254,8 @@
                         }
                 }
 
-                // Spend PS
-                const psSpent = choice.psCost;
-                run.ps = Math.max(0, run.ps - psSpent);
+                // Spend PS (via spendPS to respect shield)
+                spendPS(run, choice.psCost);
 
                 // Apply stat gain
                 run.currentStats[choice.stat as TrainableStat] += choice.statGain;
@@ -292,6 +305,10 @@
                 }
                 advanceStage(run);
                 subScreen = 'cycleFlow';
+
+                // If stage advanced to checkpoint (next stage after free-choice), no push yet
+                // If stage wrapped (null from advanceStage -> advanceCycle), push now
+                // advanceStage handles the cycle push via advanceCycle only at checkpoint
         }
 
         // ─── Checkpoint Handlers ───
@@ -305,6 +322,11 @@
                 if (!cont && result) {
                         if (currentCycleResult) {
                                 currentCycleResult.checkpoint = result;
+                        }
+                        // Push cycle result before advancing
+                        if (currentCycleResult) {
+                                run.cycles.push({ ...currentCycleResult });
+                                currentCycleResult = { cycle: (run.cycle ?? 0) + 1, training: null, excursion: null, freeChoice: null, checkpoint: null };
                         }
                         // Advance cycle
                         advanceCycle(run);
@@ -329,7 +351,7 @@
                         slug: run.leadSlug,
                         sourceRunId: run.id,
                         parentRunId: run.inheritedFromRosterId,
-                        generation: (run as any)._generation ?? 1,
+                        generation: run.generation ?? 1,
                         createdAt: Date.now(),
                         stats: { ...run.currentStats },
                         grade: run.result.grade,
@@ -352,18 +374,8 @@
 
         // ─── Back / Cancel ───
 
-        function handleBackToSetup() {
-                phase = 'setup';
-                selectedLeadSlug = null;
-        }
-
         function handleBackFromCharSelect() {
                 phase = 'setup';
-        }
-
-        // ─── Helper ───
-        function pickRandom<T>(arr: T[]): T {
-                return arr[Math.floor(Math.random() * arr.length)];
         }
 </script>
 
