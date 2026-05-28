@@ -4,7 +4,9 @@
         import type { CharacterData, RosterEntry } from '$lib/types';
         import { STAT_LABELS, TRAINABLE_STATS, RARITY_ORDER, MAX_ROSTER_SIZE } from '$lib/types';
 
-        const { gameState, navigateTo } = useGame();
+        const game = useGame();
+        let gameState = $derived(game.gameState);
+        let navigateTo = game.navigateTo;
 
         let characters = $state<Map<string, CharacterData>>(new Map());
         let isLoading = $state(true);

@@ -1,7 +1,9 @@
 <script lang="ts">
         import { useGame } from '$lib/stores/context';
 
-        const { gameState, navigateTo } = useGame();
+        const game = useGame();
+        let gameState = $derived(game.gameState);
+        let navigateTo = game.navigateTo;
 
         let hasActiveRun = $derived(gameState.liveon !== null && gameState.liveon.phase === 'running');
 </script>

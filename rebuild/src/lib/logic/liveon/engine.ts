@@ -2,13 +2,12 @@
 // Handles run creation, stage transitions, and cycle progression.
 
 import type {
-        LiveonRun, LiveonActivity, LiveonPhase, LiveonStage,
+        LiveonRun, LiveonStage,
         TrainingActivity, ExcursionActivity, ShopActivity, CheckpointActivity,
         TurnState, TurnOption, TurnOptionKind,
         CheckpointTurnState, CheckpointOpponent,
-        CycleResult, FreeChoiceResult, RunResult,
         TrainableStat, CharacterStats, TrainedStats, Sparks,
-        RunGrade, SparkQuality, StreamOutcome, CheckpointOutcome,
+        RunGrade, SparkQuality,
         ShopItem, CheckpointResult, ShopEffect
 } from '$lib/types';
 import {
@@ -16,8 +15,8 @@ import {
         getTrainingConfig
 } from '$lib/types';
 import type { CharacterData } from '$lib/types';
-import { clamp, randInt, pickRandom, uniqueId } from '$lib/utils/format';
-import { getRandomCharacter, getCharacter } from '$lib/data/characters';
+import { randInt, pickRandom, uniqueId } from '$lib/utils/format';
+import { getRandomCharacter } from '$lib/data/characters';
 import { SCENARIOS } from './scenarios';
 import { pickRandomEvent } from './excursions';
 import { generateShopItems } from './shop';
@@ -595,39 +594,25 @@ export function purchaseShopItem(run: LiveonRun, item: ShopItem): boolean {
 
 // ─── Run Completion ───
 
-/** Calculate training stat gains based on outcome */
-function calculateStatGains(
+/** Calculate run-completion bonus (applied once at the end, separate from per-cycle gains) */
+function calculateRunCompletionBonus(
         run: LiveonRun,
-        trainingOutcome: StreamOutcome,
         checkpointWon: boolean
 ): TrainedStats {
         const gains: TrainedStats = { tc: 0, ch: 0, vc: 0, mg: 0 };
 
-        // Base gains from training outcome
-        const baseMultiplier = trainingOutcome === 'perfect' ? 3 :
-                trainingOutcome === 'great' ? 2 : 1;
-
-        // Gain based on the trained stat
-        const activity = run.activity as TrainingActivity | null;
-        if (activity && activity.type === 'training') {
-                gains[activity.stat] += randInt(2, 5) * baseMultiplier;
-        }
-
-        // Cycle bonus — higher cycles give more
-        const cycleBonus = run.cycle;
-
-        // Checkpoint bonus
+        // Checkpoint victory bonus — boost the weakest stats
         if (checkpointWon) {
-                // Boost the weakest stat
                 const stats: TrainableStat[] = [...TRAINABLE_STATS];
                 stats.sort((a, b) => run.currentStats[a] - run.currentStats[b]);
                 gains[stats[0]] += randInt(2, 4);
                 gains[stats[1]] += randInt(1, 3);
         }
 
-        // Apply gains
+        // Cycle completion bonus — flat gains per completed cycle
+        const completedCycles = run.cycles.length;
         TRAINABLE_STATS.forEach(s => {
-                gains[s] += Math.floor(cycleBonus * 0.5);
+                gains[s] += Math.floor(completedCycles * 0.5);
         });
 
         return gains;
@@ -669,16 +654,14 @@ function finishRun(run: LiveonRun): void {
         const quality = calculateSparkQuality(grade);
         const sparksOut = generateSparks(run.currentStats, quality);
 
-        // Determine final outcome for the last training
-        const lastTrainingResult = run.cycles[run.cycles.length - 1]?.training;
-        const trainingOutcome: StreamOutcome = lastTrainingResult?.outcome || 'great';
+        // Determine final checkpoint result for bonus
         const lastCheckpoint = run.cycles[run.cycles.length - 1]?.checkpoint;
         const checkpointWon = lastCheckpoint?.won || false;
 
-        // Apply final stat gains
-        const gains = calculateStatGains(run, trainingOutcome, checkpointWon);
+        // Apply run-completion bonus (separate from per-cycle gains already applied)
+        const bonus = calculateRunCompletionBonus(run, checkpointWon);
         TRAINABLE_STATS.forEach(s => {
-                run.currentStats[s] += gains[s];
+                run.currentStats[s] += bonus[s];
         });
 
         run.result = {

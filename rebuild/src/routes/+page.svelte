@@ -9,7 +9,10 @@
         import RosterPage from '$components/pages/RosterPage.svelte';
         import SettingsPage from '$components/pages/SettingsPage.svelte';
 
-        const { currentPage, gameState, navigateTo } = useGame();
+        const game = useGame();
+        let currentPage = $derived(game.currentPage);
+        let gameState = $derived(game.gameState);
+        let navigateTo = game.navigateTo;
 
         // Show nav bar on main pages, hide on sub-pages
         const showNav = $derived(

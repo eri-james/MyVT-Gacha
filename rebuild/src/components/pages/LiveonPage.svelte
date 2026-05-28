@@ -31,7 +31,9 @@
         import RunSummary from '$components/liveon/RunSummary.svelte';
 
         // ─── State ───
-        const { gameState, navigateTo } = useGame();
+        const game = useGame();
+        let gameState = $derived(game.gameState);
+        let navigateTo = game.navigateTo;
 
         let phase = $state<'setup' | 'charSelect' | 'running' | 'summary'>('setup');
         let characters = $state<CharacterData[]>([]);

@@ -3,7 +3,9 @@
         import { loadCharacters } from '$lib/data/characters';
         import type { CharacterData, Rarity } from '$lib/types';
 
-        const { gameState, navigateTo } = useGame();
+        const game = useGame();
+        let gameState = $derived(game.gameState);
+        let navigateTo = game.navigateTo;
 
         let characters = $state<CharacterData[]>([]);
         let isLoading = $state(true);
